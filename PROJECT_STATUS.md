@@ -50,9 +50,9 @@ for the full plan this tracks progress against.
   `LOTSYNC_UPLOADS_DIR` / `LOTSYNC_CONFIG_PATH` / `LOTSYNC_OUT_DIR` /
   `LOTSYNC_DB_PATH` env vars, each defaulting to a repo-relative
   `data/` subfolder.
-- Not a git repository. No version control currently tracks this
-  codebase — a standing risk, not yet acted on (see
-  `SPRINT_1_REVIEW.md`'s recommendations).
+- Git-tracked as of this update. Tagged `v0.1.0` (Phase 2 Sprint 1
+  baseline). Resolves the standing "no version control" risk named in
+  `SPRINT_1_REVIEW.md`.
 
 ## Governance document status
 

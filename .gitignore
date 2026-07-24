@@ -1,0 +1,80 @@
+# LotSync .gitignore
+#
+# Principle: source, documentation, migrations, tests, and synthetic
+# fixtures are always tracked. Anything generated, local-machine-
+# specific, or containing real dealership data is never tracked --
+# see ARCHITECTURE.md / PRODUCT.md on why real customer exports never
+# belong in this repo (tests/fixtures/README.md: synthetic data only,
+# checked in on purpose; real exports are not).
+
+# --- Python build/runtime artifacts ---
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+build/
+dist/
+*.egg-info/
+.eggs/
+
+# --- Virtual environments ---
+.venv/
+venv/
+env/
+ENV/
+
+# --- Environment / secrets ---
+.env
+.env.*
+!.env.example
+
+# --- Test / type-checker caches ---
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+htmlcov/
+.coverage
+.coverage.*
+
+# --- IDE / editor ---
+.vscode/
+.idea/
+*.swp
+*.swo
+
+# --- Claude Code local settings (personal/machine-specific; see
+# .claude/settings.json if a shared version is ever added) ---
+.claude/settings.local.json
+
+# --- OS files ---
+.DS_Store
+Thumbs.db
+desktop.ini
+
+# --- Local persistence (Phase 2) ---
+# SQLite database files -- local state only, never a source artifact.
+# See database/migrations/ for the actual versioned schema (tracked).
+*.db
+*.db-journal
+*.sqlite
+*.sqlite3
+
+# --- Runtime data directories ---
+# data/uploads/ holds real dealership export files (Keyper, Tekion,
+# MDD, RecovR, RapidRecon, oms_config.xlsx) at runtime -- never checked
+# in; these are live customer data, not test fixtures. See
+# tests/fixtures/synthetic/ (tracked, below) for the checked-in
+# equivalent used by the test suite.
+data/uploads/*
+!data/uploads/.gitkeep
+
+# data/outputs/ holds generated CSV reports -- reproducible output,
+# not source.
+data/outputs/*
+!data/outputs/.gitkeep
+
+# --- Explicitly NOT ignored (documented for clarity, no pattern needed) ---
+# tests/fixtures/synthetic/ -- synthetic, checked-in test data, always tracked
+# database/migrations/ -- versioned schema, always tracked
+# *.md -- all documentation, always tracked

@@ -1,0 +1,15 @@
+# Normalize line endings in the repository to LF regardless of any
+# individual contributor's local core.autocrlf setting (this machine
+# has it set to true, which is what produced the CRLF-on-checkout
+# warnings during the first commit -- expected, not an error, but
+# worth making explicit rather than leaving it to whatever each future
+# clone's local git config happens to be).
+* text=auto eol=lf
+
+# Explicit binary handling -- do not attempt line-ending conversion or
+# text diffing against these, regardless of the text=auto heuristic
+# above correctly guessing right today.
+*.xlsx binary
+*.db binary
+*.sqlite binary
+*.sqlite3 binary

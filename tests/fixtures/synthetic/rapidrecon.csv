@@ -1,0 +1,3 @@
+VIN,Step,DIS,DIR,Priority,Recall,New/Used
+1TESTVIN000000001,Inspection,5,3,Medium,0,Used
+1TESTVIN999999999,Archive,40,35,Low,0,Used

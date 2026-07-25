@@ -21,7 +21,9 @@ from lotsync.importers.rapidrecon import load_rapidrecon
 from lotsync.sync.reconciler import (
     reconcile_keyper_tekion, build_incoming_or_missing_investigate,
     build_sold_vehicles_report, build_tracker_install_tasks,
-    enrich_with_rapidrecon,
+    enrich_with_rapidrecon, persist_tekion_observations,
+    persist_mdd_observations, persist_recovr_observations,
+    persist_rapidrecon_observations,
 )
 from lotsync.rules.validation import find_tekion_sync_conflicts
 from lotsync.reports.writer import write_reports, print_summary
@@ -63,6 +65,21 @@ def main():
         reconcile_keyper_tekion(keyper_df, tekion_df, sold_df,
                                  settings["sync_date"], day_out_buckets,
                                  db_conn=db_conn, sync_run_id=None)
+
+    # Phase 2 Slice 2: Tekion's own contribution, independent of
+    # whether Keyper also has a key for a given VIN -- see
+    # persist_tekion_observations' docstring for why this is a
+    # standalone walk rather than woven into a report-building function.
+    persist_tekion_observations(tekion_df, sold_df, db_conn=db_conn, sync_run_id=None)
+    # MDD/RecovR only annotate VINs already known from Tekion above --
+    # see each function's docstring for why neither creates a new
+    # Vehicle row on its own.
+    persist_mdd_observations(mdd_df, db_conn=db_conn, sync_run_id=None)
+    persist_recovr_observations(recovr_df, db_conn=db_conn, sync_run_id=None)
+    # RapidRecon: Event-only, existing vehicles only -- see
+    # persist_rapidrecon_observations' docstring for the two assumptions
+    # this rests on.
+    persist_rapidrecon_observations(rapidrecon_df, db_conn=db_conn, sync_run_id=None)
 
     incoming_or_missing = build_incoming_or_missing_investigate(
         tekion_df, matched_idx, settings["sync_date"],

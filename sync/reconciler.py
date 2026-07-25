@@ -10,7 +10,9 @@ Originally moved verbatim from the original reconcile.py -- no logic
 changes. Phase 2 Slice 1 (see IMPLEMENTATION_PLAN.md) added the
 optional db_conn/sync_run_id path in reconcile_keyper_tekion below --
 still no change to any existing report output; see that function's
-docstring for what's new and why.
+docstring for what's new and why. Slice 2 extended the same path to
+also capture Keyper's unresolved-identity population (PendingIdentity)
+instead of leaving it unpersisted -- see _persist_pending_identity.
 """
 
 import pandas as pd
@@ -41,6 +43,218 @@ def _persist_keyper_observation(db_conn, sync_run_id, vin, keyper_status, summar
     upsert_vehicle(db_conn, vin, keyper_status=keyper_status)
     insert_event(db_conn, vin=vin, event_type="keyper_observed", source="keyper",
                  sync_run_id=sync_run_id, summary=summary, detail_fields=detail_fields)
+
+
+def _persist_pending_identity(db_conn, raw_identifier, identifier_type):
+    """
+    Phase 2 Slice 2 addition. Captures a Keyper record that never
+    resolved to a VIN at all -- the population this function's three
+    call sites below cover (tekion_auto_generated_stock_number,
+    unrecognized, ambiguous_last6_vin_multiple_matches) is exactly
+    today's data_quality_exceptions.csv. See DATA_MODEL.md's
+    PendingIdentity entry for why this is a separate table from
+    Vehicle, not a vin=NULL row or a sentinel VIN. Capture only --
+    resolving one of these into a real Vehicle is Slice 3's job, not
+    this one's (see IMPLEMENTATION_PLAN.md Slice 2's Risk entry).
+    """
+    if db_conn is None:
+        return
+    from lotsync.database.repository import upsert_pending_identity
+    upsert_pending_identity(db_conn, source="keyper", raw_identifier=raw_identifier,
+                             identifier_type=identifier_type)
+
+
+def persist_tekion_observations(tekion_df: pd.DataFrame, sold_df: pd.DataFrame,
+                                 db_conn=None, sync_run_id=None):
+    """
+    Phase 2 Slice 2. Every Tekion-mentioned VIN gets tekion_status/
+    stock_number persisted, independent of whether Keyper also has a
+    key for it -- this is deliberately a standalone walk over the full
+    tekion_df/sold_df, not woven into reconcile_keyper_tekion (Keyper's
+    own walk) or build_incoming_or_missing_investigate (which
+    deliberately SKIPS Keyper-matched rows -- the wrong population
+    here, since every Tekion vehicle needs its status persisted
+    regardless of Keyper match). A no-op when db_conn is None, same
+    convention as every other Phase 2 write path.
+
+    Master/Unsold and Sold both write to the SAME tekion_status field
+    (different values -- e.g. "Stocked In" vs "Sold"), not separate
+    fields -- see models/vehicle.py's existing field comment and
+    SPRINT_2_REVIEW.md's kickoff assumptions. Sold is walked after
+    Master/Unsold so a vehicle present in both (sold but not yet
+    removed from the Master/Unsold export) ends up with "Sold" as its
+    persisted current status -- Vehicle is a current-state cache, not
+    history; the Master/Unsold observation is still preserved as its
+    own Event.
+
+    year/make/model are deliberately left unpopulated -- Tekion's
+    "Year Make Model" is a single combined string in this pipeline
+    today, and no existing code parses it into structured fields; doing
+    so isn't required by this slice's Definition of Done.
+    """
+    if db_conn is None:
+        return
+    from lotsync.database.repository import upsert_vehicle, insert_event
+
+    for _, trow in tekion_df.iterrows():
+        vin = trow["VIN #"]
+        upsert_vehicle(db_conn, vin, tekion_status=trow["Status"], stock_number=trow["Stock #"])
+        insert_event(
+            db_conn, vin=vin, event_type="tekion_observed", source="tekion",
+            sync_run_id=sync_run_id,
+            summary=f"Tekion: {trow['Status']}, stock {trow['Stock #']}",
+            detail_fields={"tekion_status": trow["Status"], "tekion_stock": trow["Stock #"],
+                            "stocked_in_date": trow["Stocked In Date"]},
+        )
+
+    for _, srow in sold_df.iterrows():
+        vin = srow["VIN #"]
+        upsert_vehicle(db_conn, vin, tekion_status=srow["Status"], stock_number=srow["Stock #"])
+        insert_event(
+            db_conn, vin=vin, event_type="tekion_sold", source="tekion",
+            sync_run_id=sync_run_id,
+            summary=f"Tekion: sold, stock {srow['Stock #']}, {srow['Sold Date']}",
+            detail_fields={"tekion_status": srow["Status"], "tekion_stock": srow["Stock #"],
+                            "sold_date": srow["Sold Date"]},
+        )
+
+
+def persist_mdd_observations(mdd_df: pd.DataFrame, db_conn=None, sync_run_id=None):
+    """
+    Phase 2 Slice 2. Only annotates VINs already known as a Vehicle
+    from another source -- MDD's not-paired export can span multiple
+    stores/dealerships (see importers/mdd.py), and VIN is the one
+    reliable identity signal here. MDD's own "Dealership" column is
+    deliberately NOT used to scope this write: if a VIN already
+    resolves to a Vehicle we know (which, by construction, only
+    happens via our own single-store Tekion import -- see
+    persist_tekion_observations), that's a stronger, VIN-based
+    guarantee of store-correctness than trusting MDD's own dealership
+    tag, consistent with this project's existing skepticism toward
+    other sources' store-attribution fields (see README.md, Keyper's
+    unreliable System field).
+
+    Only positive evidence is ever recorded: MDD only ever supplies a
+    "not paired" exception list, never a full assignment feed, so
+    mdd_status is set to "not_paired" for exactly the VINs mentioned
+    here and left untouched (NULL/unknown) for everything else -- never
+    inferred as "paired." See README.md's own documented limitation.
+    """
+    if db_conn is None:
+        return
+    from lotsync.database.repository import upsert_vehicle, insert_event
+    known_vins = {row[0] for row in db_conn.execute("SELECT vin FROM vehicle")}
+
+    for _, row in mdd_df.iterrows():
+        vin = str(row["vin"]).strip()
+        if vin not in known_vins:
+            continue
+        upsert_vehicle(db_conn, vin, mdd_status="not_paired")
+        insert_event(
+            db_conn, vin=vin, event_type="mdd_observed", source="mdd",
+            sync_run_id=sync_run_id,
+            summary=f"MDD: not paired, stock {row['stock']}",
+            detail_fields={"mdd_status": "not_paired", "mdd_stock": row["stock"],
+                            "mdd_dealership": row["Dealership"]},
+        )
+
+
+def persist_recovr_observations(recovr_df: pd.DataFrame, db_conn=None, sync_run_id=None):
+    """
+    Phase 2 Slice 2. Unlike MDD, RecovR's full list includes both
+    paired and unpaired vehicles, so both are recorded here as positive
+    evidence either way. Only annotates VINs already known as a Vehicle
+    -- RecovR's export can span a multi-brand "Kia umbrella" account
+    (see importers/recovr.py), so, same restraint as MDD above and
+    RapidRecon below, this never creates a new Vehicle row from RecovR
+    data alone.
+
+    Short (non-17-char) VIN fragments are resolved by unique last-6
+    suffix match against already-known VINs -- if zero or more than one
+    candidate matches, the row is skipped rather than guessed at, the
+    same "don't guess" convention already used in
+    build_tracker_install_tasks and build_recovr_install_from_keyper.
+    Not reused directly from those functions, since both apply
+    additional business-scoping (store prefix, sold-exclusion) that's
+    a report-generation decision, out of scope for this raw fact write
+    -- see SPRINT_2_REVIEW.md.
+    """
+    if db_conn is None:
+        return
+    from lotsync.database.repository import upsert_vehicle, insert_event
+    known_vins = {row[0] for row in db_conn.execute("SELECT vin FROM vehicle")}
+
+    for _, row in recovr_df.iterrows():
+        raw_vin = str(row["VIN"]).strip()
+        status = "paired" if row["Paired"] == "Yes" else "not_paired"
+
+        if len(raw_vin) == 17:
+            vin = raw_vin if raw_vin in known_vins else None
+        else:
+            frag = last6(raw_vin)
+            hits = [v for v in known_vins if v.endswith(frag)]
+            vin = hits[0] if len(hits) == 1 else None
+
+        if vin is None:
+            continue
+
+        upsert_vehicle(db_conn, vin, recovr_status=status)
+        insert_event(
+            db_conn, vin=vin, event_type="recovr_observed", source="recovr",
+            sync_run_id=sync_run_id,
+            summary=f"RecovR: {status}, stock {row['Stock Number']}",
+            detail_fields={"recovr_status": status, "recovr_stock": row["Stock Number"],
+                            "recovr_vin_raw": raw_vin},
+        )
+
+
+def persist_rapidrecon_observations(rapidrecon_df: pd.DataFrame, db_conn=None, sync_run_id=None):
+    """
+    Phase 2 Slice 2. Writes an Event only -- no Vehicle status field is
+    set. Two deliberate assumptions decided during Sprint 2's kickoff,
+    not invented silently:
+
+    1. No new "recon_status" (or similar) field exists on Vehicle for
+       this, and none is added here. IMPLEMENTATION_PLAN.md's Slice 2
+       scope text says all five sources "update the relevant Vehicle
+       status field," but DATA_MODEL.md defines no such field for
+       RapidRecon, and ARCHITECTURE.md explicitly treats RapidRecon as
+       "contextual enrichment only, not yet a state provider" until a
+       confirmed Step-value mapping exists (`Step` has 77 distinct
+       values with no confirmed business meaning -- see
+       enrich_with_rapidrecon above). Inventing a field now would
+       repeat the exact mistake this project already corrected once
+       (the original unfounded Incoming/Missing day thresholds).
+    2. Only annotates VINs already known as a Vehicle -- never creates
+       one. RapidRecon spans multiple stores/brands in one export (per
+       importers/rapidrecon.py, only ~72% of rows share this store's
+       Tekion prefix in real data), so an out-of-scope RapidRecon-only
+       VIN must never silently create a Vehicle row for a vehicle this
+       deployment doesn't actually have.
+
+    If a real Vehicle-level field is ever wanted here, that's a
+    DATA_MODEL.md governance change to make explicitly then, not a
+    default to slide into now.
+    """
+    if db_conn is None:
+        return
+    from lotsync.database.repository import insert_event
+    known_vins = {row[0] for row in db_conn.execute("SELECT vin FROM vehicle")}
+
+    recon_cols = ["Step", "DIS", "DIR", "Priority", "Recall", "Note"]
+    available_cols = [c for c in recon_cols if c in rapidrecon_df.columns]
+
+    for _, row in rapidrecon_df.iterrows():
+        vin = str(row["VIN"]).strip()
+        if vin not in known_vins:
+            continue
+        detail_fields = {f"recon_{c.lower()}": row[c] for c in available_cols}
+        insert_event(
+            db_conn, vin=vin, event_type="rapidrecon_observed", source="rapidrecon",
+            sync_run_id=sync_run_id,
+            summary=f"RapidRecon: Step={row.get('Step', 'unknown')}",
+            detail_fields=detail_fields,
+        )
 
 
 def reconcile_keyper_tekion(keyper_df: pd.DataFrame, tekion_df: pd.DataFrame,
@@ -88,6 +302,7 @@ def reconcile_keyper_tekion(keyper_df: pd.DataFrame, tekion_df: pd.DataFrame,
 
         if itype in ("tekion_auto_generated_stock_number", "unrecognized"):
             exceptions.append({**base, "reason": itype})
+            _persist_pending_identity(db_conn, raw_identifier=raw, identifier_type=itype)
             continue
 
         # Resolve against Tekion, but don't count store-mismatched
@@ -105,6 +320,8 @@ def reconcile_keyper_tekion(keyper_df: pd.DataFrame, tekion_df: pd.DataFrame,
                 tekion_idx = candidates[0]
             elif len(candidates) > 1:
                 exceptions.append({**base, "reason": "ambiguous_last6_vin_multiple_matches"})
+                _persist_pending_identity(db_conn, raw_identifier=raw,
+                                           identifier_type="ambiguous_last6_vin_multiple_matches")
                 continue
 
         if out_of_scope:

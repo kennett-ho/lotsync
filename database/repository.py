@@ -97,6 +97,33 @@ def upsert_vehicle(conn: sqlite3.Connection, vin: str, **fields):
     conn.commit()
 
 
+def upsert_pending_identity(conn: sqlite3.Connection, source: str, raw_identifier: str,
+                             identifier_type: str, observed_at: str = None):
+    """
+    Records (or re-records) an observation that couldn't be resolved to
+    a VIN -- see DATA_MODEL.md's PendingIdentity entry and
+    database/migrations/0002_pending_identity.sql. Keyed by
+    (source, raw_identifier), NOT insert-every-run like insert_event:
+    the same still-unresolved key observed on a later sync updates
+    last_observed_at on the existing row rather than creating a second
+    row for the same physical item. first_observed_at is set only once,
+    on the row's first insert -- SQLite's ON CONFLICT DO UPDATE simply
+    omits it from the update clause, so it's untouched on repeat calls.
+    """
+    if observed_at is None:
+        observed_at = datetime.datetime.now().isoformat()
+    conn.execute(
+        "INSERT INTO pending_identity "
+        "(source, raw_identifier, identifier_type, status, first_observed_at, last_observed_at) "
+        "VALUES (?, ?, ?, 'pending', ?, ?) "
+        "ON CONFLICT(source, raw_identifier) DO UPDATE SET "
+        "last_observed_at = excluded.last_observed_at, "
+        "identifier_type = excluded.identifier_type",
+        (source, raw_identifier, identifier_type, observed_at, observed_at),
+    )
+    conn.commit()
+
+
 def insert_event(conn: sqlite3.Connection, vin: str, event_type: str, source: str,
                   observed_at: str = None, summary: str = None, detail_fields: dict = None,
                   sync_run_id: str = None, actor_employee_id: str = None,

@@ -158,14 +158,31 @@ class KeyperWritePathTest(unittest.TestCase):
 
 class RepositoryMigrationTest(unittest.TestCase):
     def test_connecting_twice_to_same_file_is_idempotent(self):
+        # Asserts against schema_migrations' count staying the SAME
+        # across a reconnect, not a hardcoded literal -- the literal
+        # migration count grows every slice that adds one (Slice 1: 1,
+        # Slice 2: 2, ...), and hardcoding it here was itself a latent
+        # fragility that this slice's new migration immediately exposed.
+        # What this test actually needs to prove is "reconnecting
+        # doesn't re-apply anything," which a stable count across two
+        # connects demonstrates regardless of how many migrations exist.
         with tempfile.TemporaryDirectory() as tmp:
             db_path = os.path.join(tmp, "lotsync_test.db")
             conn1 = connect(db_path)
+            (applied_first,) = conn1.execute("SELECT COUNT(*) FROM schema_migrations").fetchone()
+            self.assertGreaterEqual(applied_first, 1)
             conn1.close()
-            conn2 = connect(db_path)  # must not error or re-apply migration 1
-            (applied,) = conn2.execute("SELECT COUNT(*) FROM schema_migrations").fetchone()
-            self.assertEqual(applied, 1)
-            conn2.close()
+            conn2 = connect(db_path)  # must not error or re-apply anything
+            try:
+                (applied_second,) = conn2.execute("SELECT COUNT(*) FROM schema_migrations").fetchone()
+                self.assertEqual(applied_second, applied_first)
+            finally:
+                # try/finally, not a bare close() after the assertion --
+                # a failed assertion above must not leave the connection
+                # open, or Windows locks the file and the tempdir cleanup
+                # above fails with a PermissionError instead of showing
+                # the actual test failure.
+                conn2.close()
 
     def test_upsert_vehicle_partial_update_does_not_clobber_other_columns(self):
         conn = connect(":memory:")

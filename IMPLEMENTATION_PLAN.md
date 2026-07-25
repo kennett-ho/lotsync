@@ -125,6 +125,12 @@ no-consequence rollback.
 
 ### Slice 2 — Full source coverage
 
+**STATUS: DONE** (Sprint 2). See [`SPRINT_2_REVIEW.md`](SPRINT_2_REVIEW.md)
+for full verification, discoveries, and debt. No adjustment to Slices
+3–7 below was warranted beyond what's already noted in Slice 3's scope
+(the `PendingIdentity` promotion addition, decided during this sprint's
+pre-implementation design discussion, predating any Slice 2 code).
+
 **Purpose:** Every source contributes to `Vehicle`/`Event`, not just
 Keyper — a vehicle's persisted state should reflect everything
 currently known about it.
@@ -354,7 +360,7 @@ simply doesn't start yet. Nothing else is affected.
 | Sprint | Contents | Exit condition | Status |
 |---|---|---|---|
 | 1 | Slice 1 — SQLite foundation, Keyper write path | Regression suite passes; DB populated from Keyper alone | **DONE** — see [`SPRINT_1_REVIEW.md`](SPRINT_1_REVIEW.md) |
-| 2 | Slice 2 — full source coverage + `PendingIdentity` capture | All 5 sources persisted; unresolved identities captured, not dropped | Not started |
+| 2 | Slice 2 — full source coverage + `PendingIdentity` capture | All 5 sources persisted; unresolved identities captured, not dropped | **DONE** — see [`SPRINT_2_REVIEW.md`](SPRINT_2_REVIEW.md) |
 | 3 | Slices 3 + 4 — historical diffing, `PendingIdentity` promotion, SyncRun provenance | Idempotency test passes; promotion test passes; every Event traceable to a SyncRun | Not started |
 | 4 | Slice 5 — Task generation | Auto-resolution demonstrated; zero rule-logic duplication | Not started |
 | 5 | Slice 6 — Recommendation engine | Convert/dismiss lifecycle correct and tested | Not started |

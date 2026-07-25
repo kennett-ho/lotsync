@@ -60,3 +60,15 @@ K30001 (active) and K30005 (sold) both appear in the MDD "not paired"
 list — the sold one must be excluded from the resulting task list.
 RecovR includes a short (non-17-character) VIN fragment (`050001`)
 that should resolve via last-6 matching to K50001's full VIN.
+
+## rapidrecon.csv
+
+Added in Phase 2 Sprint 2 (Slice 2) — not exercised by
+`test_regression.py`, which predates any RapidRecon assertions; used
+only by `test_database_slice2.py`'s `persist_rapidrecon_observations`
+tests.
+
+| VIN | scenario |
+|---|---|
+| 1TESTVIN000000001 | Same VIN as Keyper's K30001 → already a known Vehicle, gets a `rapidrecon_observed` Event |
+| 1TESTVIN999999999 | Not a VIN known from any other source → must be skipped, not turned into a new Vehicle row |

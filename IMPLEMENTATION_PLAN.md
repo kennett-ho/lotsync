@@ -375,6 +375,18 @@ reusing, not reinventing, Slice 3's diffing.
 
 ### Slice 7 — Dashboard data layer (Phase 2's final slice)
 
+**STATUS: DONE** (Sprint 4). `queries/dashboard.py` implements all four
+named panels: `connected_systems_status()`, `recent_activity_feed()`,
+`task_counts_by_department()`, `inventory_health_percentage()`. The
+latter two required documented implementation decisions neither this
+plan nor `DATA_MODEL.md` fully specified (health = percentage of known
+vehicles with zero outstanding Tasks; department counts include an
+honest "Unassigned" bucket rather than inventing a mapping Slice 5
+deliberately didn't set). Performance validated against a synthetic
+3,000-vehicle / 12,000-event dataset — all four queries complete in
+well under a second, no optimization needed at this scale. **Phase 2 is
+now complete** — see "Phase 2 is done" note below.
+
 **Purpose:** Validate that everything built in Slices 1–6 can actually
 answer the real questions a dashboard needs — before any web
 framework, API, or UI investment happens. This is explicitly the
@@ -413,12 +425,16 @@ simply doesn't start yet. Nothing else is affected.
 | 1 | Slice 1 — SQLite foundation, Keyper write path | Regression suite passes; DB populated from Keyper alone | **DONE** — see [`SPRINT_1_REVIEW.md`](SPRINT_1_REVIEW.md) |
 | 2 | Slice 2 — full source coverage + `PendingIdentity` capture | All 5 sources persisted; unresolved identities captured, not dropped | **DONE** — see [`SPRINT_2_REVIEW.md`](SPRINT_2_REVIEW.md) |
 | 3 | Slices 3 + 4 — historical diffing, `PendingIdentity` promotion, SyncRun provenance | Idempotency test passes; promotion test passes; every Event traceable to a SyncRun | **DONE** — see [`SPRINT_3_REVIEW.md`](SPRINT_3_REVIEW.md) |
-| 4 | Slice 5 — Task generation | Auto-resolution demonstrated; zero rule-logic duplication | Design review + schema DONE — see [`SPRINT_4_DESIGN_REVIEW_SUMMARY.md`](SPRINT_4_DESIGN_REVIEW_SUMMARY.md); backend generation logic not started |
+| 4 | Slice 5 — Task generation | Auto-resolution demonstrated; zero rule-logic duplication | **DONE** |
 | 5 | Slice 6 — Recommendation engine | Convert/dismiss lifecycle correct and tested | **DONE** |
-| 6 | Slice 7 — dashboard data layer | Every mockup panel has a tested, correct query function | Not started |
+| 6 | Slice 7 — dashboard data layer | Every mockup panel has a tested, correct query function | **DONE** |
 
-Phase 2 is done at the end of Sprint 6. Phase 3 (web application) gets
-its own implementation plan at that point — not before.
+**Phase 2 is now complete** (all seven slices done, Sprint 4 having
+covered Slices 5–7). Phase 3 (web application) gets its own
+implementation plan starting now — not before, per this plan's own
+"Scope boundary" — and that plan, along with the decision of whether
+and when to actually start it, is a deliberate step the product owner
+takes explicitly, not an automatic continuation of this one.
 
 ## 5. Technical Risks
 

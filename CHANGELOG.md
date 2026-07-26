@@ -108,3 +108,28 @@ observations of the same `event_type` in one sync (the K80001/K80002
 duplicate-sold-VIN fixture — an internally contradictory Tekion
 export) does not achieve full idempotency on rerun. Not fixed; see
 `SPRINT_3_REVIEW.md`'s "Problem solving" section for why.
+
+## Sprint 4 — Slices 5, 6, 7: Task lifecycle, Recommendation engine, dashboard data layer (2026-07-26)
+
+Phase 2 complete. See `IMPLEMENTATION_PLAN.md`'s Slice 5/6/7 sections and `PROJECT_STATUS.md`'s "Phase 2 complete" summary for full detail.
+
+**Pre-Sprint 4 design review** (`DECISION_FRAMEWORK.md`, `SPRINT_4_DESIGN_REVIEW_SUMMARY.md`, `SPRINT_4_CHECKLIST.md`): reshaped `Task` from a three-value status into independent `commitment_standing`/`execution_status` axes, four terminal dispositions split into Reality-discharge (Honored/Moot) and Intent-discharge (Cancelled/Superseded), an append-only `TaskExecutionEvent` log, ratification/authority tracking, and escalation via `escalated_from_task_id`.
+
+**Added**
+- `database/migrations/0004_task.sql`, `0005_recommendation.sql` — `task`, `task_execution_event`, `recommendation` tables.
+- `database/repository.py` — `insert_task`, `get_open_task`, `honor_task`/`moot_task` (Reality-discharge), `cancel_task`/`escalate_task` (Intent-discharge), `insert_task_execution_event`, `assert_task_completed`; `insert_recommendation`, `get_open_recommendation`, `get_latest_recommendation`, `dismiss_recommendation`, `convert_recommendation_to_task`.
+- `sync/reconciler.py` — `generate_install_tasks()` (reuses `build_tracker_install_tasks`), Reality-discharge wired into `persist_recovr_observations`/`persist_tekion_observations`, `generate_key_out_aging_recommendations()` (reuses `rules/aging.py`'s existing output).
+- `queries/dashboard.py` (new module) — `connected_systems_status()`, `recent_activity_feed()`, `task_counts_by_department()`, `inventory_health_percentage()`. Read-only; no new stored state.
+- `tests/test_database_slice5.py` (34 tests), `tests/test_database_slice6.py` (21 tests), `tests/test_queries_dashboard.py` (19 tests).
+
+**Changed**
+- `DATA_MODEL.md` — `Task` reshaped as above; `Recommendation` gained `created_at`/`resolved_at` (needed to implement "dismissed unless state changed" at all).
+- `ARCHITECTURE.md` — touched for the first time in Phase 2: Reality/Intent-discharge wording, a pointer to `DECISION_FRAMEWORK.md`'s four-layer reasoning structure.
+- `models/task.py`, `models/recommendation.py` updated to match; new `models/task_execution_event.py`; `models/sync_run.py`'s stale Sprint-3-era docstring fixed in passing.
+
+**No change to:** any CSV report's content or format, through all three slices. Verified via full-suite regression (137 → 211 passing) plus end-to-end `main.py` runs after each slice, with direct inspection of the resulting `task`/`recommendation` tables and dashboard query output.
+
+**Deliberately documented, not silently resolved:**
+- `install_mdd_beacon` Tasks have no automatic Honored path — MDD's export only ever reports "not paired," never a positive confirming claim.
+- `generate_install_tasks` reuses `build_tracker_install_tasks`'s methodology specifically, not `build_recovr_install_from_keyper`'s different population — reconciling the two is a deferred product question, not a Task-architecture concern.
+- "Inventory health percentage" and Task-department grouping were undefined terms; resolved as documented implementation decisions (health = percentage of vehicles with zero outstanding Tasks; department grouping includes an honest "Unassigned" bucket rather than inventing a mapping).

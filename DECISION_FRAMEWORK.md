@@ -211,3 +211,126 @@ how everything already written here got found in the first place.
 raised as open questions in the original review and have since been
 resolved — see "Not every story needs its own storage" above and
 "current state is always a derived read" for how each was settled.)*
+
+## Ontology, Architecture, Invariants, and Reasoning Tools (Task review)
+
+A second design review, ahead of Sprint 4 (Task generation), produced
+four distinct kinds of knowledge that this document previously left
+fused together. Separating them turned out to matter: they change at
+different rates and answer different questions when someone's trying
+to model something new.
+
+### Ontology — what exists
+
+Reality, Assertion, History, Interpretation,
+Ratification, Commitment, Execution.
+
+Notably: LotSync never observes Reality directly. It only ever
+receives Assertions *about* reality, from a source (a system, a
+person). This distinction matters specifically because "the system
+never invents operational truth" (below) depends on it — there is no
+path from Reality to LotSync that skips a source making a claim.
+
+**"Recorded Claim" was tested as a separate ontology item and
+collapsed back into Assertion.** The test: would another system
+necessarily have this as a distinct concept? Only if something
+depends on an Assertion sometimes *not* becoming part of History.
+Nothing currently does — every Assertion that reaches LotSync is
+recorded unconditionally, no filter sits between them. Keeping two
+concepts with no demonstrated behavioral difference is exactly the
+premature complexity this document argues against elsewhere. **The
+named trigger for reintroducing the distinction:** if the still-open
+"no plausibility constraint on assertion content" gap (see Open Gaps)
+is ever resolved with a real rejection mechanism, Assertion and
+Recorded Claim would need to split apart again, for a concrete reason
+rather than a hypothetical one.
+
+### Architecture — how those concepts relate
+
+```
+Reality → Assertion → History → [Interpretation] → Ratification → Commitment → Execution → Reality
+```
+
+Drawn as a single line, this overclaims. Two corrections, found during
+final review rather than assumed correct on first pass:
+
+- **Interpretation is optional, not mandatory.** A Recommendation
+  converting into a Task passes through Interpretation. A standing
+  policy adopted from direct organizational judgment — no system-
+  generated Recommendation behind it — never does. Ratification can be
+  informed by Interpretation or by unmediated human/organizational
+  judgment; both are legitimate provenance.
+- **The flow branches before Execution, not only after it.** A
+  Ratification can be refused (no Commitment forms). A Commitment can
+  terminate via Cancelled or Superseded *without ever reaching
+  Execution*. The straight line is the common path, not the only one.
+
+### Invariants — what must remain true regardless of implementation
+
+- The system never invents operational truth. (Every claim traces to
+  a source; LotSync's own reconciliation connects existing claims with
+  earned confidence — never authors a new one. "Reconciliation is not
+  authorship" is one instance of this, not a separate rule.)
+- History is append-only. Corroboration and contradiction are
+  relationships between claims, never mutations of one.
+- Current state is always a cache over history, never a second,
+  independently-maintained copy of the answer.
+- Authority is independent from provenance — who may legitimately
+  create or discharge a commitment is a different question from what
+  informed that decision.
+- Commitment standing is independent from execution — an outstanding
+  commitment and its current work-in-progress state can both be true
+  and different at the same instant.
+- Reality is independent from organizational intent — the world
+  changing and the organization changing its mind are two distinct
+  mechanisms, each capable of ending a commitment on its own.
+- A commitment may depend only on *explicit* assumptions — scoped to
+  assumptions that differentiate whether this specific commitment
+  still holds, not literally every conceivable precondition (a
+  commitment doesn't need to restate that its vehicle still exists).
+
+### Reasoning tools — how to approach a new modeling question
+
+**Core (general-purpose):**
+1. **Claims vs. Interpretations** — would this still be true if
+   LotSync's business rules didn't exist?
+2. **Story vs. Progress** — does this thing accumulate a narrative, or
+   move toward one resolution?
+3. **Orthogonal-Axis Test** — can two proposed readings be true and
+   different at the same instant? (Not "does this feel complex" — a
+   field can carry a lot of meaning without needing a split, per
+   `Vehicle.tekion_status`, which correctly stayed unsplit.)
+4. **Dependency Decomposition** — is this genuinely one problem, or
+   several independently-triggered ones that got fused together by
+   sharing a trigger?
+
+**Historical (apply only once something has passed the tools above and
+looks like a history candidate):**
+5. **Timeline Admission** — assuming this is history, whose story does
+   it belong to?
+6. **Compression-Survival** — after removing every consecutive
+   restatement that changes nothing, does anything remain that a
+   current-state cache can't answer?
+
+**Candidates — real findings, not yet earned permanent status:**
+- *Individual correctness ≠ aggregate rule health.* Real, and likely
+  true, but has appeared in exactly one topic so far. Held to the same
+  bar as everything else here: demonstrated once isn't demonstrated
+  enough yet.
+- *Causal Path* ("did a discharging claim satisfy the commitment's own
+  stated assumptions, or arrive by an independent path"). On the audit
+  that produced this list, this looks more like an *application* of
+  the explicit-assumptions invariant via Dependency Decomposition than
+  an independent tool — checking discharge against properly-explicit
+  assumptions already answers what Causal Path was reaching for. Kept
+  here as a candidate rather than promoted or discarded, since the
+  distinction it names was genuinely useful once, even if it isn't yet
+  shown to be a repeatable, independent move.
+
+**A note on evidence quality, not just content:** this list's ontology
+was tested against a second hypothetical domain (Warranty Claims)
+without needing to rename anything. That's promising, not proof —
+the mapping was constructed in the same review, with full knowledge of
+what it was being tested against, which is weaker evidence than an
+independently-built system arriving at compatible structures on its
+own. Treat the reuse claim as *not yet falsified*, not as *validated*.

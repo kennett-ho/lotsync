@@ -274,6 +274,18 @@ complete after a successful commit; `SyncRun.status` already has a
 
 ### Slice 5 — Task generation (the database becomes load-bearing)
 
+**Pre-implementation design review: DONE.** A Pre-Sprint 4 design
+review (same pressure-testing discipline as Sprint 3's Event review)
+worked through "what is a Task" ahead of writing any code — see
+[`SPRINT_4_DESIGN_REVIEW_SUMMARY.md`](SPRINT_4_DESIGN_REVIEW_SUMMARY.md)
+for the conclusions and [`SPRINT_4_CHECKLIST.md`](SPRINT_4_CHECKLIST.md)
+for the concrete, resulting implementation checklist. The scope/DoD
+text immediately below predates that review and is known-incomplete in
+specific, named ways (three-value `Task.status`, no execution log, no
+escalation reference) — not contradicted, just not yet updated; the
+checklist is the authoritative to-do for closing that gap when Sprint 4
+implementation actually begins.
+
 **Purpose:** This is the first slice where persisted state actually
 drives something, rather than just observing it. Prove the concrete
 payoff named in `ARCHITECTURE.md`'s Phase 2 spec: a Task closes itself
@@ -377,7 +389,7 @@ simply doesn't start yet. Nothing else is affected.
 | 1 | Slice 1 — SQLite foundation, Keyper write path | Regression suite passes; DB populated from Keyper alone | **DONE** — see [`SPRINT_1_REVIEW.md`](SPRINT_1_REVIEW.md) |
 | 2 | Slice 2 — full source coverage + `PendingIdentity` capture | All 5 sources persisted; unresolved identities captured, not dropped | **DONE** — see [`SPRINT_2_REVIEW.md`](SPRINT_2_REVIEW.md) |
 | 3 | Slices 3 + 4 — historical diffing, `PendingIdentity` promotion, SyncRun provenance | Idempotency test passes; promotion test passes; every Event traceable to a SyncRun | **DONE** — see [`SPRINT_3_REVIEW.md`](SPRINT_3_REVIEW.md) |
-| 4 | Slice 5 — Task generation | Auto-resolution demonstrated; zero rule-logic duplication | Not started |
+| 4 | Slice 5 — Task generation | Auto-resolution demonstrated; zero rule-logic duplication | Design review DONE — see [`SPRINT_4_DESIGN_REVIEW_SUMMARY.md`](SPRINT_4_DESIGN_REVIEW_SUMMARY.md); implementation not started |
 | 5 | Slice 6 — Recommendation engine | Convert/dismiss lifecycle correct and tested | Not started |
 | 6 | Slice 7 — dashboard data layer | Every mockup panel has a tested, correct query function | Not started |
 

@@ -13,7 +13,7 @@ for the full plan this tracks progress against.
 |---|---|
 | **Phase** | Phase 2 — Persistent operational platform |
 | **Sprint** | 4 (not yet started) |
-| **Slice** | 5 — Task generation (not yet started) |
+| **Slice** | 5 — Task generation (design review complete, implementation not yet started — see [`SPRINT_4_DESIGN_REVIEW_SUMMARY.md`](SPRINT_4_DESIGN_REVIEW_SUMMARY.md) / [`SPRINT_4_CHECKLIST.md`](SPRINT_4_CHECKLIST.md)) |
 | **Last completed** | Slices 3 + 4 — Historical diffing, `PendingIdentity` promotion, SyncRun provenance (Sprint 3) |
 
 ## Completed slices
@@ -28,7 +28,7 @@ for the full plan this tracks progress against.
 
 | Slice | Sprint | What it needs to decide or prove |
 |---|---|---|
-| 5 — Task generation | 4 | First slice where the database becomes load-bearing (auto-resolving Tasks). Must call the same `rules/aging.py`/`rules/inventory.py` functions the CSV reports already use, not reimplement them. |
+| 5 — Task generation | 4 | First slice where the database becomes load-bearing (auto-resolving Tasks). Must call the same `rules/aging.py`/`rules/inventory.py` functions the CSV reports already use, not reimplement them. Pre-implementation design review complete — concrete work items in [`SPRINT_4_CHECKLIST.md`](SPRINT_4_CHECKLIST.md), including required `DATA_MODEL.md`/`ARCHITECTURE.md` updates not yet made. |
 | 6 — Recommendation engine | 5 | Convert/dismiss lifecycle. |
 | 7 — Dashboard data layer | 6 | Query functions proving the DB can answer dashboard-shaped questions; end of Phase 2. |
 

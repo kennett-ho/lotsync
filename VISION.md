@@ -53,6 +53,13 @@ and turning that into work someone can actually act on.
 - **Events preserve history.** Nothing gets forgotten between syncs.
   If something's been flagged for a week, LotSync knows that, not just
   that it's flagged right now.
+- **Manual input is an assertion, not an override.** If someone logs
+  that a tracker just got installed or a vehicle just moved, LotSync
+  updates right away so work doesn't stall waiting for five other
+  systems to catch up — but that update stays provisional until the
+  authoritative system confirms it. If they end up disagreeing,
+  LotSync surfaces that instead of quietly picking a side. Fast
+  doesn't mean final.
 - **Recommendations help people decide — they don't decide for them.**
   LotSync surfaces patterns a person should look at. It doesn't act
   on its own judgment about what a vehicle's fate should be.

@@ -336,3 +336,249 @@ def sync_run(conn: sqlite3.Connection, source: str, records_processed: int = Non
     else:
         conn.commit()
         complete_sync_run(conn, sync_run_id, records_processed=records_processed)
+
+
+# ---------------------------------------------------------------------------
+# Phase 2, Sprint 4 (Slice 5) -- Task / TaskExecutionEvent.
+#
+# See DATA_MODEL.md's Task and TaskExecutionEvent entries,
+# DECISION_FRAMEWORK.md's "Ontology, Architecture, Invariants, and
+# Reasoning Tools" section, and SPRINT_4_CHECKLIST.md for the full
+# reasoning behind this shape. Summary: commitment_standing and
+# execution_status are independent axes -- a Task's discharge (Reality:
+# honored/moot; Intent: cancelled/superseded) is a separate question
+# from its execution progress (an append-only log in
+# task_execution_event, cached onto task.execution_status).
+# ---------------------------------------------------------------------------
+
+_EXECUTION_STATUS_BY_TRANSITION = {
+    "started": "in_progress",
+    "resumed": "in_progress",
+    "blocked": "blocked",
+    "completed": "completed",
+}
+
+
+def insert_task(conn: sqlite3.Connection, vin: str, task_type: str, dealership_id: str = None,
+                 department: str = None, priority: str = None, reason: str = None,
+                 created_at: str = None) -> int:
+    """
+    Creates a new Task, always `commitment_standing='outstanding'` and
+    `execution_status='not_started'` (the migration's column defaults --
+    not passed explicitly here, so there's exactly one place, the
+    schema, that says what a brand-new Task's starting state is).
+    Callers deciding whether a Task is even needed (e.g. "is there
+    already an outstanding install_recovr_device Task for this VIN?")
+    must check get_open_task() themselves first -- this function always
+    inserts, the same "caller decides, this just writes" division of
+    responsibility as insert_event.
+    """
+    if created_at is None:
+        created_at = datetime.datetime.now().isoformat()
+    cur = conn.execute(
+        "INSERT INTO task (vin, dealership_id, task_type, department, priority, reason, created_at) "
+        "VALUES (?, ?, ?, ?, ?, ?, ?)",
+        (vin, dealership_id, task_type, department, priority, reason, created_at),
+    )
+    return cur.lastrowid
+
+
+def get_open_task(conn: sqlite3.Connection, vin: str, task_type: str):
+    """
+    Returns the dict of an outstanding Task for this (vin, task_type),
+    or None. This is the idempotency check callers use before
+    insert_task -- a VIN that still needs the same install every sync
+    must get exactly one outstanding Task for it, not a fresh row every
+    run (the same "don't re-create what's already open" discipline
+    Slice 3's diffing already applies to Events).
+    """
+    row = conn.execute(
+        "SELECT task_id, vin, dealership_id, task_type, department, priority, "
+        "commitment_standing, execution_status, assigned_employee_id, ratified_by, "
+        "ratification_type, escalated_from_task_id, reason, created_at, completed_at "
+        "FROM task WHERE vin = ? AND task_type = ? AND commitment_standing = 'outstanding'",
+        (vin, task_type),
+    ).fetchone()
+    if row is None:
+        return None
+    columns = ["task_id", "vin", "dealership_id", "task_type", "department", "priority",
+               "commitment_standing", "execution_status", "assigned_employee_id", "ratified_by",
+               "ratification_type", "escalated_from_task_id", "reason", "created_at", "completed_at"]
+    return dict(zip(columns, row))
+
+
+def get_task(conn: sqlite3.Connection, task_id: int):
+    """Same shape as get_open_task, looked up by task_id directly regardless of standing."""
+    row = conn.execute(
+        "SELECT task_id, vin, dealership_id, task_type, department, priority, "
+        "commitment_standing, execution_status, assigned_employee_id, ratified_by, "
+        "ratification_type, escalated_from_task_id, reason, created_at, completed_at "
+        "FROM task WHERE task_id = ?",
+        (task_id,),
+    ).fetchone()
+    if row is None:
+        return None
+    columns = ["task_id", "vin", "dealership_id", "task_type", "department", "priority",
+               "commitment_standing", "execution_status", "assigned_employee_id", "ratified_by",
+               "ratification_type", "escalated_from_task_id", "reason", "created_at", "completed_at"]
+    return dict(zip(columns, row))
+
+
+def _discharge_task(conn: sqlite3.Connection, task_id: int, standing: str,
+                     ratified_by: str = None, ratification_type: str = None,
+                     completed_at: str = None):
+    """
+    Shared internal primitive -- sets commitment_standing to a terminal
+    value. Only ever moves a task OUT of 'outstanding'; the WHERE
+    clause's guard means discharging an already-terminal task twice is
+    a harmless no-op, not a second transition, the same immutability
+    discipline resolve_pending_identity already applies. ratified_by/
+    ratification_type are only overwritten when explicitly supplied
+    (Reality-discharge via honor_task/moot_task doesn't pass them --
+    nothing "ratifies" a fact the world reported; Intent-discharge via
+    cancel_task/escalate_task always does, since Intent requires a
+    legitimate authority acting).
+    """
+    if completed_at is None:
+        completed_at = datetime.datetime.now().isoformat()
+    if ratified_by is not None or ratification_type is not None:
+        conn.execute(
+            "UPDATE task SET commitment_standing = ?, completed_at = ?, "
+            "ratified_by = ?, ratification_type = ? "
+            "WHERE task_id = ? AND commitment_standing = 'outstanding'",
+            (standing, completed_at, ratified_by, ratification_type, task_id),
+        )
+    else:
+        conn.execute(
+            "UPDATE task SET commitment_standing = ?, completed_at = ? "
+            "WHERE task_id = ? AND commitment_standing = 'outstanding'",
+            (standing, completed_at, task_id),
+        )
+
+
+def honor_task(conn: sqlite3.Connection, task_id: int, completed_at: str = None):
+    """
+    Reality-discharge: the condition that created this Task was
+    satisfied, confirmed by a claim from the relevant source (e.g.
+    RecovR's diff shows this VIN flipped to paired). No ratified_by --
+    nothing is ratifying anything here; the world simply confirmed it.
+    """
+    _discharge_task(conn, task_id, "honored", completed_at=completed_at)
+
+
+def moot_task(conn: sqlite3.Connection, task_id: int, completed_at: str = None):
+    """
+    Reality-discharge: the condition became irrelevant before being
+    satisfied (e.g. the vehicle sold before its RecovR install
+    happened). Same no-ratification reasoning as honor_task -- this is
+    the world changing, not an organizational decision.
+    """
+    _discharge_task(conn, task_id, "moot", completed_at=completed_at)
+
+
+def cancel_task(conn: sqlite3.Connection, task_id: int, ratified_by: str,
+                 ratification_type: str = "human", completed_at: str = None):
+    """
+    Intent-discharge: the organization decided not to pursue this
+    commitment, independent of anything the world reported. Always
+    requires ratified_by -- Intent-discharge, unlike Reality-discharge,
+    requires a legitimate authority actually deciding (DECISION_FRAMEWORK.md:
+    "authority is independent from provenance").
+    """
+    _discharge_task(conn, task_id, "cancelled",
+                     ratified_by=ratified_by, ratification_type=ratification_type,
+                     completed_at=completed_at)
+
+
+def escalate_task(conn: sqlite3.Connection, task_id: int, new_task_type: str,
+                   ratified_by: str, ratification_type: str = "human",
+                   department: str = None, priority: str = None, reason: str = None,
+                   completed_at: str = None, created_at: str = None) -> int:
+    """
+    Intent-discharge (Superseded) plus escalation: the existing task_id
+    is superseded (not simply cancelled -- it's being replaced by
+    something, not abandoned) and a new Task is created in its place
+    with escalated_from_task_id pointing back at it. Reuses the parent's
+    vin/dealership_id; department/priority/reason can be overridden for
+    the new Task since an escalation often needs a different priority
+    or department than its parent.
+
+    Per SPRINT_4_CHECKLIST.md's Moot-evaluation note: nothing here
+    makes the new Task inherit the parent's disposition automatically --
+    the new Task starts 'outstanding' like any other and must be
+    evaluated on its own condition. escalated_from_task_id exists so
+    that evaluation CAN look at the parent's status when relevant, not
+    so it automatically cascades one onto the other.
+    """
+    parent = get_task(conn, task_id)
+    if parent is None:
+        raise ValueError(f"cannot escalate unknown task_id={task_id}")
+
+    _discharge_task(conn, task_id, "superseded",
+                     ratified_by=ratified_by, ratification_type=ratification_type,
+                     completed_at=completed_at)
+
+    if created_at is None:
+        created_at = datetime.datetime.now().isoformat()
+    cur = conn.execute(
+        "INSERT INTO task (vin, dealership_id, task_type, department, priority, "
+        "ratified_by, ratification_type, escalated_from_task_id, reason, created_at) "
+        "VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
+        (parent["vin"], parent["dealership_id"], new_task_type,
+         department if department is not None else parent["department"],
+         priority if priority is not None else parent["priority"],
+         ratified_by, ratification_type, task_id, reason, created_at),
+    )
+    return cur.lastrowid
+
+
+def insert_task_execution_event(conn: sqlite3.Connection, task_id: int, transition_type: str,
+                                 actor_employee_id: str = None, note: str = None,
+                                 observed_at: str = None) -> int:
+    """
+    Appends to the execution log AND updates task.execution_status to
+    match -- this is the one place both happen together, which is what
+    makes execution_status a plain cache rather than an independently
+    writable field (per SPRINT_4_CHECKLIST.md: "not independently
+    writable"). Always inserts a new log row, same append-only
+    discipline as insert_event -- consecutive transitions
+    (started -> blocked -> resumed -> completed) are the whole point;
+    collapsing them into one mutable field would destroy exactly the
+    information TaskExecutionEvent exists to keep (see DATA_MODEL.md).
+    """
+    if observed_at is None:
+        observed_at = datetime.datetime.now().isoformat()
+    cur = conn.execute(
+        "INSERT INTO task_execution_event (task_id, transition_type, actor_employee_id, note, observed_at) "
+        "VALUES (?, ?, ?, ?, ?)",
+        (task_id, transition_type, actor_employee_id, note, observed_at),
+    )
+    execution_status = _EXECUTION_STATUS_BY_TRANSITION.get(transition_type, transition_type)
+    conn.execute(
+        "UPDATE task SET execution_status = ? WHERE task_id = ?",
+        (execution_status, task_id),
+    )
+    return cur.lastrowid
+
+
+def assert_task_completed(conn: sqlite3.Connection, task_id: int, actor_employee_id: str,
+                           note: str = None, observed_at: str = None) -> int:
+    """
+    The human-facing entry point for "I finished this Task" -- a thin,
+    semantically-named wrapper over insert_task_execution_event(...,
+    transition_type='completed'). Deliberately does NOT touch
+    commitment_standing: per VISION.md's "manual input is an assertion,
+    not an override," a human's claim of completion is provisional
+    until the relevant source corroborates it on its own next sync (see
+    persist_recovr_observations' honor_task hook, unchanged by this
+    function) -- or the Task surfaces a disagreement instead of either
+    side silently winning (see this function's caller-facing docstring
+    in SPRINT_4_CHECKLIST.md's "Completion handling" item). A Task left
+    with execution_status='completed' and commitment_standing still
+    'outstanding' IS that surfaced disagreement -- both claims stay
+    visible and untouched in their own logs, not collapsed into one.
+    """
+    return insert_task_execution_event(
+        conn, task_id, "completed", actor_employee_id=actor_employee_id,
+        note=note, observed_at=observed_at,
+    )

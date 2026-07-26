@@ -215,10 +215,31 @@ def persist_tekion_observations(tekion_df: pd.DataFrame, sold_df: pd.DataFrame,
     Reconsider only if a real operational case demonstrates this matters
     (e.g. an unfixed Tekion contradiction persisting for weeks actually
     floods a dashboard's activity feed once Slice 7 builds one).
+
+    Phase 2 Sprint 4 (Slice 5) addition: Reality-discharge (Moot). When
+    a new "tekion_sold" Event is written for a VIN, any outstanding
+    install-type Task for it (install_recovr_device, install_mdd_beacon)
+    is mooted -- the vehicle leaving the lot makes the install
+    irrelevant, not satisfied. Scoped narrowly to the two task types
+    Slice 5 actually generates so far, not "any open Task on a sold
+    VIN" -- extending to other task types is trivial later but isn't
+    invented speculatively now. Safe to call on every new tekion_sold
+    Event (including a same-VIN stock-number correction on an
+    already-sold record, per the known limitation above) since
+    moot_task is idempotent -- a task already terminal is a no-op.
     """
     if db_conn is None:
         return
-    from lotsync.database.repository import upsert_vehicle, insert_event, get_last_event_detail_fields
+    from lotsync.database.repository import (
+        upsert_vehicle, insert_event, get_last_event_detail_fields,
+        get_open_task, moot_task,
+    )
+
+    def _moot_open_install_tasks(vin):
+        for task_type in ("install_recovr_device", "install_mdd_beacon"):
+            open_task = get_open_task(db_conn, vin, task_type)
+            if open_task is not None:
+                moot_task(db_conn, open_task["task_id"])
 
     def _persist(vin, status, stock, event_type, summary, detail_fields):
         previous = get_last_event_detail_fields(db_conn, vin, event_type)
@@ -228,6 +249,8 @@ def persist_tekion_observations(tekion_df: pd.DataFrame, sold_df: pd.DataFrame,
             return
         insert_event(db_conn, vin=vin, event_type=event_type, source="tekion",
                      sync_run_id=sync_run_id, summary=summary, detail_fields=detail_fields)
+        if event_type == "tekion_sold":
+            _moot_open_install_tasks(vin)
 
     for _, trow in tekion_df.iterrows():
         vin = trow["VIN #"]
@@ -338,10 +361,28 @@ def persist_recovr_observations(recovr_df: pd.DataFrame, db_conn=None, sync_run_
     this decision. RecovR only ever writes this field once per VIN per
     run, so this produces identical results to a Vehicle-field
     comparison here.
+
+    Phase 2 Sprint 4 (Slice 5) addition: Reality-discharge. When a diff
+    shows this VIN's recovr_status just flipped to "paired", any
+    outstanding install_recovr_device Task for it is honored -- this is
+    the concrete example named throughout ARCHITECTURE.md/
+    IMPLEMENTATION_PLAN.md ("the RecovR install task for a vehicle
+    transitions to Honored once a diff shows recovr_status flip to
+    paired"). Deliberately NOT symmetric with MDD: MDD's export only
+    ever supplies a "not paired" exception list (see
+    persist_mdd_observations), so it has no equivalent positive
+    confirmation signal to Reality-discharge an install_mdd_beacon Task
+    the same way -- an MDD Task's absence from a later not-paired file
+    is silence, not a claim (DECISION_FRAMEWORK.md), so it cannot honor
+    a Task on its own. Left as a known asymmetry, not silently
+    papered over -- see generate_install_tasks' docstring.
     """
     if db_conn is None:
         return
-    from lotsync.database.repository import upsert_vehicle, insert_event, get_last_event_detail_fields
+    from lotsync.database.repository import (
+        upsert_vehicle, insert_event, get_last_event_detail_fields,
+        get_open_task, honor_task,
+    )
     known_vins = {row[0] for row in db_conn.execute("SELECT vin FROM vehicle")}
 
     for _, row in recovr_df.iterrows():
@@ -369,6 +410,10 @@ def persist_recovr_observations(recovr_df: pd.DataFrame, db_conn=None, sync_run_
             detail_fields={"recovr_status": status, "recovr_stock": row["Stock Number"],
                             "recovr_vin_raw": raw_vin},
         )
+        if status == "paired":
+            open_task = get_open_task(db_conn, vin, "install_recovr_device")
+            if open_task is not None:
+                honor_task(db_conn, open_task["task_id"])
 
 
 def persist_rapidrecon_observations(rapidrecon_df: pd.DataFrame, db_conn=None, sync_run_id=None):
@@ -887,3 +932,72 @@ def build_tracker_install_tasks(tekion_df: pd.DataFrame, sold_df: pd.DataFrame,
         })
 
     return pd.DataFrame(tasks)
+
+
+def generate_install_tasks(tekion_df: pd.DataFrame, sold_df: pd.DataFrame, mdd_df: pd.DataFrame,
+                            recovr_df: pd.DataFrame, store_name: str, db_conn=None):
+    """
+    Phase 2 Sprint 4 (Slice 5). Task-generation logic reuses
+    build_tracker_install_tasks directly, per IMPLEMENTATION_PLAN.md's
+    "must call the same functions the CSV reports already use, not
+    reimplement" -- the single, already-tested methodology for "which
+    vehicles need an MDD beacon or RecovR device."
+
+    A second existing function, build_recovr_install_from_keyper,
+    answers a related but materially different question (a
+    Keyper-matched population with RapidRecon-based wholesale/archive
+    exclusions). Reconciling the two methodologies into one was
+    explicitly out of scope for the Pre-Sprint 4 design review -- that
+    review was about implementing the new Task architecture, not
+    reopening which business rule is authoritative for "needs a
+    RecovR." Slice 5's own Definition of Done only asks for Task counts
+    consistent "in substance, not necessarily row-for-row" with the
+    CSVs, so this divergence is expected at this stage, not a bug. If a
+    real difference between the two methodologies ever matters
+    operationally, that's a separate product refinement, not a reason
+    to reopen this slice's Task architecture.
+
+    For each candidate row, ensures exactly one outstanding Task exists
+    -- get_open_task first, insert_task only if none is already open,
+    the same "don't re-create what's already open" discipline Slice 3's
+    diffing already applies to Events. Never discharges a Task here:
+    Reality-discharge (Honored/Moot) is wired at the point each source's
+    own diff actually detects the relevant change (see
+    persist_recovr_observations and persist_tekion_observations), not
+    derived from this function's fresh-snapshot output.
+
+    Commits its own writes directly rather than being wrapped in
+    sync_run() -- this isn't a source import (DATA_MODEL.md's SyncRun
+    is explicitly "one execution of the pipeline against one source"),
+    it's a derived computation over already-persisted state, so
+    stretching SyncRun's "source" field to cover it would misuse a
+    concept that already has a precise meaning. A no-op when db_conn is
+    None, same convention as every other write path.
+
+    KNOWN ASYMMETRY, not fixed here: install_mdd_beacon Tasks can be
+    created by this function but currently have no automatic
+    Reality-discharge path at all. MDD's export only ever supplies a
+    "not paired" exception list (see persist_mdd_observations) -- a VIN
+    dropping off a later not-paired file is silence, not a positive
+    confirming claim (DECISION_FRAMEWORK.md's silence-vs-absence
+    resolution), so it cannot honor a Task the way RecovR's positive
+    "paired" signal can. Until a real corroboration mechanism exists for
+    MDD, an install_mdd_beacon Task can only be discharged via Moot (the
+    vehicle sells) or a manual completion assertion once that flow
+    exists.
+    """
+    if db_conn is None:
+        return
+    from lotsync.database.repository import get_open_task, insert_task
+
+    candidates = build_tracker_install_tasks(tekion_df, sold_df, mdd_df, recovr_df, store_name)
+    for _, row in candidates.iterrows():
+        vin = row["vin"]
+        task_type = row["task"]
+        if get_open_task(db_conn, vin, task_type) is not None:
+            continue
+        insert_task(
+            db_conn, vin, task_type,
+            reason=f"{row['source']}: no device found on stock {row['stock']} ({row['vehicle']})",
+        )
+    db_conn.commit()

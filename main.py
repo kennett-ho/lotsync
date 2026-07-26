@@ -23,7 +23,7 @@ from lotsync.sync.reconciler import (
     build_sold_vehicles_report, build_tracker_install_tasks,
     enrich_with_rapidrecon, persist_tekion_observations,
     persist_mdd_observations, persist_recovr_observations,
-    persist_rapidrecon_observations,
+    persist_rapidrecon_observations, generate_install_tasks,
 )
 from lotsync.rules.validation import find_tekion_sync_conflicts
 from lotsync.reports.writer import write_reports, print_summary
@@ -92,6 +92,15 @@ def main():
     # this rests on.
     with sync_run(db_conn, "rapidrecon", records_processed=len(rapidrecon_df)) as rapidrecon_run_id:
         persist_rapidrecon_observations(rapidrecon_df, db_conn=db_conn, sync_run_id=rapidrecon_run_id)
+
+    # Phase 2 Sprint 4 (Slice 5): Task generation, over the same
+    # candidate population build_tracker_install_tasks already computes
+    # for the CSV below -- see generate_install_tasks' docstring for why
+    # it isn't wrapped in sync_run() (it's a derived computation, not a
+    # source import) and for the known install_mdd_beacon
+    # Reality-discharge asymmetry.
+    generate_install_tasks(tekion_df, sold_df, mdd_df, recovr_df,
+                            settings["store_name"], db_conn=db_conn)
 
     incoming_or_missing = build_incoming_or_missing_investigate(
         tekion_df, matched_idx, settings["sync_date"],

@@ -13,6 +13,11 @@ still no change to any existing report output; see that function's
 docstring for what's new and why. Slice 2 extended the same path to
 also capture Keyper's unresolved-identity population (PendingIdentity)
 instead of leaving it unpersisted -- see _persist_pending_identity.
+Slice 3 added diff-before-write to every persist_* function below (an
+Event is only written when its source's discrete status field actually
+changed since the last sync -- see each function's docstring) plus
+PendingIdentity -> Vehicle promotion, the system's first genuine state
+transition -- see _promote_pending_identity_if_resolved.
 """
 
 import pandas as pd
@@ -36,13 +41,73 @@ def _persist_keyper_observation(db_conn, sync_run_id, vin, keyper_status, summar
     That population is Slice 2's explicit, written identity-resolution
     decision to make (see IMPLEMENTATION_PLAN.md, Slice 2's Risk
     entry), not something to decide implicitly inside this function.
+
+    Phase 2 Slice 3 addition: diff-before-write, compared against the
+    most recent "keyper_observed" Event for this VIN -- NOT against
+    vehicle.keyper_status. Comparing against the Vehicle row's current
+    field turned out to be the wrong basis in general (see
+    persist_tekion_observations' docstring for the idempotency bug this
+    caused once a field could be written by more than one observation
+    per run); Keyper only ever writes this field once per run today, so
+    this produces identical results to a Vehicle-field comparison here,
+    but stays correct if that ever stops being true. The Vehicle row's
+    current-state field is still upserted unconditionally either way --
+    it's a cache of "what do we believe right now," not history, so it
+    stays current even on a sync that produces no new Event. See
+    IMPLEMENTATION_PLAN.md Slice 3 and DECISION_FRAMEWORK.md's "current
+    state is always a derived read."
     """
     if db_conn is None:
         return
-    from lotsync.database.repository import upsert_vehicle, insert_event
+    from lotsync.database.repository import upsert_vehicle, insert_event, get_last_event_detail_fields
+    previous = get_last_event_detail_fields(db_conn, vin, "keyper_observed")
     upsert_vehicle(db_conn, vin, keyper_status=keyper_status)
+    if previous is not None and previous.get("keyper_status") == keyper_status:
+        return
     insert_event(db_conn, vin=vin, event_type="keyper_observed", source="keyper",
                  sync_run_id=sync_run_id, summary=summary, detail_fields=detail_fields)
+
+
+def _promote_pending_identity_if_resolved(db_conn, sync_run_id, raw_identifier, vin):
+    """
+    Phase 2 Slice 3 addition -- the system's first genuine state
+    transition (see DATA_MODEL.md's PendingIdentity entry: "resolution
+    ... belongs alongside the general historical-diffing/change-
+    detection machinery Slice 3 builds"). Called every time a Keyper
+    record resolves to a real Tekion or Sold match; a no-op unless a
+    pending_identity row already exists for this exact raw identifier
+    with status still 'pending' -- i.e. this specific record was
+    previously unresolved and is only now resolving.
+
+    Deliberately reuses the same match already established by the
+    caller (reconcile_keyper_tekion's own stock-number/last-6 matching)
+    rather than introducing a separate, looser resolution heuristic for
+    promotion specifically -- per DECISION_FRAMEWORK.md's "reconciliation
+    is not authorship": this connection only counts as earned confidence
+    because the ordinary matching logic above already made it, the same
+    way every other Keyper match in this pipeline is trusted.
+
+    Must run after the Vehicle row for `vin` already exists (the caller,
+    _persist_keyper_observation, upserts it first) -- resolved_vin has
+    no FK constraint precisely so this ordering is a real requirement,
+    not just a formality (see migrations/0002_pending_identity.sql).
+    """
+    if db_conn is None:
+        return
+    from lotsync.database.repository import get_pending_identity, resolve_pending_identity, insert_event
+    pending = get_pending_identity(db_conn, source="keyper", raw_identifier=raw_identifier)
+    if pending is None or pending["status"] != "pending":
+        return
+    resolve_pending_identity(db_conn, source="keyper", raw_identifier=raw_identifier, resolved_vin=vin)
+    insert_event(
+        db_conn, vin=vin, event_type="pending_identity_resolved", source="keyper",
+        sync_run_id=sync_run_id,
+        summary=f"Keyper identifier '{raw_identifier}' (previously unresolved, "
+                f"{pending['identifier_type']}) now resolves to this vehicle",
+        detail_fields={"pending_identity_id": pending["pending_identity_id"],
+                        "raw_identifier": raw_identifier,
+                        "previous_identifier_type": pending["identifier_type"]},
+    )
 
 
 def _persist_pending_identity(db_conn, raw_identifier, identifier_type):
@@ -91,17 +156,83 @@ def persist_tekion_observations(tekion_df: pd.DataFrame, sold_df: pd.DataFrame,
     "Year Make Model" is a single combined string in this pipeline
     today, and no existing code parses it into structured fields; doing
     so isn't required by this slice's Definition of Done.
+
+    Phase 2 Slice 3 addition: diff-before-write, keyed on
+    (tekion_status, stock_number) TOGETHER, not tekion_status alone.
+    This was a deliberate design discussion, not an implicit choice --
+    see tests/fixtures/README.md's K80001/K80002 duplicate-sold-VIN
+    fixture (same VIN, same "Sold" status, two different stock
+    numbers, built specifically to exercise tekion_sync_conflicts.csv).
+    A status-only diff would treat the second row as a no-op repeat and
+    silently drop the very contradiction that fixture exists to
+    surface. The claim Tekion is actually making each time is "stock
+    <X> was sold," not just "status = Sold" -- two different stock
+    numbers under an identical status label are two different claims
+    (DECISION_FRAMEWORK.md's claims test), so this is a more faithful
+    reading of "only claims earn history," not a loosening of it.
+    stock_number doesn't drift continuously the way days_out does (it's
+    stable except in exactly this kind of real, worth-surfacing
+    contradiction), so including it here doesn't reopen the noise
+    problem the single-field recommendation in IMPLEMENTATION_PLAN.md
+    was written to prevent. Keyper/MDD/RecovR have no equivalent
+    secondary identifying field in scope, so they stay a plain
+    single-field diff.
+
+    The diff is compared against the most recent matching-event_type
+    Event for this VIN ("tekion_observed" for the master/unsold loop,
+    "tekion_sold" for the sold loop) -- NOT against vehicle.tekion_status.
+    This distinction is load-bearing here, unlike Keyper/MDD/RecovR: a
+    VIN present in both tekion_df and sold_df has BOTH loops write to
+    the SAME vehicle.tekion_status field within one run (sold wins, by
+    design). Diffing against that shared, mid-run-mutated field meant
+    every such VIN generated 2 spurious Events on every single rerun,
+    forever -- the master-list write always saw the previous run's
+    final "Sold" value and looked changed, then the sold-list write saw
+    the "Stocked In" the master-list write had just reasserted moments
+    earlier and also looked changed. Comparing each loop against its
+    own event_type's history instead keeps the two claims -- "master
+    list says X" and "sold list says Y" -- correctly independent of
+    each other and of whatever the shared cache currently holds.
+
+    KNOWN, ACCEPTED LIMITATION: diffing against "the single most recent
+    Event of this type" is exact when a VIN has at most one observation
+    per event_type per run -- true for the entire supported operational
+    model. It is NOT exact when a single sync's own source data asserts
+    the SAME event_type more than once for the SAME VIN with different
+    values (concretely: sold_df containing two rows for one VIN under
+    different stock numbers, both "tekion_sold" -- an internally
+    contradictory Tekion export, not a normal operational state). In
+    that case, each rerun of an unresolved, still-contradictory export
+    re-fires both Events instead of settling to zero new Events. Fixing
+    this exactly would require comparing this run's whole ordered
+    sequence of same-(vin, event_type) observations against the
+    previous run's whole sequence, not just the latest value --
+    meaningfully more machinery, deferred deliberately per
+    DECISION_FRAMEWORK.md's "don't build ahead of a demonstrated
+    workflow": no real workflow has asked for perfect idempotency on an
+    upstream data contradiction that tekion_sync_conflicts.csv already
+    surfaces to a human, unaffected by anything here, every single day.
+    Reconsider only if a real operational case demonstrates this matters
+    (e.g. an unfixed Tekion contradiction persisting for weeks actually
+    floods a dashboard's activity feed once Slice 7 builds one).
     """
     if db_conn is None:
         return
-    from lotsync.database.repository import upsert_vehicle, insert_event
+    from lotsync.database.repository import upsert_vehicle, insert_event, get_last_event_detail_fields
+
+    def _persist(vin, status, stock, event_type, summary, detail_fields):
+        previous = get_last_event_detail_fields(db_conn, vin, event_type)
+        previous_key = (previous.get("tekion_status"), previous.get("tekion_stock")) if previous else None
+        upsert_vehicle(db_conn, vin, tekion_status=status, stock_number=stock)
+        if previous_key == (status, stock):
+            return
+        insert_event(db_conn, vin=vin, event_type=event_type, source="tekion",
+                     sync_run_id=sync_run_id, summary=summary, detail_fields=detail_fields)
 
     for _, trow in tekion_df.iterrows():
         vin = trow["VIN #"]
-        upsert_vehicle(db_conn, vin, tekion_status=trow["Status"], stock_number=trow["Stock #"])
-        insert_event(
-            db_conn, vin=vin, event_type="tekion_observed", source="tekion",
-            sync_run_id=sync_run_id,
+        _persist(
+            vin, trow["Status"], trow["Stock #"], "tekion_observed",
             summary=f"Tekion: {trow['Status']}, stock {trow['Stock #']}",
             detail_fields={"tekion_status": trow["Status"], "tekion_stock": trow["Stock #"],
                             "stocked_in_date": trow["Stocked In Date"]},
@@ -109,10 +240,8 @@ def persist_tekion_observations(tekion_df: pd.DataFrame, sold_df: pd.DataFrame,
 
     for _, srow in sold_df.iterrows():
         vin = srow["VIN #"]
-        upsert_vehicle(db_conn, vin, tekion_status=srow["Status"], stock_number=srow["Stock #"])
-        insert_event(
-            db_conn, vin=vin, event_type="tekion_sold", source="tekion",
-            sync_run_id=sync_run_id,
+        _persist(
+            vin, srow["Status"], srow["Stock #"], "tekion_sold",
             summary=f"Tekion: sold, stock {srow['Stock #']}, {srow['Sold Date']}",
             detail_fields={"tekion_status": srow["Status"], "tekion_stock": srow["Stock #"],
                             "sold_date": srow["Sold Date"]},
@@ -139,17 +268,35 @@ def persist_mdd_observations(mdd_df: pd.DataFrame, db_conn=None, sync_run_id=Non
     mdd_status is set to "not_paired" for exactly the VINs mentioned
     here and left untouched (NULL/unknown) for everything else -- never
     inferred as "paired." See README.md's own documented limitation.
+
+    Phase 2 Slice 3 addition: diff-before-write on mdd_status. This is
+    the write path where diffing matters most in practice -- MDD's
+    export re-reports every still-unpaired vehicle on every single
+    sync, so without diffing this function alone would have generated a
+    new Event every run for every vehicle that simply remains unpaired,
+    forever. Diffing turns that into exactly one Event the first time a
+    vehicle is observed not-paired, then silence until something
+    actually changes.
+
+    Compared against the most recent "mdd_observed" Event, not against
+    vehicle.mdd_status -- see persist_tekion_observations' docstring for
+    why the Vehicle field is the wrong general basis for this decision.
+    MDD only ever writes this field once per VIN per run, so this
+    produces identical results to a Vehicle-field comparison here.
     """
     if db_conn is None:
         return
-    from lotsync.database.repository import upsert_vehicle, insert_event
+    from lotsync.database.repository import upsert_vehicle, insert_event, get_last_event_detail_fields
     known_vins = {row[0] for row in db_conn.execute("SELECT vin FROM vehicle")}
 
     for _, row in mdd_df.iterrows():
         vin = str(row["vin"]).strip()
         if vin not in known_vins:
             continue
+        previous = get_last_event_detail_fields(db_conn, vin, "mdd_observed")
         upsert_vehicle(db_conn, vin, mdd_status="not_paired")
+        if previous is not None and previous.get("mdd_status") == "not_paired":
+            continue
         insert_event(
             db_conn, vin=vin, event_type="mdd_observed", source="mdd",
             sync_run_id=sync_run_id,
@@ -178,10 +325,23 @@ def persist_recovr_observations(recovr_df: pd.DataFrame, db_conn=None, sync_run_
     additional business-scoping (store prefix, sold-exclusion) that's
     a report-generation decision, out of scope for this raw fact write
     -- see SPRINT_2_REVIEW.md.
+
+    Phase 2 Slice 3 addition: diff-before-write on recovr_status. Unlike
+    MDD, RecovR reports both paired and unpaired positively every run,
+    so without diffing every RecovR-covered vehicle would generate a new
+    Event on every single sync regardless of pairing status ever
+    changing.
+
+    Compared against the most recent "recovr_observed" Event, not
+    against vehicle.recovr_status -- see persist_tekion_observations'
+    docstring for why the Vehicle field is the wrong general basis for
+    this decision. RecovR only ever writes this field once per VIN per
+    run, so this produces identical results to a Vehicle-field
+    comparison here.
     """
     if db_conn is None:
         return
-    from lotsync.database.repository import upsert_vehicle, insert_event
+    from lotsync.database.repository import upsert_vehicle, insert_event, get_last_event_detail_fields
     known_vins = {row[0] for row in db_conn.execute("SELECT vin FROM vehicle")}
 
     for _, row in recovr_df.iterrows():
@@ -198,7 +358,10 @@ def persist_recovr_observations(recovr_df: pd.DataFrame, db_conn=None, sync_run_
         if vin is None:
             continue
 
+        previous = get_last_event_detail_fields(db_conn, vin, "recovr_observed")
         upsert_vehicle(db_conn, vin, recovr_status=status)
+        if previous is not None and previous.get("recovr_status") == status:
+            continue
         insert_event(
             db_conn, vin=vin, event_type="recovr_observed", source="recovr",
             sync_run_id=sync_run_id,
@@ -360,6 +523,7 @@ def reconcile_keyper_tekion(keyper_df: pd.DataFrame, tekion_df: pd.DataFrame,
                     detail_fields={"keyper_identifier": raw, "keyper_status": "Out",
                                     "tekion_stock": trow["Stock #"], "days_out": days_out},
                 )
+            _promote_pending_identity_if_resolved(db_conn, sync_run_id, raw, trow["VIN #"])
             continue
 
         # No Tekion match -- check whether it's actually already sold
@@ -388,6 +552,7 @@ def reconcile_keyper_tekion(keyper_df: pd.DataFrame, tekion_df: pd.DataFrame,
                 detail_fields={"keyper_identifier": raw, "keyper_status": status,
                                 "tekion_stock": srow["Stock #"], "sold_date": srow["Sold Date"]},
             )
+            _promote_pending_identity_if_resolved(db_conn, sync_run_id, raw, srow["VIN #"])
         else:
             reason = "pending_dms_entry" if status == "In" else "out_and_unmatched_no_tekion_record"
             flag_to_controller.append({**base, "reason": reason})

@@ -27,7 +27,7 @@ from lotsync.sync.reconciler import (
 )
 from lotsync.rules.validation import find_tekion_sync_conflicts
 from lotsync.reports.writer import write_reports, print_summary
-from lotsync.database.repository import connect as db_connect
+from lotsync.database.repository import connect as db_connect, sync_run
 
 # Overridable via LOTSYNC_OUT_DIR; defaults to a repo-relative
 # location. (Previously hardcoded to /mnt/user-data/outputs, this
@@ -56,30 +56,42 @@ def main():
     rapidrecon_df = load_rapidrecon()
 
     # Phase 2 Slice 1 (see IMPLEMENTATION_PLAN.md): additionally persist
-    # Keyper's contribution to Vehicle/Event alongside the unchanged CSV
-    # pipeline below. sync_run_id stays None until Slice 4 introduces the
-    # SyncRun table -- not invented speculatively here.
+    # each source's contribution to Vehicle/Event alongside the unchanged
+    # CSV pipeline below. Phase 2 Slice 4: every source's persistence
+    # pass is wrapped in sync_run(), which opens a real SyncRun row,
+    # commits that source's writes together with marking it 'complete'
+    # on success, or rolls back everything and marks it 'failed' on any
+    # exception -- see database/repository.py's sync_run() docstring for
+    # the transactional contract this depends on.
     db_conn = db_connect()
 
-    fully_verified, key_out_aging, flag_to_controller, exceptions, matched_idx = \
-        reconcile_keyper_tekion(keyper_df, tekion_df, sold_df,
-                                 settings["sync_date"], day_out_buckets,
-                                 db_conn=db_conn, sync_run_id=None)
+    with sync_run(db_conn, "keyper", records_processed=len(keyper_df)) as keyper_run_id:
+        fully_verified, key_out_aging, flag_to_controller, exceptions, matched_idx = \
+            reconcile_keyper_tekion(keyper_df, tekion_df, sold_df,
+                                     settings["sync_date"], day_out_buckets,
+                                     db_conn=db_conn, sync_run_id=keyper_run_id)
 
     # Phase 2 Slice 2: Tekion's own contribution, independent of
     # whether Keyper also has a key for a given VIN -- see
     # persist_tekion_observations' docstring for why this is a
     # standalone walk rather than woven into a report-building function.
-    persist_tekion_observations(tekion_df, sold_df, db_conn=db_conn, sync_run_id=None)
+    with sync_run(db_conn, "tekion", records_processed=len(tekion_df) + len(sold_df)) as tekion_run_id:
+        persist_tekion_observations(tekion_df, sold_df, db_conn=db_conn, sync_run_id=tekion_run_id)
+
     # MDD/RecovR only annotate VINs already known from Tekion above --
     # see each function's docstring for why neither creates a new
     # Vehicle row on its own.
-    persist_mdd_observations(mdd_df, db_conn=db_conn, sync_run_id=None)
-    persist_recovr_observations(recovr_df, db_conn=db_conn, sync_run_id=None)
+    with sync_run(db_conn, "mdd", records_processed=len(mdd_df)) as mdd_run_id:
+        persist_mdd_observations(mdd_df, db_conn=db_conn, sync_run_id=mdd_run_id)
+
+    with sync_run(db_conn, "recovr", records_processed=len(recovr_df)) as recovr_run_id:
+        persist_recovr_observations(recovr_df, db_conn=db_conn, sync_run_id=recovr_run_id)
+
     # RapidRecon: Event-only, existing vehicles only -- see
     # persist_rapidrecon_observations' docstring for the two assumptions
     # this rests on.
-    persist_rapidrecon_observations(rapidrecon_df, db_conn=db_conn, sync_run_id=None)
+    with sync_run(db_conn, "rapidrecon", records_processed=len(rapidrecon_df)) as rapidrecon_run_id:
+        persist_rapidrecon_observations(rapidrecon_df, db_conn=db_conn, sync_run_id=rapidrecon_run_id)
 
     incoming_or_missing = build_incoming_or_missing_investigate(
         tekion_df, matched_idx, settings["sync_date"],

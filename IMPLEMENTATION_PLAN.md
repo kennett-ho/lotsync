@@ -174,6 +174,13 @@ cleanly too.
 
 ### Slice 3 — Historical diffing (change-detection, not re-recording)
 
+**STATUS: DONE** (Sprint 3). See [`SPRINT_3_REVIEW.md`](SPRINT_3_REVIEW.md)
+for full verification, discoveries, and debt — including one deliberate,
+documented gap (a duplicate-sold-VIN fixture doesn't achieve perfect
+idempotency, by design; see that review's "Problem solving" section)
+and a design refinement to Tekion's diff key not anticipated below (it
+diffs on `(tekion_status, stock_number)`, not `tekion_status` alone).
+
 **Purpose:** This is where persistence actually starts paying for
 itself. Without this slice, every sync just re-writes the same state
 over and over, and `Event` becomes noise instead of history.
@@ -227,6 +234,14 @@ behavior is a safe interim fallback while it's fixed — worse
 ---
 
 ### Slice 4 — SyncRun provenance
+
+**STATUS: DONE** (Sprint 3). See [`SPRINT_3_REVIEW.md`](SPRINT_3_REVIEW.md)
+for full verification. Built with a stronger transactional guarantee
+than originally scoped below: a deliberate Sprint 3 decision to give
+SyncRun real per-source transaction semantics (`complete` iff every
+write committed, `failed` iff none did) rather than bookkeeping-only
+status tracking — see that review's "Problem solving" section for the
+tradeoff and why the stronger guarantee was chosen.
 
 **Purpose:** Auditability. Every Event should trace back to which sync
 detected it — this is also what eventually answers "when did we last
@@ -361,7 +376,7 @@ simply doesn't start yet. Nothing else is affected.
 |---|---|---|---|
 | 1 | Slice 1 — SQLite foundation, Keyper write path | Regression suite passes; DB populated from Keyper alone | **DONE** — see [`SPRINT_1_REVIEW.md`](SPRINT_1_REVIEW.md) |
 | 2 | Slice 2 — full source coverage + `PendingIdentity` capture | All 5 sources persisted; unresolved identities captured, not dropped | **DONE** — see [`SPRINT_2_REVIEW.md`](SPRINT_2_REVIEW.md) |
-| 3 | Slices 3 + 4 — historical diffing, `PendingIdentity` promotion, SyncRun provenance | Idempotency test passes; promotion test passes; every Event traceable to a SyncRun | Not started |
+| 3 | Slices 3 + 4 — historical diffing, `PendingIdentity` promotion, SyncRun provenance | Idempotency test passes; promotion test passes; every Event traceable to a SyncRun | **DONE** — see [`SPRINT_3_REVIEW.md`](SPRINT_3_REVIEW.md) |
 | 4 | Slice 5 — Task generation | Auto-resolution demonstrated; zero rule-logic duplication | Not started |
 | 5 | Slice 6 — Recommendation engine | Convert/dismiss lifecycle correct and tested | Not started |
 | 6 | Slice 7 — dashboard data layer | Every mockup panel has a tested, correct query function | Not started |

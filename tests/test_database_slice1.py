@@ -135,13 +135,15 @@ class KeyperWritePathTest(unittest.TestCase):
         )
         self.assertEqual(len(result), 5)
 
-    def test_rerunning_without_diffing_writes_duplicate_events_not_errors(self):
-        # Slice 1 has no change-detection yet (that's Slice 3) -- running
-        # the same input twice is expected to double the Event count
-        # while Vehicle stays upserted to one row per VIN. This pins
-        # down today's known, accepted behavior so Slice 3's introduction
-        # of diffing is a deliberate, visible change to this test, not a
-        # silent one.
+    def test_rerunning_with_identical_input_produces_no_duplicate_events(self):
+        # This test originally pinned down Slice 1's known, accepted
+        # "no diffing yet" behavior (doubling the Event count on rerun)
+        # specifically so that Slice 3's introduction of diff-before-write
+        # would be a deliberate, visible change here, not a silent one.
+        # Slice 3 has now landed -- see IMPLEMENTATION_PLAN.md and
+        # tests/test_database_slice3.py for the full idempotency
+        # coverage. Updated in place rather than left describing
+        # superseded behavior.
         reconcile_keyper_tekion(
             self.keyper_df, self.tekion_df, self.sold_df, self.sync_date, self.buckets,
             db_conn=self.conn, sync_run_id="test-run-1",
@@ -153,7 +155,7 @@ class KeyperWritePathTest(unittest.TestCase):
         (vehicle_count,) = self.conn.execute("SELECT COUNT(*) FROM vehicle").fetchone()
         (event_count,) = self.conn.execute("SELECT COUNT(*) FROM event").fetchone()
         self.assertEqual(vehicle_count, len(EXPECTED_VINS))
-        self.assertEqual(event_count, 2 * len(EXPECTED_VINS))
+        self.assertEqual(event_count, len(EXPECTED_VINS), "identical rerun must not write duplicate Events")
 
 
 class RepositoryMigrationTest(unittest.TestCase):

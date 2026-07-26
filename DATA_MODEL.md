@@ -150,7 +150,7 @@ ARCHITECTURE.md, to avoid two sources of truth that can drift).
 | `source` | Which importer this run was for |
 | `dealership_id` | Which dealership's export this run processed |
 | `records_processed`, `issues_found`, `tasks_generated` | |
-| `status` | "complete" / "delayed" / "failed" |
+| `status` | "in_progress" / "complete" / "delayed" / "failed" -- "in_progress" added during Phase 2 Sprint 3 (Slice 4 implementation): the original three values had no way to describe a row between INSERT and completion, the same category of gap `Event.event_id`'s addition closed in Sprint 1 (a table that can't be correctly built and used as originally specified) |
 
 ### Recommendation
 Deliberately distinct from Task — has its own lifecycle (shown /

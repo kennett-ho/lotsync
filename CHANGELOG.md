@@ -64,3 +64,47 @@ smoke test against all five sources.
 **Deliberately deferred to Slice 3:** `PendingIdentity` → `Vehicle`
 promotion (detecting a previously-unresolved identifier resolving).
 Capture-only in this sprint, as scoped from the outset.
+
+## Sprint 3 — Slices 3+4: Historical diffing, PendingIdentity promotion, SyncRun provenance (2026-07-25)
+
+See [`SPRINT_3_REVIEW.md`](SPRINT_3_REVIEW.md) for full detail.
+
+**Added**
+- `database/migrations/0003_sync_run.sql` — `sync_run` table.
+- `database/repository.py` — `get_last_event_detail_fields()`,
+  `get_pending_identity()`, `resolve_pending_identity()`,
+  `start_sync_run()`, `complete_sync_run()`, `fail_sync_run()`, and a
+  `sync_run()` context manager giving each source's persistence pass
+  real transactional semantics.
+- `sync/reconciler.py` — `_promote_pending_identity_if_resolved()`,
+  wired into `reconcile_keyper_tekion`'s two successful-resolution
+  branches.
+- `tests/test_database_slice3.py` (10 tests) and
+  `tests/test_database_slice4.py` (8 tests).
+
+**Changed**
+- All four diffed persistence functions (`_persist_keyper_observation`,
+  `persist_tekion_observations`, `persist_mdd_observations`,
+  `persist_recovr_observations`) now write an `Event` only when the
+  relevant claim actually changed since the last matching `Event` —
+  not since whatever `vehicle`'s current-state field happens to hold
+  (a real diffing bug, found and fixed mid-sprint; see
+  `SPRINT_3_REVIEW.md`). Tekion's diff key is `(tekion_status,
+  stock_number)`, not `tekion_status` alone.
+- `upsert_vehicle()`, `insert_event()`, `upsert_pending_identity()`,
+  `resolve_pending_identity()` no longer commit individually — commit
+  responsibility moved to `sync_run()`'s transaction boundary.
+- `main.py` wraps every source's persistence pass in `sync_run(...)`.
+- `DATA_MODEL.md` — added `"in_progress"` to `SyncRun.status`'s
+  documented values.
+
+**No change to:** any CSV report's content or format. Verified via
+full-suite regression (119 → 137 passing) plus an end-to-end `main.py`
+smoke test against all five sources, with direct inspection of the
+resulting `sync_run` table.
+
+**Deliberately accepted, documented limitation:** a VIN with two
+observations of the same `event_type` in one sync (the K80001/K80002
+duplicate-sold-VIN fixture — an internally contradictory Tekion
+export) does not achieve full idempotency on rerun. Not fixed; see
+`SPRINT_3_REVIEW.md`'s "Problem solving" section for why.

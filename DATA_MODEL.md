@@ -79,6 +79,35 @@ tasks" on a dashboard is six separate Task rows of the same
 ARCHITECTURE.md's frontend discovery section for why this was decided
 explicitly rather than left implicit.
 
+**Revised during the Pre-Sprint 4 design review** (see
+`DECISION_FRAMEWORK.md`'s "Ontology, Architecture, Invariants, and
+Reasoning Tools" section and `SPRINT_4_DESIGN_REVIEW_SUMMARY.md`): a
+Task is an operational commitment, not a directive and not a
+Recommendation with a richer status — distinguished from both by kind,
+not degree. The original three-value `status` couldn't honestly
+represent a commitment discharged because it became moot, was
+cancelled, or was superseded; closing one of those would have required
+either lying (marking it "complete") or leaving it open forever.
+
+**Commitment standing and execution status are independent axes**, the
+same cache-over-log pattern `Vehicle.recovr_status` already uses,
+confirmed here at a second object: a Task can be `outstanding` while
+its execution is `blocked`, or already `cancelled` while execution was
+mid-flight. Neither field is derivable from the other.
+
+**Discharge always traces to one of two mechanisms — LotSync never
+invents which applies:**
+- **Reality-discharged** (`honored`, `moot`) — the world changed. A
+  claim from the relevant source satisfied the Task's condition
+  (`honored`), or made it irrelevant before it was satisfied (`moot` —
+  e.g. the vehicle sold before its RecovR install happened).
+- **Intent-discharged** (`cancelled`, `superseded`) — the organization
+  changed its own mind, independent of anything the world reported.
+
+Every terminal disposition traces to either a claim (Reality) or a
+legitimate authority acting directly (Intent) — never a case where the
+system originates the fact of closure on its own.
+
 | Field | Notes |
 |---|---|
 | `task_id` | |
@@ -87,9 +116,48 @@ explicitly rather than left implicit.
 | `task_type` | Controlled vocabulary, e.g. `install_recovr_device` |
 | `department` | e.g. "Inventory", "Controller", "Lot Ops", "Dealer Trades" |
 | `priority` | "Critical" / "High" / "Medium" / "Low" |
-| `status` | "not_started" / "in_progress" / "complete" |
+| `commitment_standing` | "outstanding" / "honored" / "moot" / "cancelled" / "superseded" — replaces the original three-value `status` (see above) |
+| `execution_status` | Derived cache — "not_started" / "in_progress" / "blocked" / "completed", computed from the most recent `TaskExecutionEvent` for this task. Not independently writable; see `TaskExecutionEvent` below |
 | `assigned_employee_id` | Nullable — "Unassigned" is a real, valid state |
-| `reason`, `created_at`, `completed_at` | |
+| `ratified_by` | `employee_id`, or a standing-policy identifier — who authorized this commitment |
+| `ratification_type` | "human" / "standing_policy" — authority is independent from provenance: a Recommendation converting to a Task is provenance, not authority, and a human still ratifies it |
+| `escalated_from_task_id` | Nullable; FK to Task — set when this Task exists because a parent Task's condition changed shape rather than simply resolving. Lets Moot-evaluation walk a parent's status instead of only this Task's own condition |
+| `reason`, `created_at` | |
+| `completed_at` | Set when `commitment_standing` reaches ANY terminal value (`honored`/`moot`/`cancelled`/`superseded`), not only when work is literally "complete" — the name predates the `commitment_standing`/`execution_status` split and is kept rather than renamed, since renaming it isn't required by anything this review demonstrated a need for |
+
+**Known, unresolved gap, not silently assumed:** a dealership transfer
+is currently an *implicit* assumption for install-type Tasks (does an
+open `install_recovr_device` Task still make sense if the vehicle
+moves to a different dealership mid-Task?). Per the "a commitment may
+depend only on explicit assumptions" invariant, this must be encoded
+explicitly or explicitly excluded before Sprint 4's discharge logic
+ships — left open here deliberately, not solved by this review, and
+tracked in `SPRINT_4_CHECKLIST.md`.
+
+### TaskExecutionEvent
+Append-only log of a Task's execution progress, independent of
+`commitment_standing`. Added during the Pre-Sprint 4 design review: a
+mutable execution-status field failed the same test `PendingIdentity`
+already failed once (see `DECISION_FRAMEWORK.md`) — consecutive
+transitions carry real information a terminal snapshot destroys (e.g.
+`started → blocked → resumed → completed` tells a materially different
+story than `started → completed`, even though both end the same way).
+
+Task completion is itself a manual assertion, not a direct status
+write, per `VISION.md`'s existing "manual input is an assertion, not
+an override" principle: a human recording `completed` here is
+provisional until corroborated by the relevant source's next sync (or
+the Task surfaces a contradiction if the source disagrees) — the same
+pattern every other manual claim in this system already follows.
+
+| Field | Notes |
+|---|---|
+| `task_execution_event_id` | Surrogate primary key |
+| `task_id` | FK to Task |
+| `transition_type` | "started" / "blocked" / "resumed" / "completed" |
+| `actor_employee_id` | Nullable — who made this transition |
+| `note` | Free text, optional |
+| `observed_at` | |
 
 ### Event
 A single observed change or logged action for a vehicle. Carries a
@@ -191,6 +259,9 @@ Vehicle *—1 Beacon (current; historical assignments via Event)
 PendingIdentity *—0..1 Vehicle (resolved_vin, set only upon resolution -- Slice 3)
 Task    *—1 Employee (assigned_to, nullable)
 Task    *—1 Vehicle
+Task    *—0..1 Task (escalated_from_task_id -- Sprint 4)
+Task    1—* TaskExecutionEvent (Sprint 4)
+TaskExecutionEvent *—0..1 Employee (actor, nullable)
 Event   *—1 Vehicle
 Event   *—1 SyncRun
 Event   *—0..1 Employee (actor)

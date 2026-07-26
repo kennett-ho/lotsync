@@ -274,46 +274,56 @@ complete after a successful commit; `SyncRun.status` already has a
 
 ### Slice 5 — Task generation (the database becomes load-bearing)
 
-**Pre-implementation design review: DONE.** A Pre-Sprint 4 design
-review (same pressure-testing discipline as Sprint 3's Event review)
-worked through "what is a Task" ahead of writing any code — see
-[`SPRINT_4_DESIGN_REVIEW_SUMMARY.md`](SPRINT_4_DESIGN_REVIEW_SUMMARY.md)
+**Pre-implementation design review + schema: DONE.** A Pre-Sprint 4
+design review (same pressure-testing discipline as Sprint 3's Event
+review) worked through "what is a Task" ahead of writing any code —
+see [`SPRINT_4_DESIGN_REVIEW_SUMMARY.md`](SPRINT_4_DESIGN_REVIEW_SUMMARY.md)
 for the conclusions and [`SPRINT_4_CHECKLIST.md`](SPRINT_4_CHECKLIST.md)
-for the concrete, resulting implementation checklist. The scope/DoD
-text immediately below predates that review and is known-incomplete in
-specific, named ways (three-value `Task.status`, no execution log, no
-escalation reference) — not contradicted, just not yet updated; the
-checklist is the authoritative to-do for closing that gap when Sprint 4
-implementation actually begins.
+for the concrete implementation checklist. `DATA_MODEL.md`,
+`ARCHITECTURE.md`, `database/migrations/0004_task.sql`, and
+`models/task.py`/`models/task_execution_event.py` now reflect the
+reviewed shape. What follows is the backend implementation still
+ahead — task-generation logic, discharge/escalation handling, and the
+repository layer — updated to match that shape, not the original
+three-value design.
 
 **Purpose:** This is the first slice where persisted state actually
 drives something, rather than just observing it. Prove the concrete
-payoff named in `ARCHITECTURE.md`'s Phase 2 spec: a Task closes itself
-when the condition that created it resolves.
+payoff named in `ARCHITECTURE.md`'s Phase 2 spec: a Task reaches a
+terminal disposition on its own, via Reality-discharge (Honored, Moot)
+or Intent-discharge (Cancelled, Superseded) — see `DATA_MODEL.md`'s
+`Task` entry — without a human needing to notice and close it manually.
 
-**Scope:** `Task` table. Task-generation logic runs against Slice 3's
-diff output — a changed field can create a Task or auto-complete an
-existing open one. **Critical constraint: Task-generation logic must
-call the same `rules/aging.py` / `rules/inventory.py` functions the
-CSV reports already use — it must not reimplement the same business
-rule a second time.** Two independent implementations of "does this
-vehicle need a RecovR" is exactly the kind of drift this plan exists
-to prevent. The existing CSV-generating code path is still completely
-untouched in this slice.
+**Scope:** `task` and `task_execution_event` tables (done — see above).
+Task-generation logic runs against Slice 3's diff output — a changed
+field can create a Task or Reality-discharge an existing outstanding
+one to Honored or Moot. **Critical constraint: Task-generation logic
+must call the same `rules/aging.py` / `rules/inventory.py` functions
+the CSV reports already use — it must not reimplement the same
+business rule a second time.** Two independent implementations of
+"does this vehicle need a RecovR" is exactly the kind of drift this
+plan exists to prevent. The existing CSV-generating code path is still
+completely untouched in this slice. Completion is a manual assertion
+recorded in `task_execution_event`, not a direct `commitment_standing`
+write — see `DATA_MODEL.md`'s `TaskExecutionEvent` entry.
 
-**Definition of Done:** After a sync, the `Task` table has open tasks
-that correspond (in substance, not necessarily row-for-row) to what
-today's task-shaped CSVs already show. A fixture test demonstrates
-auto-resolution: flip a fixture's RecovR status, rerun, confirm the
-corresponding Task auto-completes without manual intervention.
+**Definition of Done:** After a sync, the `task` table has outstanding
+commitments that correspond (in substance, not necessarily row-for-row)
+to what today's task-shaped CSVs already show. A fixture test
+demonstrates Reality-discharge: flip a fixture's RecovR status, rerun,
+confirm the corresponding Task's `commitment_standing` moves to
+`honored` without manual intervention.
 
 **Success criteria:** Task counts are consistent with the equivalent
-CSV report's counts for the same condition. The auto-resolution test
+CSV report's counts for the same condition. The Reality-discharge test
 above is a permanent regression test.
 
 **Risk:** Rule-logic duplication (see Scope above) is the primary risk
 — mitigated structurally, not just by discipline, by requiring shared
-function calls rather than parallel logic.
+function calls rather than parallel logic. Also carried from the
+design review: dealership-transfer as an implicit assumption for
+install-type Tasks must be explicitly encoded or explicitly excluded
+before discharge logic ships — see `SPRINT_4_CHECKLIST.md`.
 
 **Rollback:** The `Task` table can be dropped or cleared with zero
 effect on the CSV pipeline, since CSVs still come from the untouched
@@ -389,7 +399,7 @@ simply doesn't start yet. Nothing else is affected.
 | 1 | Slice 1 — SQLite foundation, Keyper write path | Regression suite passes; DB populated from Keyper alone | **DONE** — see [`SPRINT_1_REVIEW.md`](SPRINT_1_REVIEW.md) |
 | 2 | Slice 2 — full source coverage + `PendingIdentity` capture | All 5 sources persisted; unresolved identities captured, not dropped | **DONE** — see [`SPRINT_2_REVIEW.md`](SPRINT_2_REVIEW.md) |
 | 3 | Slices 3 + 4 — historical diffing, `PendingIdentity` promotion, SyncRun provenance | Idempotency test passes; promotion test passes; every Event traceable to a SyncRun | **DONE** — see [`SPRINT_3_REVIEW.md`](SPRINT_3_REVIEW.md) |
-| 4 | Slice 5 — Task generation | Auto-resolution demonstrated; zero rule-logic duplication | Design review DONE — see [`SPRINT_4_DESIGN_REVIEW_SUMMARY.md`](SPRINT_4_DESIGN_REVIEW_SUMMARY.md); implementation not started |
+| 4 | Slice 5 — Task generation | Auto-resolution demonstrated; zero rule-logic duplication | Design review + schema DONE — see [`SPRINT_4_DESIGN_REVIEW_SUMMARY.md`](SPRINT_4_DESIGN_REVIEW_SUMMARY.md); backend generation logic not started |
 | 5 | Slice 6 — Recommendation engine | Convert/dismiss lifecycle correct and tested | Not started |
 | 6 | Slice 7 — dashboard data layer | Every mockup panel has a tested, correct query function | Not started |
 

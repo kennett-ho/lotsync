@@ -13,7 +13,7 @@ for the full plan this tracks progress against.
 |---|---|
 | **Phase** | Phase 2 — Persistent operational platform |
 | **Sprint** | 4 (not yet started) |
-| **Slice** | 5 — Task generation (design review complete, implementation not yet started — see [`SPRINT_4_DESIGN_REVIEW_SUMMARY.md`](SPRINT_4_DESIGN_REVIEW_SUMMARY.md) / [`SPRINT_4_CHECKLIST.md`](SPRINT_4_CHECKLIST.md)) |
+| **Slice** | 5 — Task generation (design review + `DATA_MODEL.md`/`ARCHITECTURE.md`/schema updates complete; backend generation logic not yet started — see [`SPRINT_4_DESIGN_REVIEW_SUMMARY.md`](SPRINT_4_DESIGN_REVIEW_SUMMARY.md) / [`SPRINT_4_CHECKLIST.md`](SPRINT_4_CHECKLIST.md)) |
 | **Last completed** | Slices 3 + 4 — Historical diffing, `PendingIdentity` promotion, SyncRun provenance (Sprint 3) |
 
 ## Completed slices
@@ -28,7 +28,7 @@ for the full plan this tracks progress against.
 
 | Slice | Sprint | What it needs to decide or prove |
 |---|---|---|
-| 5 — Task generation | 4 | First slice where the database becomes load-bearing (auto-resolving Tasks). Must call the same `rules/aging.py`/`rules/inventory.py` functions the CSV reports already use, not reimplement them. Pre-implementation design review complete — concrete work items in [`SPRINT_4_CHECKLIST.md`](SPRINT_4_CHECKLIST.md), including required `DATA_MODEL.md`/`ARCHITECTURE.md` updates not yet made. |
+| 5 — Task generation | 4 | First slice where the database becomes load-bearing (auto-resolving Tasks, now via Reality/Intent discharge — see `DATA_MODEL.md`'s `Task` entry). Must call the same `rules/aging.py`/`rules/inventory.py` functions the CSV reports already use, not reimplement them. `DATA_MODEL.md`/`ARCHITECTURE.md`/schema/model-scaffolding updates from the Pre-Sprint 4 review are done; remaining work items (task-generation logic, discharge/escalation handling, repository layer) tracked in [`SPRINT_4_CHECKLIST.md`](SPRINT_4_CHECKLIST.md). |
 | 6 — Recommendation engine | 5 | Convert/dismiss lifecycle. |
 | 7 — Dashboard data layer | 6 | Query functions proving the DB can answer dashboard-shaped questions; end of Phase 2. |
 
@@ -58,17 +58,25 @@ for the full plan this tracks progress against.
 ## Governance document status
 
 Per the engineering workflow established after Sprint 1:
-`VISION.md`, `PRODUCT.md`, and `ARCHITECTURE.md` remain untouched and
-fully consistent with everything implemented through Sprint 3.
-`DATA_MODEL.md` has received three changes total, all under the
+`VISION.md` and `PRODUCT.md` remain untouched and fully consistent with
+everything implemented through Sprint 3 and the Pre-Sprint 4 review.
+`DATA_MODEL.md` has received four changes total, all under the
 "genuine architectural flaw" governance trigger, not a design change:
 added `Event.event_id` (Sprint 1 — the table had no primary key), added
 the `PendingIdentity` model (Sprint 2 — `Vehicle` had no honest way to
-represent an observation with unresolved identity), and added
+represent an observation with unresolved identity), added
 `"in_progress"` to `SyncRun.status`'s documented values (Sprint 3 — the
 original three values had no way to describe a row between INSERT and
-completion, the same class of gap `Event.event_id` closed). No
-governance document was touched for any other reason during Sprint 3 —
-everything else built matched what was already decided going in
-(`DECISION_FRAMEWORK.md`, `IMPLEMENTATION_PLAN.md`'s existing Slice 3/4
-scope). No open governance questions at this time.
+completion), and replaced `Task.status`'s three values with
+`commitment_standing`/`execution_status` plus a new `TaskExecutionEvent`
+entity (Pre-Sprint 4 design review — the original status couldn't
+honestly represent a commitment discharged as moot, cancelled, or
+superseded). `ARCHITECTURE.md` was touched for the first time in Phase
+2 this cycle — a wording tightening (Reality-discharge vs
+Intent-discharge) and a pointer to `DECISION_FRAMEWORK.md`'s four-layer
+reasoning structure, both required by `SPRINT_4_CHECKLIST.md`, not a
+new decision made outside review. `PRODUCT.md`'s identical "closes
+itself" wording gap was deliberately left alone — not in the checklist,
+and the design review explicitly judged it not urgent enough to justify
+reopening that document on its own. No open governance questions at
+this time.

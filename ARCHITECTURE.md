@@ -45,6 +45,19 @@ functions evaluate a `Vehicle`'s state to decide what `Task`s it needs.
 Reports become a rendering step over a collection of `Vehicle` objects,
 not something reconciliation computes directly.
 
+## Modeling a new object? Start with DECISION_FRAMEWORK.md's four layers
+
+Task was revised ahead of Sprint 4 by separating what had previously
+been fused together into four distinct kinds of knowledge — Ontology
+(what exists), Architecture (how those concepts relate), Invariants
+(what must remain true regardless of implementation), and Reasoning
+Tools (the tests to apply to a new question). That four-layer split is
+the reusable part, not specific to Task -- see
+`DECISION_FRAMEWORK.md`'s "Ontology, Architecture, Invariants, and
+Reasoning Tools" section before modeling any new object this project
+adds (a candidate example already named there: Warranty Claims).
+Reach for it before inventing new structure ad hoc.
+
 ## How the synchronization pipeline currently works
 
 ```
@@ -168,9 +181,17 @@ physically-present vehicles this pipeline just can't currently name.
 each change independently between syncs. "What changed" needs to be
 answerable per field ("RecovR pairing changed from No to Yes on VIN
 X"), not as a single "this vehicle is different somehow" flag -- that
-granularity is what lets a Task auto-resolve (the RecovR install task
-for a vehicle closes itself once a diff shows `recovr_status` flip to
-paired) instead of requiring a human to manually close it.
+granularity is what lets a Task auto-resolve via Reality-discharge (the
+RecovR install task for a vehicle transitions to Honored once a diff
+shows `recovr_status` flip to paired) instead of requiring a human to
+manually close it. Reality-discharge is one of two ways a Task reaches
+a terminal disposition, not the only one -- the other, Intent-discharge
+(Cancelled, Superseded), happens when the organization changes its own
+mind rather than the world changing. See `DECISION_FRAMEWORK.md`'s
+Task-review section (Ontology/Invariants) for the full distinction and
+`DATA_MODEL.md`'s `Task` entry for how each is represented in schema --
+a three-value status can't honestly hold either mechanism alongside the
+other, which is why Task was revised ahead of Sprint 4.
 
 **This is the event-sourcing direction, not the snapshot direction**
 -- the tradeoff was named back when Milestone 1 was first being

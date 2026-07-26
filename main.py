@@ -24,6 +24,7 @@ from lotsync.sync.reconciler import (
     enrich_with_rapidrecon, persist_tekion_observations,
     persist_mdd_observations, persist_recovr_observations,
     persist_rapidrecon_observations, generate_install_tasks,
+    generate_key_out_aging_recommendations,
 )
 from lotsync.rules.validation import find_tekion_sync_conflicts
 from lotsync.reports.writer import write_reports, print_summary
@@ -101,6 +102,12 @@ def main():
     # Reality-discharge asymmetry.
     generate_install_tasks(tekion_df, sold_df, mdd_df, recovr_df,
                             settings["store_name"], db_conn=db_conn)
+
+    # Phase 2 Sprint 4 (Slice 6): Recommendations, over the same
+    # key_out_aging data already computed above for the CSV report --
+    # see generate_key_out_aging_recommendations' docstring for the
+    # most-severe-bucket trigger and the dismissed-reopening logic.
+    generate_key_out_aging_recommendations(key_out_aging, day_out_buckets, db_conn=db_conn)
 
     incoming_or_missing = build_incoming_or_missing_investigate(
         tekion_df, matched_idx, settings["sync_date"],

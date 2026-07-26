@@ -23,6 +23,12 @@ so its dealership is always "wherever the vehicle currently is,"
 derivable via vin -> Vehicle.current_dealership_id. Adding a redundant
 copy here would just be a second value that could drift from the
 first for no benefit.
+
+REVISED during Slice 6 implementation: added created_at/resolved_at
+(see DATA_MODEL.md's Recommendation entry) -- needed to actually
+implement "a dismissed Recommendation does not reappear unless the
+underlying vehicle state genuinely changes again," which requires
+knowing WHEN a Recommendation was dismissed, not just that it was.
 """
 
 from dataclasses import dataclass
@@ -39,3 +45,5 @@ class Recommendation:
     rule_source: Optional[str] = None     # which rule generated this, for traceability
     status: Optional[str] = None          # "open", "converted_to_task", "dismissed"
     resulting_task_id: Optional[str] = None
+    created_at: Optional[str] = None
+    resolved_at: Optional[str] = None     # set when status moves to converted_to_task or dismissed

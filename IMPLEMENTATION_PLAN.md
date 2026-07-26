@@ -333,6 +333,20 @@ original code path.
 
 ### Slice 6 — Recommendation engine
 
+**STATUS: DONE** (Sprint 4). `Recommendation` implemented per
+`DATA_MODEL.md` (plus `created_at`/`resolved_at`, added during this
+slice — see that entry). First rule: `key_out_aging`'s most-severe
+bucket (config-driven, not a hardcoded label), reusing
+`reconcile_keyper_tekion`'s existing `rules/aging.py` output directly.
+"Should a dismissed Recommendation reappear" resolved by reusing Slice
+3's Event history (a genuinely new `keyper_observed(Out)` Event since
+dismissal), not new Recommendation-specific tracking. Converting a
+Recommendation to a Task is ratified (`ratified_by`/`ratification_type`
+at creation) — `insert_task` extended to accept these at creation time,
+not just at discharge, since Slice 5's auto-generated install Tasks
+and Slice 6's Recommendation-converted Tasks are ratified at different
+moments. 192/192 tests passing, zero CSV change, verified end-to-end.
+
 **Purpose:** Implement `Recommendation`'s actual lifecycle (open →
 converted to Task, or dismissed) — distinct from Task per
 `DATA_MODEL.md`'s reasoning.
@@ -400,7 +414,7 @@ simply doesn't start yet. Nothing else is affected.
 | 2 | Slice 2 — full source coverage + `PendingIdentity` capture | All 5 sources persisted; unresolved identities captured, not dropped | **DONE** — see [`SPRINT_2_REVIEW.md`](SPRINT_2_REVIEW.md) |
 | 3 | Slices 3 + 4 — historical diffing, `PendingIdentity` promotion, SyncRun provenance | Idempotency test passes; promotion test passes; every Event traceable to a SyncRun | **DONE** — see [`SPRINT_3_REVIEW.md`](SPRINT_3_REVIEW.md) |
 | 4 | Slice 5 — Task generation | Auto-resolution demonstrated; zero rule-logic duplication | Design review + schema DONE — see [`SPRINT_4_DESIGN_REVIEW_SUMMARY.md`](SPRINT_4_DESIGN_REVIEW_SUMMARY.md); backend generation logic not started |
-| 5 | Slice 6 — Recommendation engine | Convert/dismiss lifecycle correct and tested | Not started |
+| 5 | Slice 6 — Recommendation engine | Convert/dismiss lifecycle correct and tested | **DONE** |
 | 6 | Slice 7 — dashboard data layer | Every mockup panel has a tested, correct query function | Not started |
 
 Phase 2 is done at the end of Sprint 6. Phase 3 (web application) gets

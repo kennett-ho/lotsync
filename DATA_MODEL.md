@@ -236,6 +236,8 @@ UI label — predictive/ML recommendations are explicitly deferred.
 | `rule_source` | Which rule generated this, for traceability |
 | `status` | "open" / "converted_to_task" / "dismissed" |
 | `resulting_task_id` | Nullable |
+| `created_at` | Added during Slice 6 implementation — the original table had no way to know when a Recommendation was raised, the same class of gap that added `Event.event_id` and `SyncRun.status`'s `"in_progress"` value |
+| `resolved_at` | Nullable; set when `status` moves to `converted_to_task` or `dismissed`. Needed to implement the literal, already-decided requirement that a dismissed Recommendation "does not reappear... unless the underlying vehicle state genuinely changes again" — answering that requires knowing *when* it was dismissed, which the table couldn't previously represent at all |
 
 No `dealership_id` here, deliberately — a Recommendation always
 reflects a Vehicle's *current* state, so its dealership is always

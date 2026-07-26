@@ -1001,3 +1001,102 @@ def generate_install_tasks(tekion_df: pd.DataFrame, sold_df: pd.DataFrame, mdd_d
             reason=f"{row['source']}: no device found on stock {row['stock']} ({row['vehicle']})",
         )
     db_conn.commit()
+
+
+_KEY_OUT_AGING_RULE_SOURCE = "key_out_aging"
+
+
+def _has_new_keyper_out_event_since(db_conn, vin, since_timestamp):
+    """
+    Was a NEW "keyper_observed" Event with status='Out' written for
+    this VIN after since_timestamp? Parses detail_fields in Python
+    rather than a fragile SQL LIKE match against the JSON text. Backs
+    generate_key_out_aging_recommendations' dismissed-reopening
+    decision -- see that function's docstring.
+    """
+    import json
+    rows = db_conn.execute(
+        "SELECT detail_fields FROM event WHERE vin = ? AND event_type = 'keyper_observed' "
+        "AND observed_at > ?",
+        (vin, since_timestamp),
+    ).fetchall()
+    for (detail_json,) in rows:
+        if detail_json is None:
+            continue
+        if json.loads(detail_json).get("keyper_status") == "Out":
+            return True
+    return False
+
+
+def generate_key_out_aging_recommendations(key_out_aging_df: pd.DataFrame, day_out_buckets,
+                                            db_conn=None):
+    """
+    Phase 2 Sprint 4, Slice 6. First Recommendation source: the most
+    severe key-out-aging bucket, over the SAME key_out_aging DataFrame
+    reconcile_keyper_tekion already computes via rules/aging.py's
+    day_out_bucket -- reusing that output directly rather than
+    recomputing it, per IMPLEMENTATION_PLAN.md's "must call the same
+    rules... not reimplement." DECISION_FRAMEWORK.md itself names aging
+    buckets and Recommendations as the same category of interpretation
+    ("an aging bucket, a priority level, a Recommendation... Delete the
+    rule and the interpretation evaporates"), which is why this is the
+    natural first rule to implement.
+
+    "Most severe" is day_out_buckets[-1][1] -- the last (highest-
+    threshold) tuple's label, read from the SAME config object already
+    passed to day_out_bucket -- not a hardcoded string like "Likely
+    Sold". Bucket labels are dealership-configurable text
+    (oms_config.xlsx); matching against a literal string would silently
+    break the moment a dealership renames its own buckets.
+
+    Idempotency mirrors generate_install_tasks: no duplicate open
+    Recommendation for the same (vin, rule_source) -- see
+    get_open_recommendation. A Recommendation already
+    'converted_to_task' is left alone (already being acted on).
+
+    The harder case -- IMPLEMENTATION_PLAN.md Slice 6's named risk,
+    "what counts as the underlying vehicle state genuinely changing" --
+    is resolved here by reusing Slice 3's existing Event history rather
+    than inventing new Recommendation-specific tracking: a DISMISSED
+    Recommendation is only allowed to reappear if a NEW
+    "keyper_observed" Event with status='Out' has been recorded since
+    the dismissal (see _has_new_keyper_out_event_since) -- meaning the
+    key genuinely went back in and came back out, a real new
+    occurrence, not just days_out continuing to climb on the same
+    still-open checkout (which, per DECISION_FRAMEWORK.md, is a
+    continuously-drifting derived value, not a claim, and correctly
+    generates no new keyper_observed Event at all under Slice 3's own
+    diffing -- so it can never satisfy this check on its own).
+
+    A no-op when db_conn is None, same convention as every write path.
+    """
+    if db_conn is None:
+        return
+    from lotsync.database.repository import (
+        get_open_recommendation, get_latest_recommendation, insert_recommendation,
+    )
+
+    most_severe_label = day_out_buckets[-1][1]
+    severe_rows = key_out_aging_df[key_out_aging_df["aging_bucket"] == most_severe_label]
+
+    for _, row in severe_rows.iterrows():
+        vin = row["tekion_vin"]
+
+        if get_open_recommendation(db_conn, vin, _KEY_OUT_AGING_RULE_SOURCE) is not None:
+            continue
+
+        latest = get_latest_recommendation(db_conn, vin, _KEY_OUT_AGING_RULE_SOURCE)
+        if latest is not None and latest["status"] == "converted_to_task":
+            continue
+        if latest is not None and latest["status"] == "dismissed":
+            if not _has_new_keyper_out_event_since(db_conn, vin, latest["resolved_at"]):
+                continue
+
+        insert_recommendation(
+            db_conn, vin, severity="High",
+            title=f"Key checked out {row['days_out']} days -- {most_severe_label}",
+            detail=f"Tekion stock {row['tekion_stock']}, checked out since "
+                   f"{row['keyper_checkout_date']}: {most_severe_label}",
+            rule_source=_KEY_OUT_AGING_RULE_SOURCE,
+        )
+    db_conn.commit()

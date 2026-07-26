@@ -361,7 +361,7 @@ _EXECUTION_STATUS_BY_TRANSITION = {
 
 def insert_task(conn: sqlite3.Connection, vin: str, task_type: str, dealership_id: str = None,
                  department: str = None, priority: str = None, reason: str = None,
-                 created_at: str = None) -> int:
+                 created_at: str = None, ratified_by: str = None, ratification_type: str = None) -> int:
     """
     Creates a new Task, always `commitment_standing='outstanding'` and
     `execution_status='not_started'` (the migration's column defaults --
@@ -372,13 +372,24 @@ def insert_task(conn: sqlite3.Connection, vin: str, task_type: str, dealership_i
     must check get_open_task() themselves first -- this function always
     inserts, the same "caller decides, this just writes" division of
     responsibility as insert_event.
+
+    ratified_by/ratification_type are optional here (Slice 6 addition):
+    an auto-generated install Task (Slice 5) has no ratification at
+    creation -- nobody decided it should exist, the reconciliation
+    engine just observed a gap and recorded it -- so those stay NULL by
+    default, same as before. A Task created by converting a
+    Recommendation DOES have ratification at creation time (a human
+    reviewed the Recommendation and decided to act on it) -- see
+    convert_recommendation_to_task, which is why this needed to become
+    a creation-time parameter rather than only a discharge-time one.
     """
     if created_at is None:
         created_at = datetime.datetime.now().isoformat()
     cur = conn.execute(
-        "INSERT INTO task (vin, dealership_id, task_type, department, priority, reason, created_at) "
-        "VALUES (?, ?, ?, ?, ?, ?, ?)",
-        (vin, dealership_id, task_type, department, priority, reason, created_at),
+        "INSERT INTO task (vin, dealership_id, task_type, department, priority, reason, created_at, "
+        "ratified_by, ratification_type) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)",
+        (vin, dealership_id, task_type, department, priority, reason, created_at,
+         ratified_by, ratification_type),
     )
     return cur.lastrowid
 
@@ -582,3 +593,140 @@ def assert_task_completed(conn: sqlite3.Connection, task_id: int, actor_employee
         conn, task_id, "completed", actor_employee_id=actor_employee_id,
         note=note, observed_at=observed_at,
     )
+
+
+# ---------------------------------------------------------------------------
+# Phase 2, Sprint 4, Slice 6 -- Recommendation.
+#
+# See DATA_MODEL.md's Recommendation entry. Deliberately distinct from
+# Task -- an Interpretation (DECISION_FRAMEWORK.md's ontology), not a
+# Commitment, until a human converts it. Rule-driven, reusing the same
+# rules/aging.py functions the CSV reports already use.
+# ---------------------------------------------------------------------------
+
+_RECOMMENDATION_COLUMNS = ["recommendation_id", "vin", "severity", "title", "detail", "rule_source",
+                           "status", "resulting_task_id", "created_at", "resolved_at"]
+
+
+def insert_recommendation(conn: sqlite3.Connection, vin: str, severity: str, title: str, detail: str,
+                           rule_source: str, created_at: str = None) -> int:
+    """
+    Creates a new Recommendation, always status='open' (the migration's
+    column default). Callers must check get_open_recommendation() (or,
+    for the dismissed-reopening decision, get_latest_recommendation())
+    themselves first -- this function always inserts, same division of
+    responsibility as insert_task/insert_event.
+    """
+    if created_at is None:
+        created_at = datetime.datetime.now().isoformat()
+    cur = conn.execute(
+        "INSERT INTO recommendation (vin, severity, title, detail, rule_source, created_at) "
+        "VALUES (?, ?, ?, ?, ?, ?)",
+        (vin, severity, title, detail, rule_source, created_at),
+    )
+    return cur.lastrowid
+
+
+def get_open_recommendation(conn: sqlite3.Connection, vin: str, rule_source: str):
+    """Returns the dict of an open Recommendation for this (vin, rule_source), or None."""
+    row = conn.execute(
+        f"SELECT {', '.join(_RECOMMENDATION_COLUMNS)} FROM recommendation "
+        "WHERE vin = ? AND rule_source = ? AND status = 'open'",
+        (vin, rule_source),
+    ).fetchone()
+    if row is None:
+        return None
+    return dict(zip(_RECOMMENDATION_COLUMNS, row))
+
+
+def get_latest_recommendation(conn: sqlite3.Connection, vin: str, rule_source: str):
+    """
+    Returns the dict of the most recently created Recommendation for
+    this (vin, rule_source), regardless of status, or None if none
+    exists yet. This is the basis for the "should a dismissed
+    Recommendation reappear" decision -- see
+    sync/reconciler.py's generate_key_out_aging_recommendations for how
+    its resolved_at is compared against Event history to decide whether
+    the underlying vehicle state has genuinely changed since dismissal.
+    """
+    row = conn.execute(
+        f"SELECT {', '.join(_RECOMMENDATION_COLUMNS)} FROM recommendation "
+        "WHERE vin = ? AND rule_source = ? ORDER BY recommendation_id DESC LIMIT 1",
+        (vin, rule_source),
+    ).fetchone()
+    if row is None:
+        return None
+    return dict(zip(_RECOMMENDATION_COLUMNS, row))
+
+
+def get_recommendation(conn: sqlite3.Connection, recommendation_id: int):
+    """Same shape as get_open_recommendation/get_latest_recommendation, looked up by id directly."""
+    row = conn.execute(
+        f"SELECT {', '.join(_RECOMMENDATION_COLUMNS)} FROM recommendation WHERE recommendation_id = ?",
+        (recommendation_id,),
+    ).fetchone()
+    if row is None:
+        return None
+    return dict(zip(_RECOMMENDATION_COLUMNS, row))
+
+
+def dismiss_recommendation(conn: sqlite3.Connection, recommendation_id: int, resolved_at: str = None):
+    """
+    Marks a Recommendation dismissed. Only ever moves it OUT of 'open';
+    the WHERE guard means dismissing an already-resolved Recommendation
+    twice is a harmless no-op, not a second transition -- same
+    immutability discipline as _discharge_task/resolve_pending_identity.
+    No ratification recorded here -- DATA_MODEL.md's Recommendation has
+    no ratified_by field (unlike Task); dismissing one is a lighter-
+    weight action than committing to or discharging a Task, and no
+    real workflow has asked for authority-tracking on a dismiss.
+    """
+    if resolved_at is None:
+        resolved_at = datetime.datetime.now().isoformat()
+    conn.execute(
+        "UPDATE recommendation SET status = 'dismissed', resolved_at = ? "
+        "WHERE recommendation_id = ? AND status = 'open'",
+        (resolved_at, recommendation_id),
+    )
+
+
+def convert_recommendation_to_task(conn: sqlite3.Connection, recommendation_id: int, task_type: str,
+                                    ratified_by: str, ratification_type: str = "human",
+                                    department: str = None, priority: str = None,
+                                    reason: str = None, created_at: str = None,
+                                    resolved_at: str = None) -> int:
+    """
+    The Interpretation-to-Ratification-to-Commitment path
+    (DECISION_FRAMEWORK.md's Architecture section): converting a
+    Recommendation into a Task is itself an act of ratification -- a
+    human reviewed the Recommendation and decided to act, which is why
+    ratified_by is a REQUIRED parameter here (unlike Slice 5's
+    auto-generated install Tasks, which have no ratification at
+    creation). Only ever converts a Recommendation once -- the WHERE
+    guard on the UPDATE means calling this twice for an already-
+    converted Recommendation raises (see below) rather than silently
+    creating a second Task.
+    """
+    rec = get_recommendation(conn, recommendation_id)
+    if rec is None:
+        raise ValueError(f"cannot convert unknown recommendation_id={recommendation_id}")
+    if rec["status"] != "open":
+        raise ValueError(
+            f"cannot convert recommendation_id={recommendation_id} -- "
+            f"status is '{rec['status']}', not 'open'"
+        )
+
+    task_id = insert_task(
+        conn, rec["vin"], task_type, department=department, priority=priority,
+        reason=reason if reason is not None else rec["detail"], created_at=created_at,
+        ratified_by=ratified_by, ratification_type=ratification_type,
+    )
+
+    if resolved_at is None:
+        resolved_at = datetime.datetime.now().isoformat()
+    conn.execute(
+        "UPDATE recommendation SET status = 'converted_to_task', resulting_task_id = ?, resolved_at = ? "
+        "WHERE recommendation_id = ? AND status = 'open'",
+        (task_id, resolved_at, recommendation_id),
+    )
+    return task_id

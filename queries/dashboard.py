@@ -11,6 +11,7 @@ plan's explicit "Output is inspectable data (dict/JSON-shaped), no HTTP
 server."
 """
 
+import json
 import sqlite3
 
 
@@ -45,27 +46,78 @@ def connected_systems_status(conn: sqlite3.Connection) -> dict:
     return status_by_source
 
 
-def recent_activity_feed(conn: sqlite3.Connection, limit: int = 20) -> list:
+def recent_activity_feed(conn: sqlite3.Connection, limit: int = 20, vin: str = None) -> list:
     """
     Live-activity-style recent-Events feed (IMPLEMENTATION_PLAN.md
-    Slice 7). The most recent `limit` Events across all vehicles,
-    newest first -- ordered by event_id (a true autoincrement sequence)
-    rather than observed_at (a plain string column with no uniqueness
-    or index guarantee), so ties resolve deterministically.
+    Slice 7). The most recent `limit` Events, newest first -- ordered
+    by event_id (a true autoincrement sequence) rather than
+    observed_at (a plain string column with no uniqueness or index
+    guarantee), so ties resolve deterministically.
 
     Returns a list of dicts: event_id, vin, event_type, source,
-    summary, observed_at. summary is the Timeline-ready display text
-    already produced when the Event was written (ARCHITECTURE.md,
-    "Event needed a richer shape") -- this function does not
-    reconstruct or reformat it.
+    sync_run_id, actor_employee_id, dealership_id, observed_at, summary,
+    detail_fields (parsed back from JSON, same as
+    database/repository.py's get_last_event_detail_fields already
+    does -- never left as a raw JSON string), plus a nested `vehicle`
+    summary (vin, stock_number, year, make, model). summary is the
+    Timeline-ready display text already produced when the Event was
+    written (ARCHITECTURE.md, "Event needed a richer shape") -- this
+    function does not reconstruct or reformat it.
+
+    Extended during Phase 3, Sprint 2 to select every Event column (the
+    original Slice 7 version selected only six) and embed a Vehicle
+    summary -- API_CONTRACTS.md's ActivityDTO explicitly wants the
+    vehicle embedded specifically for this global feed, "since the
+    whole point of this screen is seeing activity across vehicles."
+    Purely additive relative to Slice 7's original shape -- every
+    pre-existing key is unchanged, only new keys were added -- so every
+    existing caller and test continues to work unmodified. The INNER
+    join to `vehicle` is safe because event.vin carries a real FOREIGN
+    KEY to vehicle (migrations/0001_initial.sql).
+
+    `vin` is an optional filter, added the same sprint so
+    `VehicleDetailDTO`'s Timeline (API_CONTRACTS.md) reuses this exact
+    function scoped to one vehicle, instead of a second, near-duplicate
+    query living in queries/vehicles.py -- the global Activity screen
+    (vin=None, the original and still-default behavior) and a single
+    vehicle's Timeline are the same question at a different scope, not
+    two different questions.
     """
-    rows = conn.execute(
-        "SELECT event_id, vin, event_type, source, summary, observed_at "
-        "FROM event ORDER BY event_id DESC LIMIT ?",
-        (limit,),
-    ).fetchall()
-    columns = ["event_id", "vin", "event_type", "source", "summary", "observed_at"]
-    return [dict(zip(columns, row)) for row in rows]
+    base_query = (
+        "SELECT e.event_id, e.vin, e.event_type, e.source, e.sync_run_id, "
+        "e.actor_employee_id, e.dealership_id, e.observed_at, e.summary, e.detail_fields, "
+        "v.stock_number, v.year, v.make, v.model "
+        "FROM event e JOIN vehicle v ON v.vin = e.vin "
+    )
+    if vin is None:
+        rows = conn.execute(
+            base_query + "ORDER BY e.event_id DESC LIMIT ?",
+            (limit,),
+        ).fetchall()
+    else:
+        rows = conn.execute(
+            base_query + "WHERE e.vin = ? ORDER BY e.event_id DESC LIMIT ?",
+            (vin, limit),
+        ).fetchall()
+
+    columns = [
+        "event_id", "vin", "event_type", "source", "sync_run_id",
+        "actor_employee_id", "dealership_id", "observed_at", "summary", "detail_fields",
+        "stock_number", "year", "make", "model",
+    ]
+    results = []
+    for row in rows:
+        record = dict(zip(columns, row))
+        record["detail_fields"] = json.loads(record["detail_fields"]) if record["detail_fields"] else None
+        record["vehicle"] = {
+            "vin": record["vin"],
+            "stock_number": record.pop("stock_number"),
+            "year": record.pop("year"),
+            "make": record.pop("make"),
+            "model": record.pop("model"),
+        }
+        results.append(record)
+    return results
 
 
 def task_counts_by_department(conn: sqlite3.Connection, commitment_standing: str = "outstanding") -> dict:

@@ -5,16 +5,16 @@ sprint. This is a snapshot, not a narrative — see `SPRINT_X_REVIEW.md`
 files for the story behind each entry, and `IMPLEMENTATION_PLAN.md`
 for the full plan this tracks progress against.
 
-**Last updated:** 2026-07-26 (Sprint 4 closed — Phase 2 complete)
+**Last updated:** 2026-07-27 (Phase 3, Sprint 2 closed — read-only API layer)
 
 ## Current position
 
 | | |
 |---|---|
-| **Phase** | Phase 2 — Persistent operational platform — **COMPLETE** |
-| **Sprint** | 4 (done — Slices 5, 6, 7) |
-| **Slice** | None open. Phase 3 (web application) awaits an explicit product-owner decision to begin — see `IMPLEMENTATION_PLAN.md`'s "Scope boundary" |
-| **Last completed** | Slice 7 — Dashboard data layer (Sprint 4) |
+| **Phase** | Phase 3 — Web application — **Sprint 2 done, backend-only** (Phase 2 remains complete underneath it) |
+| **Sprint** | Phase 3, Sprint 2 — Read API Foundation (done) |
+| **Scope note** | First read-only API layer (`GET /dashboard`, `/vehicles`, `/vehicles/{vin}`, `/tasks`, `/recommendations`, `/activity`, `/reports`) over the already-complete Phase 2/Sprint 1 data. No writes, no auth, no frontend changes (LotSyncWeb untouched). See `PHASE_3_SPRINT_2_REVIEW.md` for the full report, the Frontend Readiness estimate, and the Sprint 3 recommendation. |
+| **Last completed** | Phase 3, Sprint 2 — `api/` package, three new `queries/` modules, 61 new tests |
 
 ## Completed slices
 
@@ -26,25 +26,36 @@ for the full plan this tracks progress against.
 | 5 — Task generation | 4 | Pre-Sprint 4 design review reshaped `Task` into `commitment_standing`/`execution_status` (independent axes), a `TaskExecutionEvent` append-only log, and `escalated_from_task_id`. Backend: `generate_install_tasks` (reusing `build_tracker_install_tasks`), Reality-discharge wired into RecovR/Tekion-sold diffs, Intent-discharge (`cancel_task`/`escalate_task`), manual completion assertions coexisting with automatic discharge. Known, documented asymmetry: `install_mdd_beacon` Tasks have no automatic Honored path (MDD never positively confirms). | (no dedicated review file — folded into this dashboard + commit history) |
 | 6 — Recommendation engine | 4 | `Recommendation` lifecycle (open/converted_to_task/dismissed), first rule (`key_out_aging`'s most-severe bucket, config-driven not hardcoded), conversion-to-Task as a ratified act, dismissed-reopening logic reusing Slice 3's Event history rather than new tracking fields. | (same as above) |
 | 7 — Dashboard data layer | 4 | `queries/dashboard.py`: `connected_systems_status`, `recent_activity_feed`, `task_counts_by_department`, `inventory_health_percentage` — all read-only, no new stored state. Two terms neither `IMPLEMENTATION_PLAN.md` nor `DATA_MODEL.md` precisely defined ("health," "department" grouping) resolved as documented implementation decisions. Performance validated at 3,000 vehicles / 12,000 events — sub-second, no optimization needed yet. | (same as above) |
+| Phase 3, Sprint 1 — Employee + Dealership | Phase 3, Sprint 1 | `database/migrations/0006_employee_dealership.sql`; `upsert_dealership`/`get_dealership`, `upsert_employee`/`get_employee` in `database/repository.py`. Real `FOREIGN KEY` from `employee.dealership_id` to `dealership`. Deliberately did not retrofit FKs onto the four existing tables' employee/dealership columns (same precedent as `event.sync_run_id`), and deliberately built no authentication scaffolding — see `PHASE_3_SPRINT_1_REVIEW.md`'s Risks section for both. | [`PHASE_3_SPRINT_1_REVIEW.md`](PHASE_3_SPRINT_1_REVIEW.md) |
+| Phase 3, Sprint 2 — Read API Foundation | Phase 3, Sprint 2 | First FastAPI layer: `GET /dashboard`, `/vehicles`, `/vehicles/{vin}` (reference implementation), `/tasks`, `/recommendations`, `/activity`, `/reports`. New `queries/vehicles.py`, `queries/tasks.py`, `queries/recommendations.py`; `recent_activity_feed` extended to embed Vehicle summaries. A real cross-thread SQLite bug caught and fixed (`connect()` now uses `check_same_thread=False`). One `API_CONTRACTS.md` correction (`VehicleSummaryDTO.color` removed — no such backend column). No writes, no auth, frontend untouched. | [`PHASE_3_SPRINT_2_REVIEW.md`](PHASE_3_SPRINT_2_REVIEW.md) |
 
 ## Upcoming slices
 
-None. **Phase 2 is complete.** Phase 3 (the web application — API,
-authentication, UI) is the next phase per `PRODUCT.md`/
-`IMPLEMENTATION_PLAN.md`, but starting it is an explicit product-owner
-decision to make now that the boundary is actually reached, not an
-automatic continuation — see this file's closing note below.
+**Phase 3, Sprint 3 recommendation** (not started; per this project's
+standing practice, starting it is a separate, explicit decision — see
+`PHASE_3_SPRINT_2_REVIEW.md`'s "Sprint 3 Recommendation" section for
+the full reasoning): the smallest, safest frontend integration slice —
+wire ONE screen (recommended: Vehicle Detail, this sprint's own
+reference implementation) to its real endpoint, prove the integration
+pattern end-to-end, then decide whether to repeat it per-screen or
+batch several at once. Also the natural point to revisit whether any
+authentication scaffolding is actually needed yet, now that a real,
+running access surface exists for the first time.
 
 ## Regression status
 
-- **211 / 211 tests passing** (`tests/`, run via
+- **292 / 292 tests passing** (`tests/`, run via
   `PYTHONPATH=.. python -m unittest discover -s tests -p "test_*.py"`
   from the repo root).
-- Growth this sprint: 137 → 211 (+74 across Slices 5–7: 34 in
-  `test_database_slice5.py`, 21 in `test_database_slice6.py`, 19 in
-  `test_queries_dashboard.py`).
+- Growth this sprint: 231 → 292 (+61: 21 across three new `queries/`
+  test files plus 4 added to `test_queries_dashboard.py`, 14 in
+  `test_api_dtos.py`, 22 in `test_api_routes.py`).
 - No CI — the suite must be run manually. Standing risk, unchanged
   since Sprint 1.
+- **New for this sprint:** running `tests/test_api_routes.py` requires
+  `fastapi`/`uvicorn`/`httpx` installed (see `api/README.md`) — the
+  first test file in this project needing anything beyond the standard
+  library. Every other test file remains dependency-free.
 
 ## Environment
 
@@ -87,7 +98,37 @@ left alone — not in the checklist, and the design review explicitly
 judged it not urgent enough to justify reopening that document on its
 own. No governance document was touched during Slice 7 — `queries/
 dashboard.py` is new, ungoverned application code, not a schema or
-architecture change. No open governance questions at this time.
+architecture change.
+
+**Phase 3, Sprint 1:** no governance document was touched. `DATA_MODEL.md`'s
+Employee and Dealership shapes were already fully specified and
+implemented exactly as written — this sprint closed an implementation
+gap (no migration existed), not a design gap. `FRONTEND_BACKEND_RECONCILIATION.md`
+and `API_CONTRACTS.md` — both already governing-adjacent per the Phase
+3 kickoff — are updated in spirit but not edited: their open questions
+(Requests, Trade-Ins, Transportation/Customer Delivery, Authentication,
+Employee's migration gap) are unchanged except that the Employee
+migration gap specifically named in both is now closed. See
+`PHASE_3_SPRINT_1_REVIEW.md` for the one real implementation-level
+finding this sprint surfaced (a SQLite `NOT NULL`/`UPSERT` interaction
+that made `upsert_vehicle`'s pattern unsafe to reuse verbatim for
+`Employee`/`Dealership`) — an implementation detail, not a governance
+question, so no `DATA_MODEL.md`/`ARCHITECTURE.md` change resulted.
+
+**Phase 3, Sprint 2:** `API_CONTRACTS.md` was edited once, for a
+genuine reason — `VehicleSummaryDTO`'s `color` field was removed,
+since the backend has no such column and nothing populates one. This
+is the same "fix the stale reference, not the correct document"
+convention `DATA_MODEL.md` itself already establishes, applied to
+`API_CONTRACTS.md` for the first time. No other governance document
+was touched. `DATA_MODEL.md`/`ARCHITECTURE.md` remain fully consistent
+with this sprint's implementation — nothing built this sprint required
+a schema or architecture change, only new, additive query functions and
+a new, additive `api/` package. See `PHASE_3_SPRINT_2_REVIEW.md` for
+the one real implementation-level finding this sprint surfaced (a
+SQLite cross-thread connection error, fixed via `check_same_thread=False`
+on `connect()`) — again an implementation detail, not a governance
+question.
 
 ## Phase 2 complete — what the backend now provides
 
@@ -108,8 +149,12 @@ introducing a second, driftable copy of any answer (Slice 7). Every
 CSV report a dealership already depends on has produced byte-identical
 output, unchanged, through all seven slices.
 
-**Next decision, not yet made:** whether and when to begin Phase 3
-(the web application — API, authentication, UI), per
-`IMPLEMENTATION_PLAN.md`'s "Scope boundary." That's an explicit
-product-owner call to make now that Phase 2 is actually done, not a
-default continuation of this sprint.
+**Phase 3 has begun**, scoped narrowly and deliberately, sprint by
+sprint: Sprint 1 built the Employee/Dealership backend foundation;
+Sprint 2 built the first read-only API layer over the existing Phase 2
+data. Both explicitly excluded authentication and frontend integration.
+**Next decision, not yet made:** whether to begin Phase 3, Sprint 3 (a
+single-screen frontend integration slice — see "Upcoming slices"
+above), per this project's standing practice of treating each sprint as
+its own scoped, reviewed unit rather than an automatic continuation
+into the next.

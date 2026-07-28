@@ -59,13 +59,30 @@ def connect(db_path: str = None) -> sqlite3.Connection:
     Opens a SQLite connection and ensures all migrations are applied
     before returning it -- the only entry point that should be used to
     get a LotSync database connection, so schema is always current.
+
+    check_same_thread=False, added during Phase 3, Sprint 2: FastAPI's
+    request-handling model (api/dependencies.py's get_db) can execute a
+    sync route's dependency-and-handler chain on a worker-pool thread
+    different from wherever the caller happens to be, and this
+    project's own tests override that same dependency with a single
+    shared connection across several TestClient calls within one test
+    (see tests/test_api_routes.py) -- both are "used on a different
+    thread than it was created on, sequentially," never two threads
+    touching the same connection at the same instant. sqlite3's
+    same-thread check guards against genuine concurrent access, which
+    this doesn't introduce (every real request still opens and closes
+    its own connection, per get_db's generator) -- it otherwise just
+    rejects a safe, sequential handoff. No behavior changes for any
+    existing single-threaded caller (main.py, every test in this
+    project through Phase 2) -- this flag is a no-op until something
+    actually crosses a thread boundary.
     """
     if db_path is None:
         db_path = DEFAULT_DB_PATH
     dirname = os.path.dirname(db_path)
     if dirname:
         os.makedirs(dirname, exist_ok=True)
-    conn = sqlite3.connect(db_path)
+    conn = sqlite3.connect(db_path, check_same_thread=False)
     conn.execute("PRAGMA foreign_keys = ON")
     apply_migrations(conn)
     return conn
@@ -730,3 +747,135 @@ def convert_recommendation_to_task(conn: sqlite3.Connection, recommendation_id: 
         (task_id, resolved_at, recommendation_id),
     )
     return task_id
+
+
+# ---------------------------------------------------------------------------
+# Phase 3, Sprint 1 -- Employee / Dealership.
+#
+# See DATA_MODEL.md's Employee and Dealership entries and
+# migrations/0006_employee_dealership.sql for the full reasoning. Both
+# are reference entities with a natural key (employee_id, dealership_id)
+# and no discharge/status-transition lifecycle of their own -- unlike
+# Task or Recommendation, there is no "invalid transition" to guard
+# against here, so the *intent* is to reuse upsert_vehicle's partial-
+# upsert shape: a Dealership's brand can be filled in by one source and
+# an Employee's status updated by another, independently, the same way
+# Vehicle's per-source status fields already accumulate incrementally
+# across separate importer passes.
+#
+# The *implementation* deliberately does NOT reuse upsert_vehicle's
+# single "INSERT ... ON CONFLICT DO UPDATE" statement shape, though --
+# confirmed empirically (not assumed) that SQLite evaluates a table's
+# NOT NULL constraints against the attempted INSERT row before conflict
+# resolution ever redirects to the UPDATE branch. Vehicle has no NOT
+# NULL column besides its own primary key, so upsert_vehicle's
+# single-statement form never hits this. Dealership and Employee both
+# have a NOT NULL `name` (migrations/0006_employee_dealership.sql) --
+# a single ON CONFLICT DO UPDATE statement that omits `name` (e.g. a
+# call that only wants to update `status`) raises IntegrityError even
+# when the row already exists and already has a valid name. Reusing
+# upsert_vehicle's shape here as-is would silently break the exact
+# partial-update behavior it's supposed to provide. Both functions below
+# branch explicitly on whether the row already exists instead: a genuine
+# UPDATE statement for existing rows (no INSERT attempted at all, so no
+# NOT NULL check on omitted columns), and an explicit, named ValueError
+# for the one real invalid case an existence branch newly makes
+# possible -- creating a row for the first time without a name.
+# ---------------------------------------------------------------------------
+
+
+def upsert_dealership(conn: sqlite3.Connection, dealership_id: str, **fields):
+    """
+    Partial upsert -- only the columns passed in `fields` are set or
+    updated on an existing row; any other column already there is left
+    untouched, same end result as upsert_vehicle. See the module-level
+    comment above for why this is implemented as an explicit
+    existence-check-then-branch rather than upsert_vehicle's single
+    statement. Creating a new Dealership for the first time requires
+    `name` in `fields` -- raises ValueError otherwise, since the schema
+    can't hold a nameless row and there's no demonstrated need (unlike
+    Vehicle's bare-vin placeholder, which Keyper's resolve-first-
+    populate-later workflow genuinely requires) for one here.
+    """
+    existing = get_dealership(conn, dealership_id)
+
+    if existing is None:
+        if not fields.get("name"):
+            raise ValueError(f"cannot create dealership_id={dealership_id!r} without a name")
+        columns = list(fields.keys())
+        insert_cols = ", ".join(["dealership_id"] + columns)
+        placeholders = ", ".join(["?"] * (len(columns) + 1))
+        conn.execute(
+            f"INSERT INTO dealership ({insert_cols}) VALUES ({placeholders})",
+            [dealership_id] + [fields[c] for c in columns],
+        )
+        return
+
+    if not fields:
+        return
+    update_clause = ", ".join(f"{c} = ?" for c in fields)
+    conn.execute(
+        f"UPDATE dealership SET {update_clause} WHERE dealership_id = ?",
+        list(fields.values()) + [dealership_id],
+    )
+
+
+def get_dealership(conn: sqlite3.Connection, dealership_id: str):
+    """Returns the dict of a Dealership's columns, or None if no such row exists."""
+    row = conn.execute(
+        "SELECT dealership_id, name, brand FROM dealership WHERE dealership_id = ?",
+        (dealership_id,),
+    ).fetchone()
+    if row is None:
+        return None
+    return dict(zip(["dealership_id", "name", "brand"], row))
+
+
+def upsert_employee(conn: sqlite3.Connection, employee_id: str, **fields):
+    """
+    Partial upsert, same shape and same reasoning as upsert_dealership
+    above (see the module-level comment for why this branches on
+    existence instead of reusing upsert_vehicle's single-statement
+    form). Creating a new Employee for the first time requires `name`
+    in `fields` -- raises ValueError otherwise. `dealership_id`, if
+    passed, must reference an existing Dealership row (a real FOREIGN
+    KEY, per migrations/0006_employee_dealership.sql, enforced by
+    SQLite itself since connect() turns on `PRAGMA foreign_keys`) --
+    callers upserting an Employee's home dealership must
+    upsert_dealership() first, the same ordering
+    convert_recommendation_to_task already requires between a
+    Recommendation and the Task it produces.
+    """
+    existing = get_employee(conn, employee_id)
+
+    if existing is None:
+        if not fields.get("name"):
+            raise ValueError(f"cannot create employee_id={employee_id!r} without a name")
+        columns = list(fields.keys())
+        insert_cols = ", ".join(["employee_id"] + columns)
+        placeholders = ", ".join(["?"] * (len(columns) + 1))
+        conn.execute(
+            f"INSERT INTO employee ({insert_cols}) VALUES ({placeholders})",
+            [employee_id] + [fields[c] for c in columns],
+        )
+        return
+
+    if not fields:
+        return
+    update_clause = ", ".join(f"{c} = ?" for c in fields)
+    conn.execute(
+        f"UPDATE employee SET {update_clause} WHERE employee_id = ?",
+        list(fields.values()) + [employee_id],
+    )
+
+
+def get_employee(conn: sqlite3.Connection, employee_id: str):
+    """Returns the dict of an Employee's columns, or None if no such row exists."""
+    row = conn.execute(
+        "SELECT employee_id, name, role, department, dealership_id, status "
+        "FROM employee WHERE employee_id = ?",
+        (employee_id,),
+    ).fetchone()
+    if row is None:
+        return None
+    return dict(zip(["employee_id", "name", "role", "department", "dealership_id", "status"], row))

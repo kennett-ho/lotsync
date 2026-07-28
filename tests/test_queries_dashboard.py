@@ -133,6 +133,43 @@ class RecentActivityFeedTest(unittest.TestCase):
         self.assertEqual(len(feed), total)
 
 
+class RecentActivityFeedVinFilterTest(unittest.TestCase):
+    """
+    Phase 3, Sprint 2 addition: the same function, scoped to one
+    vehicle, is what VehicleDetailDTO's Timeline reuses (see
+    queries/vehicles.py's get_vehicle_detail) instead of a second,
+    near-duplicate query.
+    """
+
+    def setUp(self):
+        self.conn = connect(":memory:")
+        _run_full_pipeline(self.conn)
+
+    def test_vin_filter_returns_only_that_vehicles_events(self):
+        (some_vin,) = self.conn.execute("SELECT vin FROM vehicle LIMIT 1").fetchone()
+        feed = recent_activity_feed(self.conn, limit=1000, vin=some_vin)
+        self.assertTrue(len(feed) > 0)
+        for row in feed:
+            self.assertEqual(row["vin"], some_vin)
+
+    def test_vin_filter_excludes_other_vehicles_events(self):
+        (some_vin,) = self.conn.execute("SELECT vin FROM vehicle LIMIT 1").fetchone()
+        scoped_feed = recent_activity_feed(self.conn, limit=1000, vin=some_vin)
+        global_feed = recent_activity_feed(self.conn, limit=1000)
+        self.assertLess(len(scoped_feed), len(global_feed))
+
+    def test_unknown_vin_returns_empty_list_not_an_error(self):
+        feed = recent_activity_feed(self.conn, limit=1000, vin="NO-SUCH-VIN")
+        self.assertEqual(feed, [])
+
+    def test_omitting_vin_preserves_original_global_behavior(self):
+        # Regression guard: the default (vin=None) must remain
+        # byte-for-byte the same query every existing caller relies on.
+        with_default = recent_activity_feed(self.conn, limit=1000)
+        explicit_none = recent_activity_feed(self.conn, limit=1000, vin=None)
+        self.assertEqual(with_default, explicit_none)
+
+
 class TaskCountsByDepartmentTest(unittest.TestCase):
     def setUp(self):
         self.conn = connect(":memory:")

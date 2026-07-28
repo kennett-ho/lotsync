@@ -133,3 +133,40 @@ Phase 2 complete. See `IMPLEMENTATION_PLAN.md`'s Slice 5/6/7 sections and `PROJE
 - `install_mdd_beacon` Tasks have no automatic Honored path — MDD's export only ever reports "not paired," never a positive confirming claim.
 - `generate_install_tasks` reuses `build_tracker_install_tasks`'s methodology specifically, not `build_recovr_install_from_keyper`'s different population — reconciling the two is a deferred product question, not a Task-architecture concern.
 - "Inventory health percentage" and Task-department grouping were undefined terms; resolved as documented implementation decisions (health = percentage of vehicles with zero outstanding Tasks; department grouping includes an honest "Unassigned" bucket rather than inventing a mapping).
+
+## Phase 3, Sprint 1 — Backend foundation: Employee + Dealership (2026-07-27)
+
+See [`PHASE_3_SPRINT_1_REVIEW.md`](PHASE_3_SPRINT_1_REVIEW.md) for full detail. Closes the gap `FRONTEND_BACKEND_RECONCILIATION.md` and `API_CONTRACTS.md` both flagged: `Employee`/`Dealership` were fully specified in `DATA_MODEL.md` since Phase 2's frontend-discovery review but never migrated.
+
+**Added**
+- `database/migrations/0006_employee_dealership.sql` — `dealership` and `employee` tables, matching `DATA_MODEL.md`'s shapes exactly; `employee.dealership_id` carries a real `FOREIGN KEY` to `dealership` (safe at creation time, since both tables are new in this same migration).
+- `database/repository.py` — `upsert_dealership`/`get_dealership`, `upsert_employee`/`get_employee`.
+- `tests/test_database_dealership.py` (9 tests), `tests/test_database_employee.py` (11 tests).
+
+**Deliberately NOT added:** any authentication scaffolding (identity/session/permission infrastructure). Per `PRODUCT.md`'s own explicit boundary ("No authentication system until Phase 3 creates a real multi-user access surface requiring one") and this sprint's own scope (no FastAPI, no controllers, no frontend integration — no access surface actually created yet), building auth infrastructure now would be exactly the "infrastructure ahead of real need" pattern this project avoids everywhere else. Deferred to whichever future sprint actually introduces the API layer.
+
+**Deliberately NOT added:** `FOREIGN KEY` constraints retrofitted onto the four already-existing tables' employee/dealership-shaped columns (`vehicle.current_dealership_id`, `task.dealership_id`, `task.assigned_employee_id`, `task.ratified_by`, `event.actor_employee_id`, `event.dealership_id`, `sync_run.dealership_id`). SQLite has no `ALTER TABLE ... ADD CONSTRAINT`; retrofitting would mean recreating each live table. Same choice already made once before for `event.sync_run_id` in `migrations/0004_task.sql` — the "no orphans" guarantee is left to a future application-level test once something actually starts writing real employee/dealership references into these columns, which nothing does yet.
+
+**A real bug caught before it shipped, worth recording:** the first draft of `upsert_dealership`/`upsert_employee` reused `upsert_vehicle`'s single "`INSERT ... ON CONFLICT DO UPDATE`" statement shape. Confirmed empirically (not assumed) that SQLite checks a table's `NOT NULL` constraints against the attempted `INSERT` row *before* conflict resolution redirects to `UPDATE` — so a partial update omitting `name` (both tables' one `NOT NULL` column beyond their primary key) raised `IntegrityError` even on an already-existing row with a perfectly valid name. `Vehicle` never surfaces this because it has no `NOT NULL` column besides its own primary key. Fixed by branching explicitly on row existence instead — a real `UPDATE` statement for existing rows (no `INSERT` attempted, so no `NOT NULL` check on omitted columns), and an explicit `ValueError` for the one genuinely new invalid case this branch introduces (creating a row without a name).
+
+**No change to:** any CSV report's content or format, `main.py`'s pipeline, or any existing table. Verified via full-suite regression (211 → 231 passing).
+
+## Phase 3, Sprint 2 — Read API Foundation (2026-07-27)
+
+See [`PHASE_3_SPRINT_2_REVIEW.md`](PHASE_3_SPRINT_2_REVIEW.md) for full detail. First read-only API layer over the already-complete Phase 2/Sprint 1 data — no writes, no auth, no frontend changes.
+
+**Added**
+- `api/` (new package) — `dtos.py` (Pydantic models implementing `API_CONTRACTS.md`'s Section 3 DTOs for this sprint's scope), `dependencies.py` (`get_db`), `routers/{dashboard,vehicles,tasks,recommendations,activity,reports}.py`, `app.py`. First FastAPI dependency this project has ever added — anticipated by `ARCHITECTURE.md`, already the named Phase 3 tech choice in `PRODUCT.md`.
+- `queries/vehicles.py` — `list_vehicles`, `get_vehicle_detail` (the sprint's named reference implementation for detail-page aggregation).
+- `queries/tasks.py` — `list_tasks`. `queries/recommendations.py` — `list_recommendations`. Both reused unmodified by `get_vehicle_detail` via an optional `vin` filter — one function per concern at two scopes, not two functions.
+- `queries/dashboard.py`'s `recent_activity_feed` extended (backward-compatibly) to embed a Vehicle summary per row and select the full Event column set (`sync_run_id`, `actor_employee_id`, `dealership_id`, `detail_fields`, parsed back from JSON) — the original Slice 7 version only selected six of Event's ten columns.
+- `tests/test_queries_vehicles.py` (9), `tests/test_queries_tasks.py` (7), `tests/test_queries_recommendations.py` (5), new tests in `tests/test_queries_dashboard.py` (4), `tests/test_api_dtos.py` (14), `tests/test_api_routes.py` (22).
+- `api/README.md` — how to run the server and test suite.
+
+**Changed**
+- `database/repository.py`'s `connect()` now passes `check_same_thread=False`. A real, load-bearing fix, not a stylistic one — see the "bug caught" note below.
+- `API_CONTRACTS.md` — `VehicleSummaryDTO`'s `color` field removed; the `vehicle` table has no such column and nothing populates one. Caught during this sprint's implementation, corrected in the contract directly per this sprint's own instruction ("if implementation reveals a conflict... stop and explain it").
+
+**A real bug caught before it shipped, worth recording:** the first test run against the new FastAPI routes failed with `sqlite3.ProgrammingError: SQLite objects created in a thread can only be used in that same thread`. FastAPI dispatches sync route handlers (and their dependencies) to a worker-pool thread, which is not necessarily the thread that opened the connection passed into a test's dependency override. Fixed at the source — `connect()` now opens with `check_same_thread=False`, safe because every request (real or test) still gets its own connection, never shared *concurrently* between two callers, only sequentially across threads. Zero behavior change for any existing single-threaded caller (`main.py`, every Phase 1/2 test) — confirmed via full-suite regression.
+
+**No change to:** any CSV report, any existing table or migration, any write path, `main.py`'s pipeline, or the LotSyncWeb frontend (untouched, as instructed). Verified via full-suite regression (231 → 292 passing).

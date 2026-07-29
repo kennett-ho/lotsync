@@ -189,6 +189,68 @@ class TekionWritePathTest(unittest.TestCase):
         pd.testing.assert_frame_equal(self.tekion_df, tekion_before)
         pd.testing.assert_frame_equal(self.sold_df, sold_before)
 
+    def test_master_list_display_name_persisted_verbatim(self):
+        # Regression test for a real gap: Tekion's "Year Make Model"
+        # column was never persisted anywhere -- confirmed against a
+        # real 4,312-vehicle dealership database (0 vehicles had it
+        # populated) before this fix. Copied verbatim, not parsed.
+        persist_tekion_observations(self.tekion_df, self.sold_df, db_conn=self.conn)
+        (display_name,) = self.conn.execute(
+            "SELECT display_name FROM vehicle WHERE vin = ?", ("1TESTVIN000050001",)
+        ).fetchone()
+        self.assertEqual(display_name, "2026 New Car")
+
+    def test_sold_display_name_wins_for_vehicle_in_both_master_and_sold(self):
+        # Same "current-state cache, sold wins" rule display_name shares
+        # with tekion_status/stock_number (see
+        # test_sold_status_wins_for_vehicle_in_both_master_and_sold
+        # above) -- exercised with deliberately different text between
+        # the two rows, since every real fixture VIN happens to share
+        # identical "Year Make Model" text across its master/sold rows.
+        import pandas as pd
+        tekion_df = pd.DataFrame([{
+            "Stock #": "K90010", "VIN #": "1TESTVIN000090010", "Status": "Stocked In",
+            "Year Make Model": "2024 Master List Text", "Stocked In Date": "Jul 1 2026",
+            "is_internal_fleet": False,
+        }])
+        sold_df = pd.DataFrame([{
+            "Stock #": "K90010", "VIN #": "1TESTVIN000090010", "Status": "Sold",
+            "Year Make Model": "2024 Sold List Text", "Sold Date": "Jul 2 2026",
+        }])
+        persist_tekion_observations(tekion_df, sold_df, db_conn=self.conn)
+        (display_name,) = self.conn.execute(
+            "SELECT display_name FROM vehicle WHERE vin = ?", ("1TESTVIN000090010",)
+        ).fetchone()
+        self.assertEqual(display_name, "2024 Sold List Text")
+
+    def test_display_name_change_alone_updates_cache_without_new_event(self):
+        # display_name is deliberately NOT part of the diff key that
+        # decides whether a new Event fires (see
+        # persist_tekion_observations' docstring) -- a rerun with an
+        # unchanged status/stock but a corrected description must still
+        # update the cached current value, without generating a second,
+        # spurious Event the way a real status/stock change would.
+        import pandas as pd
+        base_row = {
+            "Stock #": "K90020", "VIN #": "1TESTVIN000090020", "Status": "Stocked In",
+            "Stocked In Date": "Jul 1 2026", "is_internal_fleet": False,
+        }
+        first_run = pd.DataFrame([{**base_row, "Year Make Model": "2024 Original Text"}])
+        persist_tekion_observations(first_run, self.sold_df.iloc[0:0], db_conn=self.conn)
+
+        second_run = pd.DataFrame([{**base_row, "Year Make Model": "2024 Corrected Text"}])
+        persist_tekion_observations(second_run, self.sold_df.iloc[0:0], db_conn=self.conn)
+
+        (display_name,) = self.conn.execute(
+            "SELECT display_name FROM vehicle WHERE vin = ?", ("1TESTVIN000090020",)
+        ).fetchone()
+        self.assertEqual(display_name, "2024 Corrected Text")
+        (event_count,) = self.conn.execute(
+            "SELECT COUNT(*) FROM event WHERE vin = ?", ("1TESTVIN000090020",)
+        ).fetchone()
+        self.assertEqual(event_count, 1, "an unchanged status/stock must not generate a second Event "
+                                          "just because the free-text description changed")
+
 
 class MddWritePathTest(unittest.TestCase):
     """

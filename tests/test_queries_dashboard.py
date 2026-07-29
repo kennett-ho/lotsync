@@ -132,6 +132,17 @@ class RecentActivityFeedTest(unittest.TestCase):
         feed = recent_activity_feed(self.conn, limit=total + 100)
         self.assertEqual(len(feed), total)
 
+    def test_embedded_vehicle_summary_includes_display_name(self):
+        # Regression test: confirms display_name survives the full, real
+        # pipeline (importer -> persist_tekion_observations -> query),
+        # not just the isolated unit tested in test_database_slice2.py.
+        # 1TESTVIN000000001 / K30001 is tekion_master.csv's first row,
+        # "Year Make Model" = "2024 Test Sedan".
+        feed = recent_activity_feed(self.conn, vin="1TESTVIN000000001", limit=1000)
+        tekion_rows = [row for row in feed if row["event_type"] == "tekion_observed"]
+        self.assertTrue(tekion_rows, "fixture must have produced a tekion_observed Event for this VIN")
+        self.assertEqual(tekion_rows[0]["vehicle"]["display_name"], "2024 Test Sedan")
+
 
 class RecentActivityFeedVinFilterTest(unittest.TestCase):
     """

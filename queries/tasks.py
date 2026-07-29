@@ -27,7 +27,7 @@ def list_tasks(
     """
     Returns Task rows, each joined with a lightweight Vehicle summary
     (matching API_CONTRACTS.md's VehicleSummaryDTO fields exactly --
-    vin, stock_number, year, make, model) so a Task list never requires
+    vin, stock_number, display_name, year, make, model) so a Task list never requires
     a separate per-row Vehicle lookup. The join is INNER, not LEFT --
     safe because task.vin carries a real FOREIGN KEY to vehicle
     (migrations/0004_task.sql), so an orphaned Task cannot exist.
@@ -68,7 +68,7 @@ def list_tasks(
                t.commitment_standing, t.execution_status, t.assigned_employee_id,
                t.ratified_by, t.ratification_type, t.escalated_from_task_id, t.reason,
                t.created_at, t.completed_at,
-               v.stock_number, v.year, v.make, v.model
+               v.stock_number, v.display_name, v.year, v.make, v.model
         FROM task t
         JOIN vehicle v ON v.vin = t.vin
         {where_clause}
@@ -82,7 +82,7 @@ def list_tasks(
         "commitment_standing", "execution_status", "assigned_employee_id",
         "ratified_by", "ratification_type", "escalated_from_task_id", "reason",
         "created_at", "completed_at",
-        "stock_number", "year", "make", "model",
+        "stock_number", "display_name", "year", "make", "model",
     ]
     results = []
     for row in rows:
@@ -90,6 +90,7 @@ def list_tasks(
         vehicle_summary = {
             "vin": record["vin"],
             "stock_number": record.pop("stock_number"),
+            "display_name": record.pop("display_name"),
             "year": record.pop("year"),
             "make": record.pop("make"),
             "model": record.pop("model"),

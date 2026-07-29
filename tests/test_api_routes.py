@@ -139,7 +139,8 @@ class VehicleDetailEndpointTest(ApiTestCase):
 class TasksEndpointTest(ApiTestCase):
     def setUp(self):
         super().setUp()
-        upsert_vehicle(self.conn, "VIN1", stock_number="A48291", year=2023, make="Honda", model="Accord")
+        upsert_vehicle(self.conn, "VIN1", stock_number="A48291", display_name="2023 Honda Accord",
+                        year=2023, make="Honda", model="Accord")
         upsert_vehicle(self.conn, "VIN2", stock_number="B93021")
         self.conn.commit()
 
@@ -156,7 +157,8 @@ class TasksEndpointTest(ApiTestCase):
         self.assertEqual(body[0]["commitment_standing"], "outstanding")
         self.assertEqual(body[0]["execution_status"], "not_started")
         self.assertEqual(body[0]["vehicle"], {
-            "vin": "VIN1", "stock_number": "A48291", "year": 2023, "make": "Honda", "model": "Accord",
+            "vin": "VIN1", "stock_number": "A48291", "display_name": "2023 Honda Accord",
+            "year": 2023, "make": "Honda", "model": "Accord",
         })
 
     def test_department_query_param_filters(self):

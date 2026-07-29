@@ -262,6 +262,72 @@ class TaskGenerationTest(unittest.TestCase):
         generate_install_tasks(self.tekion_df, self.sold_df, self.mdd_df, self.recovr_df,
                                self.store_name, db_conn=None)
 
+    def test_recovr_prefix_matched_vin_not_in_active_tekion_creates_vehicle_before_task(self):
+        """
+        Regression test for a real `sqlite3.IntegrityError: FOREIGN KEY
+        constraint failed` (task.vin -> vehicle.vin) hit on a real
+        dealership's first Inventory Sync import against a clean
+        database -- never caught by this project's synthetic fixtures,
+        since every RecovR fixture row's VIN also happens to be present
+        in the Tekion fixture.
+
+        build_tracker_install_tasks' RecovR loop includes a full,
+        17-character VIN as a task candidate even when that VIN is NOT
+        in Tekion's active_vins, as long as its stock number's prefix
+        matches a prefix this store's *current* Tekion export actually
+        uses (real-data cause: RecovR knows about a store vehicle that
+        temporarily isn't in today's Tekion snapshot -- export timing
+        skew, an in-transit state, etc.). That candidate was never
+        upserted as a Vehicle by any persist_* function --
+        persist_recovr_observations deliberately never originates a
+        Vehicle from RecovR data alone (same principle as MDD/
+        RapidRecon), and this VIN was never in tekion_df either, so
+        persist_tekion_observations never touched it -- so insert_task
+        used to hit the FOREIGN KEY constraint outright. See
+        generate_install_tasks' "A REAL BUG" docstring section for the
+        full trace.
+        """
+        tekion_df = pd.DataFrame([{
+            "Stock #": "K30001", "VIN #": "1TESTVIN000000001", "Status": "Stocked In",
+            "Year Make Model": "2024 Test Sedan", "Stocked In Date": "Jul 18 2026",
+            "is_internal_fleet": False,
+        }])
+        sold_df = pd.DataFrame(columns=["Stock #", "VIN #", "Status", "Sold Date", "Year Make Model"])
+        mdd_df = pd.DataFrame(columns=["vin", "stock", "year", "make", "model", "Dealership", "Geofence"])
+        recovr_df = pd.DataFrame([{
+            # A different, full 17-char VIN, absent from tekion_df entirely --
+            # but its stock number's prefix ("K") matches a prefix this
+            # store's Tekion export uses, so it's a real candidate anyway.
+            "VIN": "1TESTVIN000099999", "Stock Number": "K99999", "Paired": "No",
+            "Year": "2024", "Make": "Test", "Model": "Sedan",
+        }])
+
+        conn = connect(":memory:")
+        persist_tekion_observations(tekion_df, sold_df, db_conn=conn)
+
+        known_vins = {row[0] for row in conn.execute("SELECT vin FROM vehicle")}
+        self.assertNotIn(
+            "1TESTVIN000099999", known_vins,
+            "sanity check: no persist_* function should have created this Vehicle yet",
+        )
+
+        # Must not raise sqlite3.IntegrityError (FOREIGN KEY constraint failed).
+        generate_install_tasks(tekion_df, sold_df, mdd_df, recovr_df, "TestStore", db_conn=conn)
+
+        task = get_open_task(conn, "1TESTVIN000099999", "install_recovr_device")
+        self.assertIsNotNone(task, "the RecovR candidate Task must actually be created")
+
+        vehicle_row = conn.execute(
+            "SELECT tekion_status, stock_number FROM vehicle WHERE vin = ?",
+            ("1TESTVIN000099999",),
+        ).fetchone()
+        self.assertIsNotNone(vehicle_row, "task.vin's FOREIGN KEY target must exist")
+        self.assertEqual(
+            vehicle_row, (None, None),
+            "must not fabricate tekion_status/stock_number from RecovR's own claim -- "
+            "Tekion never confirmed this vehicle",
+        )
+
 
 class RecovrHonorDischargeTest(unittest.TestCase):
     """Milestone B: RecovR's positive "paired" signal Reality-discharges an outstanding install_recovr_device Task."""

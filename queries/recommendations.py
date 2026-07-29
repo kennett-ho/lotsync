@@ -34,7 +34,7 @@ def list_recommendations(conn: sqlite3.Connection, vin: str = None, status: str 
         f"""
         SELECT r.recommendation_id, r.vin, r.severity, r.title, r.detail, r.rule_source,
                r.status, r.resulting_task_id, r.created_at, r.resolved_at,
-               v.stock_number, v.year, v.make, v.model
+               v.stock_number, v.display_name, v.year, v.make, v.model
         FROM recommendation r
         JOIN vehicle v ON v.vin = r.vin
         {where_clause}
@@ -46,7 +46,7 @@ def list_recommendations(conn: sqlite3.Connection, vin: str = None, status: str 
     columns = [
         "recommendation_id", "vin", "severity", "title", "detail", "rule_source",
         "status", "resulting_task_id", "created_at", "resolved_at",
-        "stock_number", "year", "make", "model",
+        "stock_number", "display_name", "year", "make", "model",
     ]
     results = []
     for row in rows:
@@ -54,6 +54,7 @@ def list_recommendations(conn: sqlite3.Connection, vin: str = None, status: str 
         vehicle_summary = {
             "vin": record["vin"],
             "stock_number": record.pop("stock_number"),
+            "display_name": record.pop("display_name"),
             "year": record.pop("year"),
             "make": record.pop("make"),
             "model": record.pop("model"),

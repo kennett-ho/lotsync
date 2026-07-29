@@ -25,6 +25,10 @@ class VehicleSummaryDTO(BaseModel):
     """Embeddable projection of a Vehicle -- never fetched on its own."""
     vin: str
     stock_number: Optional[str] = None
+    # The best available human-readable name for UI display, decoupled
+    # from which source or shape supplied it -- see VehicleDTO's own
+    # display_name note for the full reasoning.
+    display_name: Optional[str] = None
     year: Optional[int] = None
     make: Optional[str] = None
     model: Optional[str] = None
@@ -34,6 +38,19 @@ class VehicleDTO(BaseModel):
     """The Vehicles List screen's row shape."""
     vin: str
     stock_number: Optional[str] = None
+    # Phase 3, Sprint 5 addition. The one field the UI should render for
+    # "this vehicle's name," full stop -- not year/make/model joined
+    # client-side. Today populated verbatim from Tekion's single
+    # "Year Make Model" export column (no parsing into year/make/model:
+    # there's no reliable, general way to split "Make" from "Model" out
+    # of free text without a canonical-make lookup table -- see
+    # migrations/0007_vehicle_display_name.sql). year/make/model stay
+    # reserved for a source that genuinely supplies them structured
+    # (MDD/RecovR today, a VIN decoder in a future phase); whenever one
+    # of those populates display_name too, from whatever it actually
+    # knows, this field's meaning doesn't change -- "best available
+    # display name," regardless of source.
+    display_name: Optional[str] = None
     year: Optional[int] = None
     make: Optional[str] = None
     model: Optional[str] = None

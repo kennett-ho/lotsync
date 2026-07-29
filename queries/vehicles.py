@@ -25,7 +25,7 @@ from lotsync.queries.tasks import list_tasks
 from lotsync.queries.recommendations import list_recommendations
 
 _VEHICLE_COLUMNS = [
-    "vin", "stock_number", "year", "make", "model", "new_or_used",
+    "vin", "stock_number", "display_name", "year", "make", "model", "new_or_used",
     "current_dealership_id", "tekion_status", "keyper_status",
     "mdd_status", "recovr_status", "inventory_state",
 ]
@@ -58,7 +58,7 @@ def list_vehicles(conn: sqlite3.Connection) -> list:
     """
     rows = conn.execute(
         f"""
-        SELECT v.vin, v.stock_number, v.year, v.make, v.model, v.new_or_used,
+        SELECT v.vin, v.stock_number, v.display_name, v.year, v.make, v.model, v.new_or_used,
                v.current_dealership_id, v.tekion_status, v.keyper_status,
                v.mdd_status, v.recovr_status, v.inventory_state,
                (SELECT COUNT(*) FROM task t

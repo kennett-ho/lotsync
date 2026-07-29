@@ -256,7 +256,7 @@ function GroupCard({ group, onSelectTask, onVehicleSelect }: {
                 </button>
                 {single.vehicle && (
                   <span className="text-[12px] text-slate-600 truncate">
-                    {[single.vehicle.year, single.vehicle.make, single.vehicle.model].filter(Boolean).join(' ')}
+                    {single.vehicle.display_name}
                   </span>
                 )}
                 <span className="text-[11px] text-slate-400">{single.assigned_employee_id ?? 'Unassigned'}</span>
@@ -287,7 +287,7 @@ function GroupCard({ group, onSelectTask, onVehicleSelect }: {
                   {t.vehicle?.stock_number ? `#${t.vehicle.stock_number}` : t.vin.slice(-8)}
                 </button>
                 <span className="text-[12px] text-slate-700 flex-1 truncate">
-                  {t.vehicle ? [t.vehicle.year, t.vehicle.make, t.vehicle.model].filter(Boolean).join(' ') : t.vin}
+                  {t.vehicle ? (t.vehicle.display_name ?? t.vin) : t.vin}
                 </span>
                 <span className={`text-[11px] flex-shrink-0 ${toneClasses[ds.tone]}`}>{ds.label}</span>
                 <button onClick={() => onSelectTask(t.task_id)}
@@ -392,7 +392,7 @@ function TaskDetail({ task, onBack, onVehicleSelect }: {
                 </span>
                 {task.vehicle && (
                   <div className="text-[12px] font-semibold text-slate-800 mt-0.5">
-                    {[task.vehicle.year, task.vehicle.make, task.vehicle.model].filter(Boolean).join(' ')}
+                    {task.vehicle.display_name}
                   </div>
                 )}
               </button>

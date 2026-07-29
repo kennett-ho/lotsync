@@ -35,6 +35,14 @@ class ListVehiclesTest(unittest.TestCase):
         self.assertEqual(v["tekion_status"], "Stocked In")
         self.assertEqual(v["open_task_count"], 0)
 
+    def test_returns_display_name(self):
+        # Phase 3, Sprint 5 addition -- see api/dtos.py's VehicleDTO
+        # docstring for why this is a distinct field from year/make/model,
+        # not derived from them.
+        upsert_vehicle(self.conn, "VIN1", display_name="2023 Honda Accord")
+        self.conn.commit()
+        self.assertEqual(list_vehicles(self.conn)[0]["display_name"], "2023 Honda Accord")
+
     def test_open_task_count_reflects_only_outstanding_tasks(self):
         upsert_vehicle(self.conn, "VIN1")
         self.conn.commit()
@@ -114,6 +122,11 @@ class GetVehicleDetailTest(unittest.TestCase):
         # vehicle-scoped -- API_CONTRACTS.md's own documented shape.
         self.assertIn("recovr", detail["connected_systems"])
         self.assertEqual(detail["connected_systems"]["recovr"]["status"], "complete")
+
+    def test_returns_display_name(self):
+        upsert_vehicle(self.conn, "VIN1", display_name="2023 Honda Accord")
+        self.conn.commit()
+        self.assertEqual(get_vehicle_detail(self.conn, "VIN1")["display_name"], "2023 Honda Accord")
 
     def test_nested_task_and_recommendation_still_carry_their_own_vehicle_summary(self):
         # get_vehicle_detail returns the complete, undecorated data --

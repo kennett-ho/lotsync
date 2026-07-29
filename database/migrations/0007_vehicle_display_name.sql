@@ -1,0 +1,48 @@
+-- Adds vehicle.display_name -- a real, previously-missing piece of
+-- DATA_MODEL.md's already-governed Vehicle shape, closed under the
+-- "genuine architectural flaw" governance trigger (same category as
+-- Event.event_id in 0001, PendingIdentity in 0002), not a new design
+-- decision.
+--
+-- What this fixes: Tekion's "Year Make Model" export column was never
+-- persisted anywhere -- persist_tekion_observations() (sync/reconciler.py)
+-- only ever wrote tekion_status/stock_number, and its own docstring
+-- said so explicitly ("year/make/model are deliberately left
+-- unpopulated ... Tekion's 'Year Make Model' is a single combined
+-- string"). Confirmed against the real seeded database before this
+-- migration: 0 of 4,312 real vehicles had year/make/model populated,
+-- and every frontend screen that renders a vehicle's name
+-- ([v.year, v.make, v.model].filter(Boolean).join(' ')) rendered
+-- "Unknown vehicle" for all of them.
+--
+-- Deliberately NOT fixed by parsing "Year Make Model" into separate
+-- year/make/model columns -- there is no reliable, general way to
+-- split "Make" from "Model" without a canonical-make lookup table
+-- (multi-word makes like "Land Rover" or "Aston Martin" would silently
+-- misparse under a naive token-split), and this project has a
+-- consistent history of refusing to guess at exactly this kind of
+-- ambiguous structure (see RapidRecon's Step field, the original
+-- Incoming/Missing day thresholds). year/make/model stay reserved for
+-- a source that genuinely supplies them structured -- MDD and RecovR
+-- already can today (their own CSVs have separate Year/Make/Model
+-- columns, just not wired into persistence yet -- a related, separate
+-- gap, not fixed here), and a VIN decoder is a named future source.
+--
+-- display_name is a distinct field from year/make/model, not a
+-- fallback derived from them: its purpose is "the best available
+-- human-readable name for UI display," decoupled from which source or
+-- shape supplied it -- named to match that purpose directly, the same
+-- way stock_number is already a source-agnostic name for "current
+-- best-known value" even though only Tekion populates it today. A
+-- future source (e.g. a VIN decoder) is free to populate display_name
+-- too, from whatever it actually knows, without this column's meaning
+-- changing.
+--
+-- ADD COLUMN, not a table recreation -- SQLite supports this directly
+-- for a new nullable column with no constraint, unlike adding a
+-- FOREIGN KEY (see migrations/0006_employee_dealership.sql's note on
+-- why that operation needs a full recreate). No existing row's data is
+-- touched; every existing vehicle simply gets display_name = NULL
+-- until the next sync populates it.
+
+ALTER TABLE vehicle ADD COLUMN display_name TEXT;

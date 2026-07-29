@@ -92,7 +92,7 @@ function LeftPanel({ vehicle }: { vehicle: VehicleDetailDTO }) {
       <div className="rounded-xl overflow-hidden border border-slate-200 bg-slate-100 relative" style={{ aspectRatio: '16/10' }}>
         <img
           src="https://images.unsplash.com/photo-1623869675781-80aa31012a5a?w=600&h=380&fit=crop&auto=format"
-          alt={`${vehicle.year ?? ''} ${vehicle.make ?? ''} ${vehicle.model ?? ''}`.trim() || 'Vehicle'}
+          alt={vehicle.display_name ?? 'Vehicle'}
           className="w-full h-full object-cover"
         />
         <div className="absolute top-2.5 right-2.5">
@@ -108,7 +108,7 @@ function LeftPanel({ vehicle }: { vehicle: VehicleDetailDTO }) {
       <div className="bg-white rounded-xl border border-slate-200 p-4">
         <div className="text-[11px] text-slate-400 font-medium uppercase tracking-wider mb-1">Vehicle</div>
         <h2 className="text-[18px] font-bold text-slate-900 leading-tight tracking-tight">
-          {[vehicle.year, vehicle.make, vehicle.model].filter(Boolean).join(' ') || 'Unknown vehicle'}
+          {vehicle.display_name || 'Unknown vehicle'}
         </h2>
         {vehicle.new_or_used && <p className="text-[13px] text-slate-500 font-medium mb-3">{vehicle.new_or_used}</p>}
 
@@ -394,7 +394,7 @@ export default function VehicleDetailPage({ vin, onBack, backLabel = 'Dashboard'
           <span className="text-slate-300">/</span>
           <span className="text-[12px] font-bold text-slate-900">
             {state.status === 'success'
-              ? `Stock ${state.data.stock_number ?? '—'} · ${[state.data.year, state.data.make, state.data.model].filter(Boolean).join(' ')}`
+              ? `Stock ${state.data.stock_number ?? '—'} · ${state.data.display_name ?? 'Unknown vehicle'}`
               : vin}
           </span>
         </div>

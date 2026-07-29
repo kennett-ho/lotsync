@@ -11,8 +11,10 @@ from lotsync.queries.tasks import list_tasks
 class ListTasksTest(unittest.TestCase):
     def setUp(self):
         self.conn = connect(":memory:")
-        upsert_vehicle(self.conn, "VIN1", stock_number="A48291", year=2023, make="Honda", model="Accord")
-        upsert_vehicle(self.conn, "VIN2", stock_number="B93021", year=2022, make="Ford", model="F-150")
+        upsert_vehicle(self.conn, "VIN1", stock_number="A48291", display_name="2023 Honda Accord",
+                        year=2023, make="Honda", model="Accord")
+        upsert_vehicle(self.conn, "VIN2", stock_number="B93021", display_name="2022 Ford F-150",
+                        year=2022, make="Ford", model="F-150")
         self.conn.commit()
 
     def test_empty_dataset_returns_empty_list(self):
@@ -30,7 +32,8 @@ class ListTasksTest(unittest.TestCase):
         self.assertEqual(task["commitment_standing"], "outstanding")
         self.assertEqual(task["execution_status"], "not_started")
         self.assertEqual(task["vehicle"], {
-            "vin": "VIN1", "stock_number": "A48291", "year": 2023, "make": "Honda", "model": "Accord",
+            "vin": "VIN1", "stock_number": "A48291", "display_name": "2023 Honda Accord",
+            "year": 2023, "make": "Honda", "model": "Accord",
         })
         # Vehicle summary fields must not leak as top-level Task fields.
         self.assertNotIn("stock_number", task)

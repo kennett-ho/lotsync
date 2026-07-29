@@ -152,10 +152,23 @@ def persist_tekion_observations(tekion_df: pd.DataFrame, sold_df: pd.DataFrame,
     history; the Master/Unsold observation is still preserved as its
     own Event.
 
-    year/make/model are deliberately left unpopulated -- Tekion's
-    "Year Make Model" is a single combined string in this pipeline
-    today, and no existing code parses it into structured fields; doing
-    so isn't required by this slice's Definition of Done.
+    year/make/model stay deliberately unpopulated -- Tekion's "Year
+    Make Model" is a single combined string in this pipeline, and there
+    is no reliable, general way to split "Make" from "Model" out of it
+    (a naive token-split silently misparses multi-word makes like "Land
+    Rover"); those three columns stay reserved for a source that
+    genuinely supplies them structured (see DATA_MODEL.md's Vehicle
+    entry). display_name (added later, see migrations/0007) IS
+    populated from this same raw string below -- a distinct field for a
+    distinct purpose: "best available human-readable name for UI
+    display," not "parsed structured data." Upserted unconditionally
+    alongside tekion_status/stock_number (not gated by the diff below)
+    for the same reason stock_number is: Vehicle is a current-state
+    cache of what's currently believed true, not history -- see
+    _persist_keyper_observation's docstring. Deliberately NOT added to
+    the diff key: unlike a stock-number correction, a change in this
+    free-text description isn't an operational claim worth its own
+    Event.
 
     Phase 2 Slice 3 addition: diff-before-write, keyed on
     (tekion_status, stock_number) TOGETHER, not tekion_status alone.
@@ -241,10 +254,11 @@ def persist_tekion_observations(tekion_df: pd.DataFrame, sold_df: pd.DataFrame,
             if open_task is not None:
                 moot_task(db_conn, open_task["task_id"])
 
-    def _persist(vin, status, stock, event_type, summary, detail_fields):
+    def _persist(vin, status, stock, display_name, event_type, summary, detail_fields):
         previous = get_last_event_detail_fields(db_conn, vin, event_type)
         previous_key = (previous.get("tekion_status"), previous.get("tekion_stock")) if previous else None
-        upsert_vehicle(db_conn, vin, tekion_status=status, stock_number=stock)
+        upsert_vehicle(db_conn, vin, tekion_status=status, stock_number=stock,
+                        display_name=display_name)
         if previous_key == (status, stock):
             return
         insert_event(db_conn, vin=vin, event_type=event_type, source="tekion",
@@ -255,7 +269,7 @@ def persist_tekion_observations(tekion_df: pd.DataFrame, sold_df: pd.DataFrame,
     for _, trow in tekion_df.iterrows():
         vin = trow["VIN #"]
         _persist(
-            vin, trow["Status"], trow["Stock #"], "tekion_observed",
+            vin, trow["Status"], trow["Stock #"], trow["Year Make Model"], "tekion_observed",
             summary=f"Tekion: {trow['Status']}, stock {trow['Stock #']}",
             detail_fields={"tekion_status": trow["Status"], "tekion_stock": trow["Stock #"],
                             "stocked_in_date": trow["Stocked In Date"]},
@@ -264,7 +278,7 @@ def persist_tekion_observations(tekion_df: pd.DataFrame, sold_df: pd.DataFrame,
     for _, srow in sold_df.iterrows():
         vin = srow["VIN #"]
         _persist(
-            vin, srow["Status"], srow["Stock #"], "tekion_sold",
+            vin, srow["Status"], srow["Stock #"], srow["Year Make Model"], "tekion_sold",
             summary=f"Tekion: sold, stock {srow['Stock #']}, {srow['Sold Date']}",
             detail_fields={"tekion_status": srow["Status"], "tekion_stock": srow["Stock #"],
                             "sold_date": srow["Sold Date"]},
@@ -985,10 +999,56 @@ def generate_install_tasks(tekion_df: pd.DataFrame, sold_df: pd.DataFrame, mdd_d
     MDD, an install_mdd_beacon Task can only be discharged via Moot (the
     vehicle sells) or a manual completion assertion once that flow
     exists.
+
+    A REAL BUG, found and fixed against a real dealership's first
+    import on a clean database (task.vin has a real FOREIGN KEY to
+    vehicle.vin -- see migrations/0004_task.sql): every task candidate
+    is *supposed* to already be a known Vehicle by this point, since
+    Tekion is persisted before this function runs (see sync/pipeline.py
+    / main.py's call order) and every MDD candidate is required to
+    already be in Tekion's active_vins (build_tracker_install_tasks'
+    MDD loop: `vin not in active_vins` unconditionally skips). But
+    build_tracker_install_tasks' RecovR loop has one path that does NOT
+    require that: a full 17-character RecovR VIN that is NOT in
+    active_vins is still included as long as its stock number's prefix
+    matches a prefix this store's *current* Tekion export actually
+    uses (see that function's own "different store; not ours to report
+    on" comment -- the inverse case, a prefix this store DOES use, was
+    deliberately kept IN, not excluded). That's a real, legitimate
+    signal worth surfacing on the CSV report (RecovR knows about a
+    store vehicle Tekion's current snapshot doesn't currently list --
+    real-data causes include export timing skew or a vehicle
+    temporarily dropping off an in-transit/pending Tekion state), but
+    it means this function's own candidate population can include a
+    VIN that no persist_* function ever upserted: persist_recovr_observations
+    itself deliberately never creates a Vehicle from RecovR data alone
+    (same "weaker source can't originate identity" principle as MDD and
+    RapidRecon), and this VIN was never in tekion_df at all, so
+    persist_tekion_observations never touched it either. Every one of
+    this project's synthetic test fixtures happens to give every RecovR
+    row a VIN that's also in the Tekion fixture, so this path was never
+    exercised before hitting real data -- see
+    tests/test_database_slice5.py's
+    test_recovr_prefix_matched_vin_not_in_active_tekion_creates_vehicle_before_task
+    for a fixture that does exercise it.
+
+    Fixed with the minimum needed to satisfy the FK, not by loosening
+    build_tracker_install_tasks' CSV-facing logic (which is correct and
+    untouched) and not by weakening the constraint: upsert_vehicle(vin)
+    -- a no-op INSERT OR IGNORE when the row already exists (true for
+    every MDD candidate and almost every RecovR candidate) -- runs
+    immediately before insert_task, so a Task's Vehicle parent is
+    guaranteed to exist the moment it's needed, for every candidate,
+    not just the common case. Deliberately does NOT populate
+    tekion_status/stock_number on that Vehicle row from RecovR's own
+    stock-number claim -- Tekion's current export doesn't confirm it,
+    so leaving those fields NULL (same "don't fabricate" restraint
+    persist_recovr_observations already applies to its own writes) is
+    the honest choice, not a gap to fill in here.
     """
     if db_conn is None:
         return
-    from lotsync.database.repository import get_open_task, insert_task
+    from lotsync.database.repository import get_open_task, insert_task, upsert_vehicle
 
     candidates = build_tracker_install_tasks(tekion_df, sold_df, mdd_df, recovr_df, store_name)
     for _, row in candidates.iterrows():
@@ -996,6 +1056,10 @@ def generate_install_tasks(tekion_df: pd.DataFrame, sold_df: pd.DataFrame, mdd_d
         task_type = row["task"]
         if get_open_task(db_conn, vin, task_type) is not None:
             continue
+        # Guarantees task.vin's FOREIGN KEY target exists -- see this
+        # function's "A REAL BUG" docstring section above for exactly
+        # which candidates this matters for and why.
+        upsert_vehicle(db_conn, vin)
         insert_task(
             db_conn, vin, task_type,
             reason=f"{row['source']}: no device found on stock {row['stock']} ({row['vehicle']})",

@@ -65,7 +65,8 @@ has it.
 |---|---|
 | `vin` | Primary identity — never scoped by dealership |
 | `stock_number` | Current, from Tekion |
-| `year`, `make`, `model`, `new_or_used` | |
+| `display_name` | The best available human-readable name for UI display — decoupled from which source or shape supplied it. Today populated verbatim from Tekion's single "Year Make Model" export column (no parsing into year/make/model: no reliable, general way to split "Make" from "Model" out of free text without a canonical-make lookup table). Distinct from year/make/model below, not derived from them — a future structured source (VIN decoder, etc.) may populate this too, from whatever it actually knows, without changing this field's meaning |
+| `year`, `make`, `model`, `new_or_used` | Reserved for a source that genuinely supplies them structured — MDD and RecovR's own exports already have separate Year/Make/Model columns (not yet wired into persistence — a separate, still-open gap), and a VIN decoder is a named future source. Never populated by parsing `display_name` |
 | `current_dealership_id` | Mutable current attribute, not identity — see "Tenant vs Dealership" |
 | `tekion_status`, `keyper_status`, `mdd_status`, `recovr_status` | Flat fields for now — see gate review re: normalized alternative |
 | `inventory_state` | Eventual state-machine label (Phase 2) |

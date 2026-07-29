@@ -59,7 +59,7 @@ def recent_activity_feed(conn: sqlite3.Connection, limit: int = 20, vin: str = N
     detail_fields (parsed back from JSON, same as
     database/repository.py's get_last_event_detail_fields already
     does -- never left as a raw JSON string), plus a nested `vehicle`
-    summary (vin, stock_number, year, make, model). summary is the
+    summary (vin, stock_number, display_name, year, make, model). summary is the
     Timeline-ready display text already produced when the Event was
     written (ARCHITECTURE.md, "Event needed a richer shape") -- this
     function does not reconstruct or reformat it.
@@ -86,7 +86,7 @@ def recent_activity_feed(conn: sqlite3.Connection, limit: int = 20, vin: str = N
     base_query = (
         "SELECT e.event_id, e.vin, e.event_type, e.source, e.sync_run_id, "
         "e.actor_employee_id, e.dealership_id, e.observed_at, e.summary, e.detail_fields, "
-        "v.stock_number, v.year, v.make, v.model "
+        "v.stock_number, v.display_name, v.year, v.make, v.model "
         "FROM event e JOIN vehicle v ON v.vin = e.vin "
     )
     if vin is None:
@@ -103,7 +103,7 @@ def recent_activity_feed(conn: sqlite3.Connection, limit: int = 20, vin: str = N
     columns = [
         "event_id", "vin", "event_type", "source", "sync_run_id",
         "actor_employee_id", "dealership_id", "observed_at", "summary", "detail_fields",
-        "stock_number", "year", "make", "model",
+        "stock_number", "display_name", "year", "make", "model",
     ]
     results = []
     for row in rows:
@@ -112,6 +112,7 @@ def recent_activity_feed(conn: sqlite3.Connection, limit: int = 20, vin: str = N
         record["vehicle"] = {
             "vin": record["vin"],
             "stock_number": record.pop("stock_number"),
+            "display_name": record.pop("display_name"),
             "year": record.pop("year"),
             "make": record.pop("make"),
             "model": record.pop("model"),

@@ -131,7 +131,7 @@ function VehicleRow({ v, query, selected, onToggle, onSelect }: {
       <td className="py-3 pr-5" style={{ width: '220px' }}>
         <button onClick={() => onSelect(v.vin)} className="text-left block w-full">
           <div className="text-[13px] font-semibold text-slate-900 group-hover:text-blue-700 transition-colors leading-snug">
-            <Highlight text={[v.year, v.make, v.model].filter(Boolean).join(' ') || 'Unknown vehicle'} query={query} />
+            <Highlight text={v.display_name || 'Unknown vehicle'} query={query} />
           </div>
           {v.new_or_used && <div className="text-[11px] text-slate-400 mt-0.5">{v.new_or_used}</div>}
         </button>
@@ -235,16 +235,14 @@ export default function VehiclesList({ onVehicleSelect }: { onVehicleSelect: (vi
         const matchSearch = !q
           || (v.stock_number ?? '').toLowerCase().includes(q)
           || v.vin.toLowerCase().includes(q)
-          || String(v.year ?? '').includes(q)
-          || (v.make ?? '').toLowerCase().includes(q)
-          || (v.model ?? '').toLowerCase().includes(q)
+          || (v.display_name ?? '').toLowerCase().includes(q)
         return matchSearch && activeFilter.test(v)
       })
       .sort((a, b) => {
         let av: string | number, bv: string | number
         switch (sortKey) {
           case 'stock_number':           av = a.stock_number ?? '';           bv = b.stock_number ?? '';           break
-          case 'make':                   av = `${a.make ?? ''} ${a.model ?? ''}`; bv = `${b.make ?? ''} ${b.model ?? ''}`; break
+          case 'make':                   av = a.display_name ?? '';           bv = b.display_name ?? '';           break
           case 'current_dealership_id':  av = a.current_dealership_id ?? '';  bv = b.current_dealership_id ?? '';  break
           case 'open_task_count':        av = a.open_task_count;              bv = b.open_task_count;              break
           default:                       av = 0;                             bv = 0

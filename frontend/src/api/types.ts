@@ -12,6 +12,8 @@
 export interface VehicleSummaryDTO {
   vin: string
   stock_number: string | null
+  /** The name to render for this vehicle -- see VehicleDTO.display_name. */
+  display_name: string | null
   year: number | null
   make: string | null
   model: string | null
@@ -20,6 +22,14 @@ export interface VehicleSummaryDTO {
 export interface VehicleDTO {
   vin: string
   stock_number: string | null
+  /**
+   * The one field to render for "this vehicle's name" -- do not
+   * reassemble it from year/make/model client-side. Today populated
+   * verbatim from Tekion's "Year Make Model" export column; whatever
+   * source populates it in the future (a VIN decoder, etc.), this
+   * field's meaning stays "best available display name."
+   */
+  display_name: string | null
   year: number | null
   make: string | null
   model: string | null

@@ -133,9 +133,18 @@ chatter" principle above.
   contexts that need to show *which* vehicle something concerns without
   paying for a full `VehicleDTO` round trip (a Task row, a
   Recommendation card, an Activity entry).
-- **Fields:** `vin`, `stock_number`, `year`, `make`, `model`.
+- **Fields:** `vin`, `stock_number`, `display_name`, `year`, `make`, `model`.
 - **Read-only.** Never independently fetched or written — always
   embedded inside another DTO.
+- **`display_name` (Phase 3, Sprint 5 addition):** the best available
+  human-readable name for UI display — the one field a consumer should
+  render for "this vehicle's name," not `year`/`make`/`model` joined
+  client-side. Decoupled from which source or shape supplied it: today
+  populated verbatim from Tekion's single "Year Make Model" export
+  column (never parsed into `year`/`make`/`model` — see those fields'
+  own note in `VehicleDTO` below for why not); a future structured
+  source may populate it too, from whatever it actually knows, without
+  this field's meaning changing.
 - **Corrected during Phase 3, Sprint 2 implementation:** this section
   originally also listed `color`, sourced from frontend field
   observation without cross-checking it against `DATA_MODEL.md`'s
@@ -165,9 +174,22 @@ chatter" principle above.
 - **Required fields:** `vin` (identity — per `DATA_MODEL.md`, "never
   scoped by dealership," never null, never reassigned).
 - **Optional fields (nullable in the backend, so nullable here):**
-  `stock_number`, `year`, `make`, `model`, `new_or_used`,
+  `stock_number`, `display_name`, `year`, `make`, `model`, `new_or_used`,
   `current_dealership_id`, `tekion_status`, `keyper_status`,
   `mdd_status`, `recovr_status`, `inventory_state`.
+- **`display_name` vs. `year`/`make`/`model`:** these are deliberately
+  independent, not one derived from the other. `display_name` is
+  populated from whatever raw, honest display text a source can supply
+  (currently Tekion's "Year Make Model" column, copied verbatim);
+  `year`/`make`/`model` stay reserved for a source that genuinely
+  supplies them as separate, structured values (MDD/RecovR's own
+  exports already have separate Year/Make/Model columns, not yet wired
+  into persistence; a VIN decoder is a named future source). There is
+  no reliable, general way to split Tekion's combined string into
+  `make`/`model` without a canonical-make lookup table (a naive
+  token-split silently misparses multi-word makes like "Land Rover"),
+  so this project deliberately does not attempt it — see
+  `migrations/0007_vehicle_display_name.sql`.
 - **Nested objects:** none at this level — `VehicleDTO` is
   intentionally flat; aggregation happens in `VehicleDetailDTO`.
 - **Relationships:** `current_dealership_id` references a
@@ -198,9 +220,10 @@ chatter" principle above.
   {
     "vin": "1HGCM82633A004352",
     "stock_number": "A48291",
-    "year": 2023,
-    "make": "Honda",
-    "model": "Accord",
+    "display_name": "2023 Honda Accord",
+    "year": null,
+    "make": null,
+    "model": null,
     "new_or_used": "New",
     "current_dealership_id": "mark-kia",
     "tekion_status": "Stocked In",
@@ -303,7 +326,7 @@ chatter" principle above.
     "task_id": 4821,
     "vin": "1HGCM82633A004352",
     "vehicle": { "vin": "1HGCM82633A004352", "stock_number": "A48291",
-                 "year": 2023, "make": "Honda", "model": "Accord", "color": "Blue" },
+                 "display_name": "2023 Honda Accord", "year": null, "make": null, "model": null },
     "dealership_id": "mark-kia",
     "task_type": "install_recovr_device",
     "department": "Inventory",
@@ -362,7 +385,7 @@ mechanism behind `execution_status`.
     "recommendation_id": 991,
     "vin": "1HGCM82633A004352",
     "vehicle": { "vin": "1HGCM82633A004352", "stock_number": "A48291",
-                 "year": 2023, "make": "Honda", "model": "Accord", "color": "Blue" },
+                 "display_name": "2023 Honda Accord", "year": null, "make": null, "model": null },
     "severity": "High",
     "title": "RecovR tracker missing — 42 days untracked",
     "detail": "No RecovR pairing detected since Vehicle first appeared in Tekion.",
@@ -418,7 +441,7 @@ mechanism behind `execution_status`.
     "event_id": 58213,
     "vin": "1HGCM82633A004352",
     "vehicle": { "vin": "1HGCM82633A004352", "stock_number": "A48291",
-                 "year": 2023, "make": "Honda", "model": "Accord", "color": "Blue" },
+                 "display_name": "2023 Honda Accord", "year": null, "make": null, "model": null },
     "event_type": "keys_checked_out",
     "source": "keyper",
     "sync_run_id": 204,

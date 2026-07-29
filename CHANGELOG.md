@@ -187,3 +187,26 @@ See [`PHASE_3_SPRINT_3_REVIEW.md`](PHASE_3_SPRINT_3_REVIEW.md) for full detail, 
 **Deliberately NOT fabricated, rendered honestly instead:** Vehicle photo, lot zone, days-in-inventory (no backend source anywhere in `DATA_MODEL.md`); a composite Vehicle operational-status enum (`API_CONTRACTS.md` already names this open); employee display names (no employee-lookup endpoint exists — raw `emp-XXXX` ids shown instead); a multi-step Task execution timeline (no endpoint exposes `TaskExecutionEvent` history today). Every one of these was already an open question in `API_CONTRACTS.md` Section 9 or `FRONTEND_BACKEND_RECONCILIATION.md`'s Architectural Risks before this sprint — none required a new contract decision.
 
 **No change to:** any backend business logic, schema, or migration; any CSV report; `main.py`'s pipeline. Verified via full backend regression (292/292, unchanged) plus live, in-browser verification of every screen's success/empty/loading/backend-unavailable states.
+
+## Phase 3, Sprint 4 — Real Inventory Sync (2026-07-28)
+
+See [`PHASE_3_SPRINT_4_REVIEW.md`](PHASE_3_SPRINT_4_REVIEW.md) for full detail, every architectural decision, and the two real reconciliation-engine findings this sprint's testing surfaced.
+
+**Added**
+- `sync/pipeline.py` (new) — `run_inventory_sync()`, the thin orchestration layer behind the upload-triggered sync; reuses `main.py`'s exact importer/`sync/reconciler.py`/`reports/writer.py` call graph, `main.py` itself untouched.
+- `sync/upload_validation.py` (new) — per-slot required-column validation before anything persists.
+- `queries/inventory_sync.py` (new) — `list_pending_identities()`, `sync_run_history()` (a derived, grouped-by-shared-`started_at` read, not a new stored batch concept).
+- `api/routers/inventory_sync.py` (new) — `POST /inventory-sync/run` (this project's first write route), `GET /inventory-sync/history`, `GET /inventory-sync/exceptions`.
+- `api/dtos.py` — `PendingIdentityDTO`, `SyncRunDTO` implemented for the first time (both already specified in `API_CONTRACTS.md`); new `SyncRunBatchDTO`, `SyncSummaryDTO`.
+- `frontend/src/api/inventorySync.ts`, `apiPostForm()` in `client.ts` (the frontend's first non-GET call), new wire types in `types.ts`.
+- `tests/test_sync_pipeline.py` (11 tests), `tests/test_api_inventory_sync.py` (6 tests).
+
+**Changed**
+- `database/repository.py`'s `sync_run()` gained an optional `started_at` passthrough (`start_sync_run` already accepted it) — every existing caller unaffected.
+- `frontend/src/dashboards/InventorySync.tsx` — rewritten in place (same layout) to upload real files and render real data; see `PHASE_3_SPRINT_4_REVIEW.md` Section 4 for exactly what was preserved vs. corrected.
+- `PRODUCT.md` — Phase 3 roadmap paragraph amended to name Sprints 1–4 explicitly, resolving a Phase/Sprint naming question raised at this sprint's kickoff *before* any code was written (see the review's opening section).
+- `api/app.py`, `api/README.md` — new router registered; `python-multipart` added as a real new dependency (required by file-upload form fields).
+
+**Deliberately documented, not silently fixed:** a real `KeyError` `generate_key_out_aging_recommendations` would hit on a columnless empty `key_out_aging` DataFrame (guarded at the `sync/pipeline.py` call site, not inside `sync/reconciler.py`); a pre-existing RapidRecon idempotency gap (no diff-before-write at all) this sprint's partial-source testing newly exercised but did not introduce or fix.
+
+**No change to:** any CSV report's content or format via the CLI path; `main.py`; `sync/reconciler.py`; `sync/matcher.py`; `rules/validation.py`; any existing migration or DTO shape. Verified via full backend regression (292 → 309 passing) plus live, in-browser, real-multipart-upload verification of the complete six-source sync workflow.

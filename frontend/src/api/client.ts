@@ -65,3 +65,42 @@ export async function apiGet<T>(
 
   return (await response.json()) as T
 }
+
+/**
+ * POST /inventory-sync/run's shape -- multipart form data in, JSON out.
+ * This project's first write call, so its error handling goes slightly
+ * further than apiGet's: FastAPI's HTTPException(detail=...) returns
+ * either a string or a list of per-file validation problems (see
+ * api/routers/inventory_sync.py) -- both are folded into one readable
+ * ApiError message rather than left for every caller to re-parse.
+ */
+export async function apiPostForm<T>(path: string, formData: FormData): Promise<T> {
+  const url = new URL(path, API_BASE_URL)
+
+  let response: Response
+  try {
+    response = await fetch(url.toString(), { method: 'POST', body: formData })
+  } catch {
+    throw new ApiError(
+      `Could not reach the LotSync API at ${API_BASE_URL}. Is the backend running?`,
+      0,
+    )
+  }
+
+  if (!response.ok) {
+    let detail: unknown
+    try {
+      detail = (await response.json()).detail
+    } catch {
+      detail = undefined
+    }
+    const message = Array.isArray(detail)
+      ? detail.join('; ')
+      : typeof detail === 'string'
+        ? detail
+        : `LotSync API returned ${response.status} for ${path}`
+    throw new ApiError(message, response.status)
+  }
+
+  return (await response.json()) as T
+}

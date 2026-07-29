@@ -515,7 +515,20 @@ mechanism behind `execution_status`.
 - **Ownership:** the sync pipeline itself.
 - **Required fields:** `sync_run_id`, `source`, `started_at`, `status`.
 - **Optional fields:** `dealership_id`, `completed_at`,
-  `records_processed`, `issues_found`, `tasks_generated`.
+  `records_processed`.
+- **Corrected during Phase 3, Sprint 4 implementation:** this section
+  originally also listed `issues_found`/`tasks_generated` as optional
+  fields. Nothing populates either column on the `sync_run` row itself —
+  `sync/pipeline.py`'s `run_inventory_sync()` computes task/recommendation
+  counts as summary-level fields on `SyncSummaryDTO` instead (see below),
+  not per-`SyncRun` fields. Removed rather than served as
+  always-`null`, the same "fix the stale reference, not the correct
+  document" convention `VehicleSummaryDTO.color`'s Sprint 2 correction
+  already established.
+- **Implementation status:** implemented for the first time in Phase 3,
+  Sprint 4 (`api/dtos.py`) — this section's shape existed here since
+  before Sprint 2, but no route served it as its own DTO until the
+  history endpoint below needed one.
 - **Nested objects:** none.
 - **Relationships:** referenced (informationally, not by hard
   constraint) from `ActivityDTO.sync_run_id`; grouped by `source` to
@@ -545,11 +558,38 @@ mechanism behind `execution_status`.
     "started_at": "2026-07-27T07:02:00",
     "completed_at": "2026-07-27T07:03:42",
     "records_processed": 1247,
-    "issues_found": 23,
-    "tasks_generated": 18,
     "status": "complete"
   }
   ```
+
+### SyncRunBatchDTO and SyncSummaryDTO (new, Phase 3 Sprint 4)
+
+Not among this document's original twelve DTOs — added when
+`POST /inventory-sync/run` (see Section 5) was actually built, per the
+same discipline as every other addition here: a real, demonstrated need,
+not speculative.
+
+- **`SyncRunBatchDTO`** — `GET /inventory-sync/history`'s entry shape:
+  `{started_at, overall_status, sources: SyncRunDTO[]}`. `started_at` is
+  a *derived grouping key*, not a stored batch id — every `SyncRun` row
+  one call to `run_inventory_sync()` creates shares one `started_at`
+  value (via `sync_run()`'s new optional passthrough), so "which
+  `SyncRun` rows belong to the same sync" is answerable without a new
+  `DATA_MODEL.md`-governed `batch_id` column. `overall_status` is
+  "worst status wins" across the batch's sources (`failed` >
+  `in_progress` > `complete`).
+- **`SyncSummaryDTO`** — `POST /inventory-sync/run`'s response shape:
+  `{triggered_at, sync_runs: SyncRunDTO[], vehicles_processed,
+  exceptions_found, tasks_generated, recommendations_generated}`.
+  Deliberately carries no single top-level `sync_run_id` — `SyncRun` is
+  real per-source granularity, so a fabricated singular id would
+  misstate that; `triggered_at` (the shared batch key) plus the full
+  `sync_runs` list (each with its own real `sync_run_id`) are what a
+  future write-path caller would actually need. `vehicles_processed` is
+  the count of distinct VINs seen across every uploaded source in this
+  run — stated explicitly as an implementation decision, matching this
+  document's own precedent for resolving undefined terms (e.g. Slice
+  7's "inventory health").
 - **Example (Connected Systems derived read, keyed by source):**
   ```
   {
@@ -590,6 +630,12 @@ mechanism behind `execution_status`.
   cannot represent. This document does not invent the richer status
   values or an `assigned_employee_id` field to bolt onto
   `PendingIdentityDTO` — see Section 9.
+- **Implementation status:** implemented for the first time in Phase 3,
+  Sprint 4 (`api/dtos.py`, `queries/inventory_sync.py`'s
+  `list_pending_identities()`) — serves the Inventory Sync page's
+  Exceptions panel with these real fields, deliberately not the
+  frontend's fabricated assignable-workflow shape (see the "known gap"
+  note above, still open).
 - **Example payload:**
   ```
   {
@@ -920,24 +966,36 @@ it implies, and what permission it should require.
 - **Permission requirements:** manager-level, per every frontend screen
   observed that gates "Assign"/"Reassign" to manager roles.
 
-### Run Inventory Sync
-- **Purpose:** trigger a sync execution — a genuinely new capability
-  relative to today's backend, which only runs via direct `main.py`
-  invocation. Named here because `InventorySync.tsx`'s "Run Sync Now"
-  button is a real, present frontend affordance, even though it's
-  currently a UI stub with no handler.
-- **Required inputs:** none beyond an authenticated, permitted caller.
-- **Resulting object:** a new `SyncRunDTO` per source, exactly as
-  `main.py`'s existing `sync_run()` context manager already produces —
-  this write model doesn't change what a sync run does, only that it
-  can be triggered on demand rather than only on a schedule.
-- **Validation expectations:** plausibly should reject a request if a
-  sync is already `in_progress` — not decided definitively (queuing
-  vs. rejecting concurrent triggers is an implementation-level question
-  this document intentionally leaves open, since it doesn't change the
-  contract's shape either way).
-- **Permission requirements:** Controller/admin-level, per the
-  reconciliation's read of which roles this button appears for.
+### Run Inventory Sync — implemented, Phase 3 Sprint 4
+
+- **Purpose:** trigger a sync execution from real uploaded files, not a
+  scheduled/manual `main.py` invocation. Built as `POST /inventory-sync/run`
+  — see `PHASE_3_SPRINT_4_REVIEW.md` for the full account.
+- **Required inputs:** at least one of six named multipart file fields
+  (`tekion_unsold`, `tekion_sold`, `keyper`, `mdd`, `recovr`,
+  `rapidrecon`) — all individually optional, matching this sprint's
+  requirement that Tekion Unsold/Sold remain independent slots and that
+  partial combinations are supported.
+- **Resulting object:** `SyncSummaryDTO` (see above) — a new `SyncRunDTO`
+  per *uploaded* source only; a source not included in the request
+  produces no `SyncRun` row at all, the same "no data, no claim"
+  treatment `sync/reconciler.py`'s persist functions already give an
+  absent source.
+- **Validation expectations, resolved (not left open as originally
+  written):** every provided file is validated (required-column
+  presence per its slot) **before** anything persists — a bad file in
+  one slot fails the whole request with a specific, per-file reason
+  (`422`), never a partial sync. Concurrent-trigger queuing/rejection
+  was considered and deliberately not built — implemented as a single
+  synchronous request/response, since a background job queue would be
+  infrastructure ahead of this workload's real, small, low-concurrency
+  scale (`PRODUCT.md`'s own standing rule; Slice 7 already validated
+  sub-second reconciliation performance at 3,000 vehicles).
+- **Permission requirements:** none implemented yet — this sprint
+  explicitly excluded authentication/authorization. `POST /inventory-sync/run`
+  is this project's first write route with no permission model behind
+  it at all; see Section 9 and `PHASE_3_SPRINT_4_REVIEW.md`'s
+  Recommendation #2.
 
 ### Resolve Exception
 - **Purpose:** named in the task brief, but **cannot be fully specified

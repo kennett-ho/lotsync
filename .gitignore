@@ -74,6 +74,15 @@ data/uploads/*
 data/outputs/*
 !data/outputs/.gitkeep
 
+# data/api_uploads/ (Phase 3, Sprint 4) -- one subfolder per
+# POST /inventory-sync/run request, holding that request's uploaded
+# report files. Same reasoning as data/uploads/ above: live dealership
+# data at runtime, never checked in. Kept entirely separate from
+# data/uploads/ so the CLI (main.py, find_upload()) and API upload
+# workflows never collide -- see sync/pipeline.py.
+data/api_uploads/*
+!data/api_uploads/.gitkeep
+
 # --- Explicitly NOT ignored (documented for clarity, no pattern needed) ---
 # tests/fixtures/synthetic/ -- synthetic, checked-in test data, always tracked
 # database/migrations/ -- versioned schema, always tracked

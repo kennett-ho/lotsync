@@ -5,16 +5,16 @@ sprint. This is a snapshot, not a narrative — see `SPRINT_X_REVIEW.md`
 files for the story behind each entry, and `IMPLEMENTATION_PLAN.md`
 for the full plan this tracks progress against.
 
-**Last updated:** 2026-07-28 (Phase 3, Sprint 3 closed — frontend integration)
+**Last updated:** 2026-07-28 (Phase 3, Sprint 4 closed — real Inventory Sync)
 
 ## Current position
 
 | | |
 |---|---|
-| **Phase** | Phase 3 — Web application — **Sprint 3 done, frontend now integrated** (Phase 2 remains complete underneath it) |
-| **Sprint** | Phase 3, Sprint 3 — Frontend Integration (done) |
-| **Scope note** | Six frontend screens (Vehicle Detail, Vehicles List, Dashboard, Activity, Recommendations, Tasks) wired to the Sprint 2 read-only API, one at a time, verified live in-browser. Included a real correction: the frontend's collapsed Task `status` field was replaced with the backend's `commitment_standing`/`execution_status` split. No writes, no auth, no new domain scope (Requests/Trade-Ins/Transportation untouched). See `PHASE_3_SPRINT_3_REVIEW.md` for the full report, every API/frontend mismatch found, and the Sprint 4 recommendations. |
-| **Last completed** | Phase 3, Sprint 3 — `frontend/src/api/` service layer, six screens rewired, CORS added to `api/app.py` |
+| **Phase** | Phase 3 — Web application — **Sprint 4 done, real upload-triggered sync replaces manual seeding** (Phase 2 remains complete underneath it) |
+| **Sprint** | Phase 3, Sprint 4 — Real Inventory Sync (done) |
+| **Scope note** | The complete Inventory Sync workflow: six upload slots (Tekion Unsold, Tekion Sold, Keyper, MDD, RecovR, RapidRecon), a thin orchestration layer (`sync/pipeline.py`) reusing the existing reconciliation engine unmodified, this project's first write route (`POST /inventory-sync/run`), and the Inventory Sync page wired to real data. No authentication, no Task/Recommendation write APIs, no Requests/Trade-Ins/Transportation. See `PHASE_3_SPRINT_4_REVIEW.md` for the full report, the partial-source architecture decisions, and two real reconciliation-engine findings this sprint's testing surfaced. |
+| **Last completed** | Phase 3, Sprint 4 — `sync/pipeline.py`, `api/routers/inventory_sync.py`, `frontend/src/dashboards/InventorySync.tsx` wired end-to-end, verified live via real multipart file upload in-browser |
 
 ## Completed slices
 
@@ -29,35 +29,39 @@ for the full plan this tracks progress against.
 | Phase 3, Sprint 1 — Employee + Dealership | Phase 3, Sprint 1 | `database/migrations/0006_employee_dealership.sql`; `upsert_dealership`/`get_dealership`, `upsert_employee`/`get_employee` in `database/repository.py`. Real `FOREIGN KEY` from `employee.dealership_id` to `dealership`. Deliberately did not retrofit FKs onto the four existing tables' employee/dealership columns (same precedent as `event.sync_run_id`), and deliberately built no authentication scaffolding — see `PHASE_3_SPRINT_1_REVIEW.md`'s Risks section for both. | [`PHASE_3_SPRINT_1_REVIEW.md`](PHASE_3_SPRINT_1_REVIEW.md) |
 | Phase 3, Sprint 2 — Read API Foundation | Phase 3, Sprint 2 | First FastAPI layer: `GET /dashboard`, `/vehicles`, `/vehicles/{vin}` (reference implementation), `/tasks`, `/recommendations`, `/activity`, `/reports`. New `queries/vehicles.py`, `queries/tasks.py`, `queries/recommendations.py`; `recent_activity_feed` extended to embed Vehicle summaries. A real cross-thread SQLite bug caught and fixed (`connect()` now uses `check_same_thread=False`). One `API_CONTRACTS.md` correction (`VehicleSummaryDTO.color` removed — no such backend column). No writes, no auth, frontend untouched. | [`PHASE_3_SPRINT_2_REVIEW.md`](PHASE_3_SPRINT_2_REVIEW.md) |
 | Phase 3, Sprint 3 — Frontend Integration | Phase 3, Sprint 3 | New `frontend/src/api/` service layer (typed client + one module per domain + a shared `useApi` loading/error/success hook). Six screens wired to the real API: Vehicle Detail, Vehicles List, Dashboard (Lot Manager), Activity, Recommendations, Tasks. The frontend's collapsed Task `status` field was corrected into `commitment_standing`/`execution_status`, matching the backend's Pre-Sprint 4 design exactly — verified live against a real "surfaced disagreement" case. CORS added to `api/app.py` (transport plumbing, not a contract change). No writes, no auth, no new domain scope. | [`PHASE_3_SPRINT_3_REVIEW.md`](PHASE_3_SPRINT_3_REVIEW.md) |
+| Phase 3, Sprint 4 — Real Inventory Sync | Phase 3, Sprint 4 | `sync/pipeline.py` orchestrates an upload-triggered sync over the unmodified reconciliation engine, gracefully degrading across the six upload slots' every partial combination via empty-columned `DataFrame` stand-ins. `POST /inventory-sync/run` (first write route), `GET /inventory-sync/history` (a derived, grouped-by-shared-timestamp read — no new `SyncRun` schema), `GET /inventory-sync/exceptions` (`PendingIdentityDTO`, implemented for the first time). Inventory Sync page rewired to real uploads/data, mockup layout preserved. Two real reconciliation-engine findings surfaced and documented, not silently patched: a `key_out_aging_df` empty-DataFrame `KeyError` (guarded at the call site) and a pre-existing RapidRecon idempotency gap. | [`PHASE_3_SPRINT_4_REVIEW.md`](PHASE_3_SPRINT_4_REVIEW.md) |
 
 ## Upcoming slices
 
-**Phase 3, Sprint 4 recommendation** (not started; per this project's
+**Phase 3, Sprint 5 recommendation** (not started; per this project's
 standing practice, starting it is a separate, explicit decision — see
-`PHASE_3_SPRINT_3_REVIEW.md`'s Section 6 for the full reasoning):
-authentication (a real access surface now spans six screens, and this
-sprint had to lean on a placeholder employee identity for "My Tasks"),
-a `GET /employees` endpoint (resolves actor-name gaps in three places
-at once), wiring the Lot Manager dashboard's "Today's Operations" board
-to the same grouped-Task data Tasks.tsx now has, and a lightweight
-frontend test setup (Vitest) before any write-path work begins.
+`PHASE_3_SPRINT_4_REVIEW.md`'s Section 6 for the full reasoning):
+authentication (now overdue across two sprints of recommending it, and
+this sprint added this project's first write route with no permission
+model behind it), a `GET /employees` endpoint, a lightweight frontend
+test setup (Vitest, more pressing now that a real write path exists
+with zero automated frontend coverage), fixing the RapidRecon
+idempotency gap `PHASE_3_SPRINT_4_REVIEW.md` Section 3.3 documents, and
+wiring the Lot Manager dashboard's "Today's Operations" board to the
+same grouped-Task data Tasks.tsx already has.
 
 ## Regression status
 
-- **292 / 292 backend tests passing**, unchanged by this sprint
-  (`tests/`, run via
+- **309 / 309 backend tests passing** (292 → 309 this sprint: 11 new in
+  `tests/test_sync_pipeline.py`, 6 new in `tests/test_api_inventory_sync.py`),
+  run via
   `PYTHONPATH=.. python -m unittest discover -s tests -p "test_*.py"`
-  from the repo root) — re-confirmed green after adding CORS to
-  `api/app.py`.
+  from the repo root.
 - No CI — the suite must be run manually. Standing risk, unchanged
   since Sprint 1.
-- **New risk as of Sprint 3:** the frontend has zero automated test
-  coverage — no test runner exists in `frontend/package.json` today.
-  This sprint's verification was entirely manual, browser-driven
-  (loading/error/success/backend-unavailable, checked live for all six
-  screens). Acceptable for a read-only integration sprint reusing one
-  proven pattern six times; not acceptable once write-path work starts.
-  See `PHASE_3_SPRINT_3_REVIEW.md`'s Recommendation #4.
+- **Frontend automated test coverage remains zero**, unchanged since
+  Sprint 3 — no test runner exists in `frontend/package.json` today.
+  This sprint's verification was again entirely manual, browser-driven,
+  now covering a real write path (real multipart file upload through
+  the actual six `<input type="file">` slots, not a simulated request)
+  in addition to the read states Sprint 3 already covered. Materially
+  less acceptable now than at Sprint 3's close — see
+  `PHASE_3_SPRINT_4_REVIEW.md`'s Recommendation #4.
 
 ## Environment
 
@@ -149,6 +153,23 @@ surfaced (its kickoff called it "Phase 4," inconsistent with every
 other artifact's "Phase 3, Sprint 3") that's flagged for the product
 owner to resolve, not silently picked one way or the other.
 
+**Phase 3, Sprint 4:** `PRODUCT.md` was edited once, for the naming
+discrepancy Sprint 3 flagged and left open — resolved this time, before
+any code was written, per explicit product-owner direction: the Phase 3
+roadmap paragraph now names Sprints 1–4 explicitly as real, demonstrated
+scope growth within Phase 3, not a re-scoping. No change to `VISION.md`,
+`ARCHITECTURE.md`, or `DATA_MODEL.md` — the partial-source sync design
+(empty-columned `DataFrame` stand-ins for un-uploaded sources) and the
+derived, grouped-by-shared-timestamp `SyncRun` history read are both
+valid-input-shape and read-model decisions respectively, neither
+requiring a schema or architecture change. `API_CONTRACTS.md` needed no
+edit either — `PendingIdentityDTO` and `SyncRunDTO` were already fully
+specified there; this sprint only closed the "specified, not yet
+implemented" gap, matching Sprint 2's own precedent for Employee. See
+`PHASE_3_SPRINT_4_REVIEW.md` for the two real, concrete
+reconciliation-engine findings this sprint's testing surfaced
+(documented, not silently patched into a governed module).
+
 ## Phase 2 complete — what the backend now provides
 
 Every source (Tekion, Sold, MDD, RecovR, RapidRecon, Keyper) persists
@@ -172,9 +193,12 @@ output, unchanged, through all seven slices.
 sprint: Sprint 1 built the Employee/Dealership backend foundation;
 Sprint 2 built the first read-only API layer over the existing Phase 2
 data; Sprint 3 wired six frontend screens to that API and corrected the
-frontend's Task model to match the backend's already-settled design.
-Authentication is still explicitly not built. **Next decision, not yet
-made:** whether to begin Phase 3, Sprint 4 (see "Upcoming slices"
-above), per this project's standing practice of treating each sprint as
-its own scoped, reviewed unit rather than an automatic continuation
-into the next.
+frontend's Task model to match the backend's already-settled design;
+Sprint 4 replaced manual database seeding with a real, upload-triggered
+Inventory Sync workflow — this project's first write route, built as a
+thin orchestration layer over the unchanged reconciliation engine.
+Authentication is still explicitly not built, now a two-sprint-running
+recommendation. **Next decision, not yet made:** whether to begin
+Phase 3, Sprint 5 (see "Upcoming slices" above), per this project's
+standing practice of treating each sprint as its own scoped, reviewed
+unit rather than an automatic continuation into the next.

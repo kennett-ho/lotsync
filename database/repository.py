@@ -319,7 +319,7 @@ def fail_sync_run(conn: sqlite3.Connection, sync_run_id: int, completed_at: str 
 
 @contextlib.contextmanager
 def sync_run(conn: sqlite3.Connection, source: str, records_processed: int = None,
-              dealership_id: str = None):
+              dealership_id: str = None, started_at: str = None):
     """
     Wraps one source's persistence pass in a real transaction, per the
     Sprint 3 kickoff decision to give SyncRun a clean semantic contract:
@@ -342,8 +342,20 @@ def sync_run(conn: sqlite3.Connection, source: str, records_processed: int = Non
     the transactional/provenance guarantee, it doesn't change whether a
     write failure should stop the pipeline (an orthogonal question, not
     part of Slice 4's scope; see SPRINT_3_REVIEW.md).
+
+    started_at (Phase 3, Sprint 4 addition): optional passthrough to
+    start_sync_run, which already accepted this parameter -- this wrapper
+    just didn't expose it. Lets a multi-source caller (sync/pipeline.py's
+    run_inventory_sync) stamp every source's SyncRun in one request with
+    the same timestamp, so "which SyncRun rows belong to the same sync
+    request" is answerable as a derived read (group by started_at)
+    without a new batch_id column -- see DATA_MODEL.md's SyncRun entry,
+    unchanged by this. Omitted (None), this is byte-for-byte the same
+    default behavior every existing caller (main.py, every prior test)
+    already gets.
     """
-    sync_run_id = start_sync_run(conn, source=source, dealership_id=dealership_id)
+    sync_run_id = start_sync_run(conn, source=source, dealership_id=dealership_id,
+                                  started_at=started_at)
     try:
         yield sync_run_id
     except Exception:

@@ -10,9 +10,11 @@ already-made one.
 Run locally (see api/README.md for the full command):
     uvicorn lotsync.api.app:app --reload
 
-No write routes, no authentication, no frontend wiring -- see
-PHASE_3_SPRINT_2_REVIEW.md for this sprint's exact scope and the
-reasoning behind everything deliberately NOT here yet.
+Read-only through Sprint 3; still no authentication. Sprint 4 adds this
+project's first write route, POST /inventory-sync/run (see
+api/routers/inventory_sync.py) -- everything else stays read-only. See
+PHASE_3_SPRINT_2_REVIEW.md / PHASE_3_SPRINT_4_REVIEW.md for scope and
+reasoning.
 """
 
 import os
@@ -20,12 +22,12 @@ import os
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
-from lotsync.api.routers import activity, dashboard, recommendations, reports, tasks, vehicles
+from lotsync.api.routers import activity, dashboard, inventory_sync, recommendations, reports, tasks, vehicles
 
 app = FastAPI(
     title="LotSync API",
-    description="Read-only API layer, Phase 3 Sprint 2. See API_CONTRACTS.md for the DTOs this serves.",
-    version="0.1.0",
+    description="See API_CONTRACTS.md for the DTOs this serves.",
+    version="0.2.0",
 )
 
 # Phase 3, Sprint 3 -- the frontend (Vite dev server, a different origin)
@@ -54,3 +56,4 @@ app.include_router(tasks.router)
 app.include_router(recommendations.router)
 app.include_router(activity.router)
 app.include_router(reports.router)
+app.include_router(inventory_sync.router)

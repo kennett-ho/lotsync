@@ -111,3 +111,53 @@ export interface VehicleDetailDTO extends VehicleDTO {
   timeline: ActivityDTO[]
   connected_systems: Record<string, ConnectedSystemStatusDTO>
 }
+
+/**
+ * An observation that couldn't be resolved to a known Vehicle's VIN --
+ * the Inventory Sync page's Exceptions panel data source. See
+ * API_CONTRACTS.md's PendingIdentityDTO section. Deliberately NOT the
+ * mockup's assignable status/suggestedAction shape -- no backend for
+ * that exists.
+ */
+export interface PendingIdentityDTO {
+  pending_identity_id: number
+  source: string
+  raw_identifier: string
+  identifier_type: string
+  status: 'pending' | 'resolved'
+  first_observed_at: string
+  last_observed_at: string
+  resolved_vin: string | null
+  resolved_at: string | null
+}
+
+export interface SyncRunDTO {
+  sync_run_id: number
+  source: string
+  status: string
+  started_at: string
+  completed_at: string | null
+  records_processed: number | null
+}
+
+/** One entry in GET /inventory-sync/history -- a derived grouping, not a stored batch. */
+export interface SyncRunBatchDTO {
+  started_at: string
+  overall_status: string
+  sources: SyncRunDTO[]
+}
+
+/**
+ * POST /inventory-sync/run's response. No single top-level sync_run_id --
+ * SyncRun is real per-source granularity (see DATA_MODEL.md) -- so this
+ * carries both triggered_at (the shared batch key) and the full
+ * per-source sync_runs list. See api/dtos.py's SyncSummaryDTO.
+ */
+export interface SyncSummaryDTO {
+  triggered_at: string
+  sync_runs: SyncRunDTO[]
+  vehicles_processed: number
+  exceptions_found: number
+  tasks_generated: number
+  recommendations_generated: number
+}

@@ -133,6 +133,65 @@ class DashboardSummaryDTO(BaseModel):
     recent_activity: List[ActivityDTO]
 
 
+class PendingIdentityDTO(BaseModel):
+    """
+    An observation that couldn't be resolved to a known Vehicle's VIN at
+    the time it was recorded -- API_CONTRACTS.md's already-documented
+    shape, implemented here for the first time (Phase 3, Sprint 4). The
+    Inventory Sync page's Exceptions panel is this DTO's list, not a
+    fabricated assignable-workflow shape -- see
+    queries/inventory_sync.py's list_pending_identities.
+    """
+    pending_identity_id: int
+    source: str
+    raw_identifier: str
+    identifier_type: str
+    status: str
+    first_observed_at: str
+    last_observed_at: str
+    resolved_vin: Optional[str] = None
+    resolved_at: Optional[str] = None
+
+
+class SyncRunDTO(BaseModel):
+    """One source's execution within a sync -- matches DATA_MODEL.md's SyncRun."""
+    sync_run_id: int
+    source: str
+    status: str
+    started_at: str
+    completed_at: Optional[str] = None
+    records_processed: Optional[int] = None
+
+
+class SyncRunBatchDTO(BaseModel):
+    """
+    One entry in GET /inventory-sync/history -- every SyncRun sharing one
+    started_at, a derived grouping (see queries/inventory_sync.py's
+    sync_run_history for why this isn't a stored batch_id).
+    """
+    started_at: str
+    overall_status: str
+    sources: List[SyncRunDTO]
+
+
+class SyncSummaryDTO(BaseModel):
+    """
+    POST /inventory-sync/run's response. Deliberately does not carry a
+    single top-level "sync_run_id" -- SyncRun is real per-source
+    granularity (see DATA_MODEL.md), so this instead exposes both
+    identifiers a future write-path caller would actually need:
+    triggered_at (the shared batch key every sync_run in this run was
+    stamped with) and the full per-source sync_runs list, each with its
+    own real sync_run_id.
+    """
+    triggered_at: str
+    sync_runs: List[SyncRunDTO]
+    vehicles_processed: int
+    exceptions_found: int
+    tasks_generated: int
+    recommendations_generated: int
+
+
 class VehicleDetailDTO(VehicleDTO):
     """
     Superset of VehicleDTO, not a sibling -- API_CONTRACTS.md's own

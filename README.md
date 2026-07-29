@@ -1,13 +1,79 @@
-# LotSync OMS - Reconciliation Script
+# LotSync OMS
 
-This script compares your dealership's key-tracking system (Keyper),
-DMS inventory (Tekion), GPS tracking (RecovR), and beacon tracking
-(MDD) against each other, and produces a set of reports telling you
-where they disagree. It does not change anything in any of those
-systems -- it only reads exports from them and tells you what to look
-into.
+LotSync compares your dealership's key-tracking system (Keyper), DMS
+inventory (Tekion), GPS tracking (RecovR), beacon tracking (MDD), and
+reconditioning workflow (RapidRecon) against each other, and produces a
+set of reports telling you where they disagree. It does not change
+anything in any of those systems -- it only reads exports from them and
+tells you what to look into.
 
-## Before you run it
+The reconciliation engine described below (`reconcile.py`'s original
+CLI workflow, now `main.py`) is still exactly how it's always worked --
+nothing about it changed. As of Phase 3, there are now two ways to run
+it: the original CLI script, reading files from a folder on disk, or
+the web application (FastAPI backend + React frontend) described in
+"Running LotSync" immediately below, which is the real day-to-day path
+for a dealership employee going forward -- upload reports through a
+browser, no folder or file-naming convention to manage by hand. Both
+paths call the exact same reconciliation code; neither is more
+authoritative than the other.
+
+## Running LotSync
+
+### Backend (FastAPI)
+
+```
+cd lotsync
+PYTHONPATH=.. python -m pip install fastapi uvicorn python-multipart
+PYTHONPATH=.. uvicorn lotsync.api.app:app --reload
+```
+
+Serves at `http://localhost:8000` by default; interactive docs at
+`/docs`. See [`api/README.md`](api/README.md) for the full route list
+and testing instructions.
+
+### Frontend (React + Vite)
+
+```
+cd lotsync/frontend
+npm install
+npm run dev
+```
+
+Serves at `http://localhost:8443` (or `5173` outside this project's own
+dev-container setup) and calls the backend at `http://localhost:8000` by
+default -- override via a `.env.local` file's `VITE_API_BASE_URL` if
+your backend runs elsewhere (see `frontend/src/api/client.ts`).
+
+### Inventory Sync (the real day-to-day workflow)
+
+With both servers running, open the frontend and go to **Inventory
+Sync** in the sidebar. Upload the same six reports the CLI workflow
+below reads from disk -- Tekion Unsold Inventory, Tekion Sold Inventory,
+Keyper, MDD, RecovR, and RapidRecon -- through the six labeled upload
+slots (any subset is accepted; Tekion Unsold and Tekion Sold are
+independent slots, not one combined upload), then **Run Sync Now**.
+This runs the exact same reconciliation engine as the CLI path, persists
+the results to SQLite, and still writes the eight CSV reports described
+under "The reports" below to the same output location -- no manual
+database seeding, no CLI invocation required. See
+[`PHASE_3_SPRINT_4_REVIEW.md`](PHASE_3_SPRINT_4_REVIEW.md) for exactly
+how partial uploads (e.g. Tekion Unsold only) are handled.
+
+### Developer workflow
+
+```
+cd lotsync
+PYTHONPATH=.. python -m unittest discover -s tests -p "test_*.py"
+```
+
+Run this after any change to `sync/`, `rules/`, `database/`, `queries/`,
+or `api/` -- see [`tests/README.md`](tests/README.md) for what's
+covered. No frontend test runner exists yet (a standing, named gap --
+see `PHASE_3_SPRINT_4_REVIEW.md`'s recommendations); frontend changes
+are verified manually, in-browser.
+
+## Before you run it (CLI workflow)
 
 Every time you run this, you need five files in the same folder as
 the exports:

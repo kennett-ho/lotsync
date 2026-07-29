@@ -224,6 +224,18 @@ section. This is also where authentication is introduced, since it's
 the first point a real multi-user access surface exists. Gets its own
 implementation plan once Phase 2 is verifiably done — not before.
 
+In practice, Phase 3 turned out to span more sprints than this original
+paragraph anticipated, each documented in its own `PHASE_3_SPRINT_N_REVIEW.md`:
+Sprint 1 built the `Employee`/`Dealership` backend foundation those
+dataclasses had been missing since the frontend-discovery review; Sprint 2
+built the first read-only API layer over Phase 2's data; Sprint 3 wired six
+frontend screens to that API; Sprint 4 replaces manual database seeding
+with a real, upload-triggered Inventory Sync workflow — the "Run Sync Now"
+capability `API_CONTRACTS.md` Section 5 had already named as Phase 3
+write-path scope. None of this is a re-scoping of Phase 3; it's this
+paragraph catching up to what already shipped under it. Authentication,
+named above, remains not yet built as of Sprint 4.
+
 **Phase 4 — Dealer Trades.** Workflows spanning a vehicle move between
 two dealerships (e.g. "Pending Pickup," "Accepted — In Transit," per
 the dashboard mockups). Has a specifically documented open modeling

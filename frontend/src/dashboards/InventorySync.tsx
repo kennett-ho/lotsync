@@ -1,470 +1,189 @@
-import { useState, useMemo } from "react";
+// InventorySync.tsx — Inventory Sync
+//
+// Phase 3, Sprint 4: wired to the real upload-triggered sync workflow
+// (POST /inventory-sync/run) plus three read endpoints (GET /dashboard's
+// connected_systems, GET /inventory-sync/history, GET /inventory-sync/exceptions).
+// Previously this entire page was inline mock arrays with no backend
+// integration and no working "Run Sync Now" handler at all.
+//
+// Per this sprint's own instruction, the mockup's layout is preserved,
+// not redesigned -- data sources are swapped, and where the mockup shows
+// something the backend has no equivalent for, that's rendered honestly
+// instead of fabricated:
+// - The mockup's "Sync Run Selector" (fixed "7:02 AM" / "12:31 PM" tabs,
+//   each with a pre-baked exceptions/tasks snapshot) assumed a per-run
+//   history richer than what SyncRun actually stores (see
+//   queries/inventory_sync.py's sync_run_history docstring for why
+//   per-batch task/recommendation/exception counts aren't reconstructed
+//   retroactively). Replaced with a real "Recent Sync Runs" list showing
+//   what a batch of SyncRun rows actually carries -- sources, status,
+//   records processed -- not fake per-run stats.
+// - The mockup's Exceptions table had an assignable status/suggestedAction
+//   workflow (Under Review, Task Created, ...) with no backend behind it
+//   at all. Replaced with real, persisted PendingIdentity rows
+//   (raw_identifier, identifier_type, first/last observed) -- the
+//   Exceptions panel's actual backend equivalent, per
+//   FRONTEND_BACKEND_RECONCILIATION.md's already-documented gap.
+// - The Stats Bar / "Detected Changes" panel reflect the most recent
+//   sync run *in this browser session* (SyncSummaryDTO's own fields --
+//   vehicles_processed, exceptions_found, tasks_generated,
+//   recommendations_generated) -- not persisted, not reconstructed after
+//   a reload, exactly like every other ephemeral summary state in this
+//   app.
 
-type RunId = "7:02 AM" | "12:31 PM";
-type ExceptionStatus =
-  | "pending"
-  | "in-review"
-  | "task-created"
-  | "auto-resolved"
-  | "resolved";
+import { useMemo, useState } from 'react'
+import { getDashboard } from '../api/dashboard'
+import { getExceptions, getSyncHistory, runInventorySync } from '../api/inventorySync'
+import { useApi } from '../api/useApi'
+import { isBackendUnavailable } from '../api/client'
+import type { InventorySyncFiles } from '../api/inventorySync'
+import type { PendingIdentityDTO, SyncSummaryDTO } from '../api/types'
 
-interface Exception {
-  stock: string;
-  year: number;
-  make: string;
-  model: string;
-  issue: string;
-  system: string;
-  suggestedAction: string;
-  status: ExceptionStatus;
-}
-
-const ALL_EXCEPTIONS: Exception[] = [
-  {
-    stock: "P28192",
-    year: 2021,
-    make: "Jeep",
-    model: "Grand Cherokee",
-    issue: "Vehicle not found in lot scan",
-    system: "RecovR",
-    suggestedAction: "Investigate physical location",
-    status: "pending",
-  },
-  {
-    stock: "A48291",
-    year: 2023,
-    make: "Honda",
-    model: "Accord",
-    issue: "Days in inventory discrepancy: DMS 38d vs LotSync 42d",
-    system: "Tekion",
-    suggestedAction: "Reconcile intake date",
-    status: "in-review",
-  },
-  {
-    stock: "E51388",
-    year: 2023,
-    make: "BMW",
-    model: "5 Series",
-    issue: "RecovR tracker not installed",
-    system: "RecovR",
-    suggestedAction: "Install tracker",
-    status: "task-created",
-  },
-  {
-    stock: "H72840",
-    year: 2023,
-    make: "Subaru",
-    model: "Outback",
-    issue: "Location discrepancy: DMS=lot, RecovR=offsite",
-    system: "RecovR",
-    suggestedAction: "Verify current location",
-    status: "pending",
-  },
-  {
-    stock: "C84711",
-    year: 2022,
-    make: "Ford",
-    model: "F-150",
-    issue: "Odometer value missing",
-    system: "Tekion",
-    suggestedAction: "Update mileage in Tekion",
-    status: "pending",
-  },
-  {
-    stock: "D72044",
-    year: 2024,
-    make: "Kia",
-    model: "Telluride",
-    issue: "Status mismatch: Tekion=In Transit, LotSync=Available",
-    system: "Tekion",
-    suggestedAction: "Verify status",
-    status: "pending",
-  },
-  {
-    stock: "G11203",
-    year: 2024,
-    make: "Hyundai",
-    model: "Tucson",
-    issue: "Duplicate VIN entry detected",
-    system: "Tekion",
-    suggestedAction: "Remove duplicate record",
-    status: "auto-resolved",
-  },
-  {
-    stock: "B93021",
-    year: 2024,
-    make: "Toyota",
-    model: "Camry",
-    issue: "Missing exterior color in Tekion record",
-    system: "Tekion",
-    suggestedAction: "Update vehicle details",
-    status: "auto-resolved",
-  },
-  {
-    stock: "F29917",
-    year: 2022,
-    make: "Chevrolet",
-    model: "Silverado",
-    issue: "Key tracking gap: no activity in 48h",
-    system: "Keyper",
-    suggestedAction: "Verify key status",
-    status: "pending",
-  },
-  {
-    stock: "G19283",
-    year: 2022,
-    make: "Toyota",
-    model: "RAV4",
-    issue: "Zone differs from physical scan by 2 zones",
-    system: "RecovR",
-    suggestedAction: "Update zone",
-    status: "auto-resolved",
-  },
-  {
-    stock: "M29481",
-    year: 2022,
-    make: "Ford",
-    model: "Explorer",
-    issue: "RapidRecon status stale (5 days)",
-    system: "RapidRecon",
-    suggestedAction: "Refresh recon status",
-    status: "task-created",
-  },
-  {
-    stock: "B39281",
-    year: 2024,
-    make: "Honda",
-    model: "CR-V",
-    issue: "MDD install date missing",
-    system: "MDD",
-    suggestedAction: "Update install record",
-    status: "auto-resolved",
-  },
-];
-
-const RUN_DATA: Record<
-  RunId,
-  {
-    vehiclesProcessed: number;
-    exceptions: number;
-    autoResolved: number;
-    tasksGenerated: number;
-    exceptionIndices: number[];
-  }
-> = {
-  "12:31 PM": {
-    vehiclesProcessed: 1251,
-    exceptions: 3,
-    autoResolved: 0,
-    tasksGenerated: 18,
-    exceptionIndices: [0, 1, 2],
-  },
-  "7:02 AM": {
-    vehiclesProcessed: 1247,
-    exceptions: 12,
-    autoResolved: 4,
-    tasksGenerated: 8,
-    exceptionIndices: [0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11],
-  },
-};
-
-const RUN_HISTORY = [
-  { label: "Today 12:31 PM", exceptions: 3 },
-  { label: "Today 7:02 AM", exceptions: 12 },
-  { label: "Yesterday 6:01 PM", exceptions: 1 },
-  { label: "Yesterday 12:30 PM", exceptions: 7 },
-  { label: "Yesterday 7:01 AM", exceptions: 2 },
-];
-
-const SYSTEMS = [
-  {
-    name: "Tekion",
-    status: "connected",
-    detail: "API v3.2 · 1,247 vehicles synced",
-  },
-  { name: "Keyper", status: "connected", detail: "384 keys tracked" },
-  {
-    name: "RecovR",
-    status: "partial",
-    detail: "312 of 347 vehicles tracked · 35 missing",
-  },
-  { name: "MDD", status: "connected", detail: "89 installations synced" },
-  {
-    name: "RapidRecon",
-    status: "connected",
-    detail: "23 vehicles in recon pipeline",
-  },
-];
-
-function statusPillClass(status: ExceptionStatus): string {
-  switch (status) {
-    case "pending":
-      return "bg-amber-50 text-amber-700 border border-amber-200";
-    case "in-review":
-      return "bg-blue-50 text-blue-700 border border-blue-200";
-    case "task-created":
-      return "bg-violet-50 text-violet-700 border border-violet-200";
-    case "auto-resolved":
-      return "bg-emerald-50 text-emerald-700 border border-emerald-200";
-    case "resolved":
-      return "bg-slate-100 text-slate-600 border border-slate-200";
-  }
-}
-
-function statusPillLabel(status: ExceptionStatus): string {
-  switch (status) {
-    case "pending":
-      return "Pending";
-    case "in-review":
-      return "In Review";
-    case "task-created":
-      return "Task Created";
-    case "auto-resolved":
-      return "Auto-Resolved";
-    case "resolved":
-      return "Resolved";
-  }
-}
+const UPLOAD_SLOTS: { field: keyof InventorySyncFiles; label: string }[] = [
+  { field: 'tekion_unsold', label: 'Tekion Unsold Inventory' },
+  { field: 'tekion_sold', label: 'Tekion Sold Inventory' },
+  { field: 'keyper', label: 'Keyper' },
+  { field: 'mdd', label: 'MDD' },
+  { field: 'recovr', label: 'RecovR' },
+  { field: 'rapidrecon', label: 'RapidRecon' },
+]
 
 function SystemDot({ status }: { status: string }) {
-  if (status === "connected")
-    return (
-      <span className="inline-block w-2 h-2 rounded-full bg-emerald-500 shrink-0" />
-    );
-  if (status === "partial")
-    return (
-      <span className="inline-block w-2 h-2 rounded-full bg-amber-400 shrink-0" />
-    );
-  return (
-    <span className="inline-block w-2 h-2 rounded-full bg-slate-300 shrink-0" />
-  );
+  if (status === 'complete')
+    return <span className="inline-block w-2 h-2 rounded-full bg-emerald-500 shrink-0" />
+  if (status === 'in_progress' || status === 'delayed')
+    return <span className="inline-block w-2 h-2 rounded-full bg-amber-400 shrink-0" />
+  if (status === 'failed')
+    return <span className="inline-block w-2 h-2 rounded-full bg-red-500 shrink-0" />
+  return <span className="inline-block w-2 h-2 rounded-full bg-slate-300 shrink-0" />
+}
+
+function statusLabel(status: string): string {
+  switch (status) {
+    case 'complete': return 'Connected'
+    case 'in_progress': return 'Running'
+    case 'delayed': return 'Delayed'
+    case 'failed': return 'Failed'
+    default: return status
+  }
 }
 
 function RefreshIcon({ className }: { className?: string }) {
   return (
-    <svg
-      className={className}
-      width="15"
-      height="15"
-      viewBox="0 0 16 16"
-      fill="none"
-      xmlns="http://www.w3.org/2000/svg"
-    >
-      <path
-        d="M13.65 2.35A8 8 0 1 0 15 8h-2a6 6 0 1 1-1.76-4.24L9 6h6V0l-1.35 2.35Z"
-        fill="currentColor"
-      />
+    <svg className={className} width="15" height="15" viewBox="0 0 16 16" fill="none" xmlns="http://www.w3.org/2000/svg">
+      <path d="M13.65 2.35A8 8 0 1 0 15 8h-2a6 6 0 1 1-1.76-4.24L9 6h6V0l-1.35 2.35Z" fill="currentColor" />
     </svg>
-  );
+  )
 }
 
-function SyncIcon({ className }: { className?: string }) {
+function UploadIcon({ className }: { className?: string }) {
   return (
-    <svg
-      className={className}
-      width="13"
-      height="13"
-      viewBox="0 0 14 14"
-      fill="none"
-      xmlns="http://www.w3.org/2000/svg"
-    >
-      <path
-        d="M11.44 2.56A6 6 0 1 0 13 7h-1.5A4.5 4.5 0 1 1 10.06 3.94L8.5 5.5H13V1l-1.56 1.56Z"
-        fill="currentColor"
-      />
+    <svg className={className} width="15" height="15" viewBox="0 0 16 16" fill="none" xmlns="http://www.w3.org/2000/svg">
+      <path d="M8 11V3M8 3L4.5 6.5M8 3l3.5 3.5" stroke="currentColor" strokeWidth="1.4" strokeLinecap="round" strokeLinejoin="round" />
+      <path d="M2.5 12.5v1a1 1 0 001 1h9a1 1 0 001-1v-1" stroke="currentColor" strokeWidth="1.4" strokeLinecap="round" />
     </svg>
-  );
-}
-
-function CheckCircleIcon({ className }: { className?: string }) {
-  return (
-    <svg
-      className={className}
-      width="14"
-      height="14"
-      viewBox="0 0 14 14"
-      fill="none"
-      xmlns="http://www.w3.org/2000/svg"
-    >
-      <circle cx="7" cy="7" r="6.5" stroke="currentColor" />
-      <path
-        d="M4 7l2 2 4-4"
-        stroke="currentColor"
-        strokeWidth="1.4"
-        strokeLinecap="round"
-        strokeLinejoin="round"
-      />
-    </svg>
-  );
-}
-
-function ClockIcon({ className }: { className?: string }) {
-  return (
-    <svg
-      className={className}
-      width="14"
-      height="14"
-      viewBox="0 0 14 14"
-      fill="none"
-      xmlns="http://www.w3.org/2000/svg"
-    >
-      <circle cx="7" cy="7" r="6.5" stroke="currentColor" />
-      <path
-        d="M7 4v3.5l2 1.5"
-        stroke="currentColor"
-        strokeWidth="1.4"
-        strokeLinecap="round"
-      />
-    </svg>
-  );
+  )
 }
 
 function SearchIcon({ className }: { className?: string }) {
   return (
-    <svg
-      className={className}
-      width="13"
-      height="13"
-      viewBox="0 0 14 14"
-      fill="none"
-      xmlns="http://www.w3.org/2000/svg"
-    >
+    <svg className={className} width="13" height="13" viewBox="0 0 14 14" fill="none" xmlns="http://www.w3.org/2000/svg">
       <circle cx="6" cy="6" r="4.5" stroke="currentColor" strokeWidth="1.3" />
-      <path
-        d="M9.5 9.5L12.5 12.5"
-        stroke="currentColor"
-        strokeWidth="1.3"
-        strokeLinecap="round"
-      />
+      <path d="M9.5 9.5L12.5 12.5" stroke="currentColor" strokeWidth="1.3" strokeLinecap="round" />
     </svg>
-  );
+  )
 }
 
 function TaskIcon({ className }: { className?: string }) {
   return (
-    <svg
-      className={className}
-      width="13"
-      height="13"
-      viewBox="0 0 14 14"
-      fill="none"
-      xmlns="http://www.w3.org/2000/svg"
-    >
-      <rect
-        x="1.5"
-        y="1.5"
-        width="11"
-        height="11"
-        rx="2"
-        stroke="currentColor"
-        strokeWidth="1.3"
-      />
-      <path
-        d="M4 7h6M4 4.5h6M4 9.5h4"
-        stroke="currentColor"
-        strokeWidth="1.3"
-        strokeLinecap="round"
-      />
+    <svg className={className} width="13" height="13" viewBox="0 0 14 14" fill="none" xmlns="http://www.w3.org/2000/svg">
+      <rect x="1.5" y="1.5" width="11" height="11" rx="2" stroke="currentColor" strokeWidth="1.3" />
+      <path d="M4 7h6M4 4.5h6M4 9.5h4" stroke="currentColor" strokeWidth="1.3" strokeLinecap="round" />
     </svg>
-  );
+  )
 }
 
 function LightbulbIcon({ className }: { className?: string }) {
   return (
-    <svg
-      className={className}
-      width="13"
-      height="13"
-      viewBox="0 0 14 14"
-      fill="none"
-      xmlns="http://www.w3.org/2000/svg"
-    >
-      <path
-        d="M7 1a4 4 0 0 0-2 7.46V10h4V8.46A4 4 0 0 0 7 1Z"
-        stroke="currentColor"
-        strokeWidth="1.3"
-      />
-      <path
-        d="M5 10h4M5.5 12h3"
-        stroke="currentColor"
-        strokeWidth="1.3"
-        strokeLinecap="round"
-      />
+    <svg className={className} width="13" height="13" viewBox="0 0 14 14" fill="none" xmlns="http://www.w3.org/2000/svg">
+      <path d="M7 1a4 4 0 0 0-2 7.46V10h4V8.46A4 4 0 0 0 7 1Z" stroke="currentColor" strokeWidth="1.3" />
+      <path d="M5 10h4M5.5 12h3" stroke="currentColor" strokeWidth="1.3" strokeLinecap="round" />
     </svg>
-  );
+  )
 }
 
 function WarningIcon({ className }: { className?: string }) {
   return (
-    <svg
-      className={className}
-      width="13"
-      height="13"
-      viewBox="0 0 14 14"
-      fill="none"
-      xmlns="http://www.w3.org/2000/svg"
-    >
-      <path
-        d="M7 1.5L13 12.5H1L7 1.5Z"
-        stroke="currentColor"
-        strokeWidth="1.3"
-        strokeLinejoin="round"
-      />
-      <path
-        d="M7 5.5v3M7 10.5v.5"
-        stroke="currentColor"
-        strokeWidth="1.3"
-        strokeLinecap="round"
-      />
+    <svg className={className} width="13" height="13" viewBox="0 0 14 14" fill="none" xmlns="http://www.w3.org/2000/svg">
+      <path d="M7 1.5L13 12.5H1L7 1.5Z" stroke="currentColor" strokeWidth="1.3" strokeLinejoin="round" />
+      <path d="M7 5.5v3M7 10.5v.5" stroke="currentColor" strokeWidth="1.3" strokeLinecap="round" />
     </svg>
-  );
+  )
 }
 
-function AutoResolveIcon({ className }: { className?: string }) {
-  return (
-    <svg
-      className={className}
-      width="13"
-      height="13"
-      viewBox="0 0 14 14"
-      fill="none"
-      xmlns="http://www.w3.org/2000/svg"
-    >
-      <path
-        d="M4 7.5l2 2 4-4"
-        stroke="currentColor"
-        strokeWidth="1.5"
-        strokeLinecap="round"
-        strokeLinejoin="round"
-      />
-      <circle cx="7" cy="7" r="6" stroke="currentColor" strokeWidth="1.2" />
-    </svg>
-  );
+const spinner = (
+  <svg width="14" height="14" fill="none" viewBox="0 0 24 24" className="animate-spin">
+    <circle cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="3" opacity="0.2" />
+    <path d="M22 12a10 10 0 0 0-10-10" stroke="currentColor" strokeWidth="3" strokeLinecap="round" />
+  </svg>
+)
+
+function formatTimestamp(iso: string): string {
+  const d = new Date(iso)
+  if (Number.isNaN(d.getTime())) return iso
+  return d.toLocaleString(undefined, { month: 'short', day: 'numeric', hour: 'numeric', minute: '2-digit' })
 }
+
+type RunState =
+  | { status: 'idle' }
+  | { status: 'running' }
+  | { status: 'error'; message: string }
+  | { status: 'success'; summary: SyncSummaryDTO }
 
 export default function InventorySync(): JSX.Element {
-  const [activeRun, setActiveRun] = useState<RunId>("12:31 PM");
-  const [search, setSearch] = useState("");
+  const [search, setSearch] = useState('')
+  const [files, setFiles] = useState<InventorySyncFiles>({})
+  const [runState, setRunState] = useState<RunState>({ status: 'idle' })
+  const [refreshKey, setRefreshKey] = useState(0)
 
-  const runData = RUN_DATA[activeRun];
+  const dashboardState = useApi(() => getDashboard(), [refreshKey])
+  const historyState = useApi(() => getSyncHistory(), [refreshKey])
+  const exceptionsState = useApi(() => getExceptions(), [refreshKey])
 
-  const exceptions = useMemo(
-    () => runData.exceptionIndices.map((i) => ALL_EXCEPTIONS[i]),
-    [runData]
-  );
+  const connectedSystems = dashboardState.status === 'success' ? dashboardState.data.connected_systems : {}
+  const history = historyState.status === 'success' ? historyState.data : []
+  const exceptions: PendingIdentityDTO[] = exceptionsState.status === 'success' ? exceptionsState.data : []
 
-  const filtered = useMemo(() => {
-    if (!search.trim()) return exceptions;
-    const q = search.toLowerCase();
+  const filteredExceptions = useMemo(() => {
+    if (!search.trim()) return exceptions
+    const q = search.toLowerCase()
     return exceptions.filter(
-      (e) =>
-        e.stock.toLowerCase().includes(q) ||
-        e.make.toLowerCase().includes(q) ||
-        e.model.toLowerCase().includes(q) ||
-        e.issue.toLowerCase().includes(q) ||
-        e.system.toLowerCase().includes(q)
-    );
-  }, [exceptions, search]);
+      e =>
+        e.raw_identifier.toLowerCase().includes(q) ||
+        e.identifier_type.toLowerCase().includes(q) ||
+        e.source.toLowerCase().includes(q),
+    )
+  }, [exceptions, search])
+
+  const selectedCount = Object.values(files).filter(Boolean).length
+  const summary = runState.status === 'success' ? runState.summary : null
+
+  const handleFileChange = (field: keyof InventorySyncFiles, file: File | undefined) => {
+    setFiles(prev => ({ ...prev, [field]: file }))
+  }
+
+  const handleRunSync = async () => {
+    if (selectedCount === 0 || runState.status === 'running') return
+    setRunState({ status: 'running' })
+    try {
+      const result = await runInventorySync(files)
+      setRunState({ status: 'success', summary: result })
+      setFiles({})
+      setRefreshKey(k => k + 1)
+    } catch (err) {
+      setRunState({ status: 'error', message: err instanceof Error ? err.message : 'Unexpected error' })
+    }
+  }
 
   return (
     <div className="min-h-screen bg-slate-50 flex flex-col">
@@ -472,113 +191,114 @@ export default function InventorySync(): JSX.Element {
       <div className="bg-white border-b border-slate-100 px-6 py-4">
         <div className="flex items-center justify-between">
           <div>
-            <h1 className="text-[22px] font-bold text-slate-900 leading-tight">
-              Inventory Sync
-            </h1>
+            <h1 className="text-[22px] font-bold text-slate-900 leading-tight">Inventory Sync</h1>
             <p className="text-[13px] text-slate-500 mt-0.5">
-              Automated data reconciliation across all connected systems
+              Upload dealership reports to reconcile Tekion, Keyper, MDD, RecovR, and RapidRecon
             </p>
           </div>
           <div className="flex items-center gap-3">
-            <div className="flex items-center gap-1.5 text-[12px] text-slate-500">
-              <SyncIcon className="text-slate-400" />
-              <span>Last sync 2 min ago</span>
-            </div>
-            <button className="flex items-center gap-2 bg-blue-600 hover:bg-blue-700 text-white text-[13px] font-medium px-4 py-2 rounded-xl transition-colors">
-              <RefreshIcon />
-              Run Sync Now
+            {history.length > 0 && (
+              <div className="text-[12px] text-slate-500">
+                Last sync {formatTimestamp(history[0].started_at)}
+              </div>
+            )}
+            <button
+              onClick={handleRunSync}
+              disabled={selectedCount === 0 || runState.status === 'running'}
+              className="flex items-center gap-2 bg-blue-600 hover:bg-blue-700 disabled:bg-slate-200 disabled:text-slate-400 text-white text-[13px] font-medium px-4 py-2 rounded-xl transition-colors"
+            >
+              {runState.status === 'running' ? spinner : <RefreshIcon />}
+              {runState.status === 'running' ? 'Running Sync…' : 'Run Sync Now'}
             </button>
           </div>
         </div>
       </div>
 
       <div className="flex-1 px-6 py-5 flex flex-col gap-5">
-        {/* Sync Run Selector */}
+        {/* Upload Reports */}
         <div className="bg-white rounded-2xl border border-slate-100 p-4">
           <p className="text-[11px] font-semibold text-slate-400 uppercase tracking-wider mb-3">
-            Today's Sync Runs
+            Upload Reports
           </p>
-          <div className="flex items-center gap-2">
-            {(["7:02 AM", "12:31 PM"] as RunId[]).map((run) => {
-              const data = RUN_DATA[run];
-              const isActive = activeRun === run;
+          <div className="grid grid-cols-3 gap-3">
+            {UPLOAD_SLOTS.map(slot => {
+              const file = files[slot.field]
               return (
-                <button
-                  key={run}
-                  onClick={() => setActiveRun(run)}
-                  className={`flex items-center gap-2.5 px-4 py-2.5 rounded-xl border text-[13px] transition-all ${
-                    isActive
-                      ? "border-blue-200 bg-blue-50 text-blue-700"
-                      : "border-slate-100 bg-white text-slate-600 hover:border-slate-200 hover:bg-slate-50"
+                <label
+                  key={slot.field}
+                  className={`flex items-center gap-2.5 px-3 py-2.5 rounded-xl border text-[13px] cursor-pointer transition-all ${
+                    file
+                      ? 'border-blue-200 bg-blue-50 text-blue-700'
+                      : 'border-slate-100 bg-white text-slate-600 hover:border-slate-200 hover:bg-slate-50'
                   }`}
                 >
-                  <CheckCircleIcon
-                    className={isActive ? "text-blue-500" : "text-emerald-500"}
+                  <UploadIcon className={file ? 'text-blue-500' : 'text-slate-400'} />
+                  <div className="min-w-0 flex-1">
+                    <div className="font-semibold truncate">{slot.label}</div>
+                    <div className="text-[11px] text-slate-400 truncate">{file ? file.name : 'No file selected'}</div>
+                  </div>
+                  <input
+                    type="file"
+                    accept=".csv"
+                    className="hidden"
+                    onChange={e => handleFileChange(slot.field, e.target.files?.[0])}
                   />
-                  <span className="font-semibold">{run}</span>
-                  <span
-                    className={`text-[11px] ${isActive ? "text-blue-500" : "text-slate-400"}`}
-                  >
-                    {data.vehiclesProcessed.toLocaleString()} vehicles
-                  </span>
-                  {data.exceptions > 0 && (
-                    <span
-                      className={`text-[11px] font-medium px-1.5 py-0.5 rounded-md ${
-                        isActive
-                          ? "bg-amber-100 text-amber-700"
-                          : "bg-amber-50 text-amber-600"
-                      }`}
-                    >
-                      {data.exceptions} exc
-                    </span>
-                  )}
-                </button>
-              );
+                </label>
+              )
             })}
-            {/* Scheduled — disabled */}
-            <button
-              disabled
-              className="flex items-center gap-2.5 px-4 py-2.5 rounded-xl border border-slate-100 bg-slate-50 text-slate-400 text-[13px] cursor-not-allowed"
-            >
-              <ClockIcon className="text-slate-300" />
-              <span className="font-semibold">6:00 PM</span>
-              <span className="text-[11px]">Scheduled</span>
-            </button>
           </div>
+          {runState.status === 'error' && (
+            <div className="mt-3 flex items-start gap-2 bg-red-50 border border-red-100 rounded-xl px-3 py-2.5 text-[12px] text-red-700">
+              <WarningIcon className="text-red-500 mt-0.5 shrink-0" />
+              <span>{runState.message}</span>
+            </div>
+          )}
+          {runState.status === 'success' && (
+            <div className="mt-3 flex items-center gap-2 bg-emerald-50 border border-emerald-100 rounded-xl px-3 py-2.5 text-[12px] text-emerald-700">
+              <span>
+                Sync complete — {summary?.vehicles_processed.toLocaleString()} vehicles processed across{' '}
+                {summary?.sync_runs.length} source{summary?.sync_runs.length === 1 ? '' : 's'}.
+              </span>
+            </div>
+          )}
+        </div>
+
+        {/* Recent Sync Runs */}
+        <div className="bg-white rounded-2xl border border-slate-100 p-4">
+          <p className="text-[11px] font-semibold text-slate-400 uppercase tracking-wider mb-3">
+            Recent Sync Runs
+          </p>
+          {history.length === 0 ? (
+            <p className="text-[13px] text-slate-400">No syncs recorded yet — upload reports above to get started.</p>
+          ) : (
+            <div className="flex items-center gap-2 flex-wrap">
+              {history.slice(0, 6).map(batch => (
+                <div
+                  key={batch.started_at}
+                  className="flex items-center gap-2.5 px-4 py-2.5 rounded-xl border border-slate-100 bg-white text-[13px]"
+                >
+                  <SystemDot status={batch.overall_status} />
+                  <span className="font-semibold text-slate-700">{formatTimestamp(batch.started_at)}</span>
+                  <span className="text-[11px] text-slate-400">
+                    {batch.sources.map(s => s.source).join(', ')}
+                  </span>
+                </div>
+              ))}
+            </div>
+          )}
         </div>
 
         {/* Stats Bar */}
         <div className="grid grid-cols-4 gap-4">
           {[
-            {
-              label: "Vehicles Processed",
-              value: runData.vehiclesProcessed.toLocaleString(),
-              color: "text-blue-600",
-            },
-            {
-              label: "Exceptions",
-              value: runData.exceptions,
-              color: "text-amber-600",
-            },
-            {
-              label: "Auto-Resolved",
-              value: runData.autoResolved,
-              color: "text-emerald-600",
-            },
-            {
-              label: "Tasks Generated",
-              value: runData.tasksGenerated,
-              color: "text-slate-700",
-            },
-          ].map((stat) => (
-            <div
-              key={stat.label}
-              className="bg-white rounded-2xl border border-slate-100 px-5 py-4"
-            >
+            { label: 'Vehicles Processed', value: summary?.vehicles_processed ?? '—', color: 'text-blue-600' },
+            { label: 'Exceptions', value: summary?.exceptions_found ?? exceptions.length, color: 'text-amber-600' },
+            { label: 'Tasks Generated', value: summary?.tasks_generated ?? '—', color: 'text-slate-700' },
+            { label: 'Recommendations', value: summary?.recommendations_generated ?? '—', color: 'text-violet-600' },
+          ].map(stat => (
+            <div key={stat.label} className="bg-white rounded-2xl border border-slate-100 px-5 py-4">
               <p className="text-[12px] text-slate-500 mb-1">{stat.label}</p>
-              <p className={`text-[28px] font-bold leading-none ${stat.color}`}>
-                {stat.value}
-              </p>
+              <p className={`text-[28px] font-bold leading-none ${stat.color}`}>{stat.value}</p>
             </div>
           ))}
         </div>
@@ -588,12 +308,9 @@ export default function InventorySync(): JSX.Element {
           {/* Left: exceptions table (60%) */}
           <div className="flex-[3] min-w-0">
             <div className="bg-white rounded-2xl border border-slate-100 overflow-hidden">
-              {/* Table toolbar */}
               <div className="flex items-center justify-between px-5 py-4 border-b border-slate-100">
                 <div className="flex items-center gap-2.5">
-                  <h2 className="text-[15px] font-semibold text-slate-900">
-                    Exceptions
-                  </h2>
+                  <h2 className="text-[15px] font-semibold text-slate-900">Exceptions</h2>
                   <span className="bg-amber-100 text-amber-700 text-[11px] font-semibold px-2 py-0.5 rounded-full">
                     {exceptions.length}
                   </span>
@@ -604,85 +321,58 @@ export default function InventorySync(): JSX.Element {
                     type="text"
                     placeholder="Search exceptions…"
                     value={search}
-                    onChange={(e) => setSearch(e.target.value)}
+                    onChange={e => setSearch(e.target.value)}
                     className="pl-8 pr-3 py-1.5 text-[12px] border border-slate-200 rounded-lg bg-slate-50 focus:outline-none focus:ring-2 focus:ring-blue-100 focus:border-blue-300 w-52 text-slate-700 placeholder-slate-400"
                   />
                 </div>
               </div>
 
-              {/* Scrollable table */}
-              <div className="overflow-y-auto" style={{ maxHeight: "440px" }}>
-                <table className="w-full text-[12px]">
-                  <thead className="sticky top-0 bg-slate-50 z-10">
-                    <tr className="border-b border-slate-100">
-                      <th className="text-left px-4 py-2.5 font-semibold text-slate-500 text-[11px] uppercase tracking-wider whitespace-nowrap">
-                        Vehicle
-                      </th>
-                      <th className="text-left px-4 py-2.5 font-semibold text-slate-500 text-[11px] uppercase tracking-wider">
-                        Issue
-                      </th>
-                      <th className="text-left px-4 py-2.5 font-semibold text-slate-500 text-[11px] uppercase tracking-wider whitespace-nowrap">
-                        System
-                      </th>
-                      <th className="text-left px-4 py-2.5 font-semibold text-slate-500 text-[11px] uppercase tracking-wider whitespace-nowrap">
-                        Suggested Action
-                      </th>
-                      <th className="text-left px-4 py-2.5 font-semibold text-slate-500 text-[11px] uppercase tracking-wider whitespace-nowrap">
-                        Status
-                      </th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {filtered.length === 0 ? (
-                      <tr>
-                        <td
-                          colSpan={5}
-                          className="text-center py-10 text-slate-400 text-[13px]"
-                        >
-                          No exceptions match your search.
-                        </td>
+              <div className="overflow-y-auto" style={{ maxHeight: '440px' }}>
+                {exceptionsState.status === 'error' ? (
+                  <div className="text-center py-10 text-slate-400 text-[13px]">
+                    {isBackendUnavailable(exceptionsState.error)
+                      ? 'The LotSync API is unreachable.'
+                      : 'Could not load exceptions.'}
+                  </div>
+                ) : (
+                  <table className="w-full text-[12px]">
+                    <thead className="sticky top-0 bg-slate-50 z-10">
+                      <tr className="border-b border-slate-100">
+                        <th className="text-left px-4 py-2.5 font-semibold text-slate-500 text-[11px] uppercase tracking-wider whitespace-nowrap">Identifier</th>
+                        <th className="text-left px-4 py-2.5 font-semibold text-slate-500 text-[11px] uppercase tracking-wider">Reason</th>
+                        <th className="text-left px-4 py-2.5 font-semibold text-slate-500 text-[11px] uppercase tracking-wider whitespace-nowrap">Source</th>
+                        <th className="text-left px-4 py-2.5 font-semibold text-slate-500 text-[11px] uppercase tracking-wider whitespace-nowrap">First Observed</th>
+                        <th className="text-left px-4 py-2.5 font-semibold text-slate-500 text-[11px] uppercase tracking-wider whitespace-nowrap">Last Observed</th>
                       </tr>
-                    ) : (
-                      filtered.map((ex, idx) => (
-                        <tr
-                          key={ex.stock + idx}
-                          className={`border-b border-slate-50 last:border-0 ${
-                            idx % 2 === 0 ? "bg-white" : "bg-slate-50/50"
-                          } ${ex.status === "pending" ? "border-l-2 border-l-amber-400" : "border-l-2 border-l-transparent"}`}
-                        >
-                          <td className="px-4 py-3 align-top whitespace-nowrap">
-                            <span className="font-mono text-[11px] text-slate-500 block">
-                              {ex.stock}
-                            </span>
-                            <span className="text-[12px] text-slate-800 font-medium whitespace-nowrap">
-                              {ex.year} {ex.make} {ex.model}
-                            </span>
-                          </td>
-                          <td className="px-4 py-3 align-top">
-                            <span className="text-slate-700 leading-snug block">
-                              {ex.issue}
-                            </span>
-                          </td>
-                          <td className="px-4 py-3 align-top whitespace-nowrap">
-                            <span className="bg-slate-100 text-slate-600 text-[11px] font-medium px-2 py-0.5 rounded-md">
-                              {ex.system}
-                            </span>
-                          </td>
-                          <td className="px-4 py-3 align-top text-slate-600 leading-snug">
-                            {ex.suggestedAction}
-                          </td>
-                          <td className="px-4 py-3 align-top whitespace-nowrap">
-                            <span
-                              className={`inline-block text-[11px] font-medium px-2 py-0.5 rounded-full ${statusPillClass(ex.status)}`}
-                            >
-                              {statusPillLabel(ex.status)}
-                            </span>
+                    </thead>
+                    <tbody>
+                      {filteredExceptions.length === 0 ? (
+                        <tr>
+                          <td colSpan={5} className="text-center py-10 text-slate-400 text-[13px]">
+                            {exceptionsState.status === 'loading' ? 'Loading…' : 'No exceptions match your search.'}
                           </td>
                         </tr>
-                      ))
-                    )}
-                  </tbody>
-                </table>
+                      ) : (
+                        filteredExceptions.map((e, idx) => (
+                          <tr
+                            key={e.pending_identity_id}
+                            className={`border-b border-slate-50 last:border-0 ${idx % 2 === 0 ? 'bg-white' : 'bg-slate-50/50'} border-l-2 border-l-amber-400`}
+                          >
+                            <td className="px-4 py-3 align-top whitespace-nowrap">
+                              <span className="font-mono text-[12px] text-slate-800 font-medium">{e.raw_identifier}</span>
+                            </td>
+                            <td className="px-4 py-3 align-top text-slate-700 leading-snug">{e.identifier_type}</td>
+                            <td className="px-4 py-3 align-top whitespace-nowrap">
+                              <span className="bg-slate-100 text-slate-600 text-[11px] font-medium px-2 py-0.5 rounded-md capitalize">{e.source}</span>
+                            </td>
+                            <td className="px-4 py-3 align-top text-slate-500 whitespace-nowrap">{formatTimestamp(e.first_observed_at)}</td>
+                            <td className="px-4 py-3 align-top text-slate-500 whitespace-nowrap">{formatTimestamp(e.last_observed_at)}</td>
+                          </tr>
+                        ))
+                      )}
+                    </tbody>
+                  </table>
+                )}
               </div>
             </div>
           </div>
@@ -692,112 +382,84 @@ export default function InventorySync(): JSX.Element {
             {/* System Status */}
             <div className="bg-white rounded-2xl border border-slate-100">
               <div className="px-5 py-4 border-b border-slate-100">
-                <h2 className="text-[15px] font-semibold text-slate-900">
-                  System Status
-                </h2>
+                <h2 className="text-[15px] font-semibold text-slate-900">System Status</h2>
               </div>
               <div className="divide-y divide-slate-50">
-                {SYSTEMS.map((sys) => (
-                  <div key={sys.name} className="px-5 py-3 flex items-start gap-3">
-                    <div className="mt-1.5">
-                      <SystemDot status={sys.status} />
-                    </div>
-                    <div className="flex-1 min-w-0">
-                      <div className="flex items-center gap-2">
-                        <span className="text-[13px] font-semibold text-slate-800">
-                          {sys.name}
-                        </span>
-                        <span
-                          className={`text-[11px] font-medium ${
-                            sys.status === "connected"
-                              ? "text-emerald-600"
-                              : "text-amber-600"
-                          }`}
-                        >
-                          {sys.status === "connected" ? "Connected" : "Partial"}
-                        </span>
+                {Object.keys(connectedSystems).length === 0 ? (
+                  <div className="px-5 py-4 text-[13px] text-slate-400">No syncs recorded yet.</div>
+                ) : (
+                  Object.entries(connectedSystems).map(([source, status]) => (
+                    <div key={source} className="px-5 py-3 flex items-start gap-3">
+                      <div className="mt-1.5"><SystemDot status={status.status} /></div>
+                      <div className="flex-1 min-w-0">
+                        <div className="flex items-center gap-2">
+                          <span className="text-[13px] font-semibold text-slate-800 capitalize">{source}</span>
+                          <span className={`text-[11px] font-medium ${status.status === 'complete' ? 'text-emerald-600' : status.status === 'failed' ? 'text-red-600' : 'text-amber-600'}`}>
+                            {statusLabel(status.status)}
+                          </span>
+                        </div>
+                        <p className="text-[11px] text-slate-500 mt-0.5 leading-snug">
+                          {status.records_processed?.toLocaleString() ?? '0'} records · {formatTimestamp(status.started_at)}
+                        </p>
                       </div>
-                      <p className="text-[11px] text-slate-500 mt-0.5 leading-snug">
-                        {sys.detail}
-                      </p>
                     </div>
-                  </div>
-                ))}
+                  ))
+                )}
               </div>
             </div>
 
             {/* Detected Changes */}
             <div className="bg-white rounded-2xl border border-slate-100">
               <div className="px-5 py-4 border-b border-slate-100">
-                <h2 className="text-[15px] font-semibold text-slate-900">
-                  Detected Changes
-                </h2>
+                <h2 className="text-[15px] font-semibold text-slate-900">Detected Changes</h2>
               </div>
               <div className="px-5 py-4 flex flex-col gap-3">
-                <div className="flex items-center gap-3">
-                  <span className="flex items-center justify-center w-7 h-7 rounded-lg bg-blue-50 text-blue-600 shrink-0">
-                    <TaskIcon />
-                  </span>
-                  <span className="text-[13px] font-semibold text-slate-800">
-                    {runData.tasksGenerated} new tasks generated
-                  </span>
-                </div>
-                <div className="flex items-center gap-3">
-                  <span className="flex items-center justify-center w-7 h-7 rounded-lg bg-amber-50 text-amber-500 shrink-0">
-                    <LightbulbIcon />
-                  </span>
-                  <span className="text-[13px] text-slate-700">
-                    5 recommendations surfaced
-                  </span>
-                </div>
-                <div className="flex items-center gap-3">
-                  <span className="flex items-center justify-center w-7 h-7 rounded-lg bg-amber-50 text-amber-600 shrink-0">
-                    <WarningIcon />
-                  </span>
-                  <span className="text-[13px] text-slate-700">
-                    {runData.exceptions} exceptions detected total
-                  </span>
-                </div>
-                <div className="flex items-center gap-3">
-                  <span className="flex items-center justify-center w-7 h-7 rounded-lg bg-emerald-50 text-emerald-600 shrink-0">
-                    <AutoResolveIcon />
-                  </span>
-                  <span className="text-[13px] text-slate-700">
-                    {runData.autoResolved} resolved automatically
-                  </span>
-                </div>
+                {summary ? (
+                  <>
+                    <div className="flex items-center gap-3">
+                      <span className="flex items-center justify-center w-7 h-7 rounded-lg bg-blue-50 text-blue-600 shrink-0"><TaskIcon /></span>
+                      <span className="text-[13px] font-semibold text-slate-800">{summary.tasks_generated} new tasks generated</span>
+                    </div>
+                    <div className="flex items-center gap-3">
+                      <span className="flex items-center justify-center w-7 h-7 rounded-lg bg-violet-50 text-violet-500 shrink-0"><LightbulbIcon /></span>
+                      <span className="text-[13px] text-slate-700">{summary.recommendations_generated} recommendations surfaced</span>
+                    </div>
+                    <div className="flex items-center gap-3">
+                      <span className="flex items-center justify-center w-7 h-7 rounded-lg bg-amber-50 text-amber-600 shrink-0"><WarningIcon /></span>
+                      <span className="text-[13px] text-slate-700">{summary.exceptions_found} exceptions detected this run</span>
+                    </div>
+                  </>
+                ) : (
+                  <p className="text-[13px] text-slate-400">Run a sync to see what changed.</p>
+                )}
               </div>
             </div>
 
             {/* Run History */}
             <div className="bg-white rounded-2xl border border-slate-100">
               <div className="px-5 py-4 border-b border-slate-100">
-                <h2 className="text-[15px] font-semibold text-slate-900">
-                  Run History
-                </h2>
+                <h2 className="text-[15px] font-semibold text-slate-900">Run History</h2>
               </div>
               <div className="divide-y divide-slate-50">
-                {RUN_HISTORY.map((run, idx) => (
-                  <div
-                    key={idx}
-                    className="px-5 py-2.5 flex items-center justify-between"
-                  >
+                {historyState.status === 'loading' && (
+                  <div className="px-5 py-4 text-[13px] text-slate-400">Loading…</div>
+                )}
+                {historyState.status === 'error' && (
+                  <div className="px-5 py-4 text-[13px] text-slate-400">
+                    {isBackendUnavailable(historyState.error) ? 'The LotSync API is unreachable.' : 'Could not load history.'}
+                  </div>
+                )}
+                {historyState.status === 'success' && history.length === 0 && (
+                  <div className="px-5 py-4 text-[13px] text-slate-400">No syncs recorded yet.</div>
+                )}
+                {history.map(batch => (
+                  <div key={batch.started_at} className="px-5 py-2.5 flex items-center justify-between">
                     <div className="flex items-center gap-2.5">
-                      <span className="inline-block w-1.5 h-1.5 rounded-full bg-emerald-500 shrink-0" />
-                      <span className="text-[12px] text-slate-700">
-                        {run.label}
-                      </span>
+                      <SystemDot status={batch.overall_status} />
+                      <span className="text-[12px] text-slate-700">{formatTimestamp(batch.started_at)}</span>
                     </div>
-                    <span
-                      className={`text-[11px] font-medium px-2 py-0.5 rounded-full ${
-                        run.exceptions > 5
-                          ? "bg-amber-50 text-amber-600"
-                          : run.exceptions > 0
-                          ? "bg-slate-100 text-slate-500"
-                          : "bg-emerald-50 text-emerald-600"
-                      }`}
-                    >
-                      {run.exceptions} exc
+                    <span className="text-[11px] font-medium px-2 py-0.5 rounded-full bg-slate-100 text-slate-500">
+                      {batch.sources.length} source{batch.sources.length === 1 ? '' : 's'}
                     </span>
                   </div>
                 ))}
@@ -807,5 +469,5 @@ export default function InventorySync(): JSX.Element {
         </div>
       </div>
     </div>
-  );
+  )
 }

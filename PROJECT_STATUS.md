@@ -5,16 +5,16 @@ sprint. This is a snapshot, not a narrative — see `SPRINT_X_REVIEW.md`
 files for the story behind each entry, and `IMPLEMENTATION_PLAN.md`
 for the full plan this tracks progress against.
 
-**Last updated:** 2026-07-27 (Phase 3, Sprint 2 closed — read-only API layer)
+**Last updated:** 2026-07-28 (Phase 3, Sprint 3 closed — frontend integration)
 
 ## Current position
 
 | | |
 |---|---|
-| **Phase** | Phase 3 — Web application — **Sprint 2 done, backend-only** (Phase 2 remains complete underneath it) |
-| **Sprint** | Phase 3, Sprint 2 — Read API Foundation (done) |
-| **Scope note** | First read-only API layer (`GET /dashboard`, `/vehicles`, `/vehicles/{vin}`, `/tasks`, `/recommendations`, `/activity`, `/reports`) over the already-complete Phase 2/Sprint 1 data. No writes, no auth, no frontend changes (LotSyncWeb untouched). See `PHASE_3_SPRINT_2_REVIEW.md` for the full report, the Frontend Readiness estimate, and the Sprint 3 recommendation. |
-| **Last completed** | Phase 3, Sprint 2 — `api/` package, three new `queries/` modules, 61 new tests |
+| **Phase** | Phase 3 — Web application — **Sprint 3 done, frontend now integrated** (Phase 2 remains complete underneath it) |
+| **Sprint** | Phase 3, Sprint 3 — Frontend Integration (done) |
+| **Scope note** | Six frontend screens (Vehicle Detail, Vehicles List, Dashboard, Activity, Recommendations, Tasks) wired to the Sprint 2 read-only API, one at a time, verified live in-browser. Included a real correction: the frontend's collapsed Task `status` field was replaced with the backend's `commitment_standing`/`execution_status` split. No writes, no auth, no new domain scope (Requests/Trade-Ins/Transportation untouched). See `PHASE_3_SPRINT_3_REVIEW.md` for the full report, every API/frontend mismatch found, and the Sprint 4 recommendations. |
+| **Last completed** | Phase 3, Sprint 3 — `frontend/src/api/` service layer, six screens rewired, CORS added to `api/app.py` |
 
 ## Completed slices
 
@@ -28,34 +28,36 @@ for the full plan this tracks progress against.
 | 7 — Dashboard data layer | 4 | `queries/dashboard.py`: `connected_systems_status`, `recent_activity_feed`, `task_counts_by_department`, `inventory_health_percentage` — all read-only, no new stored state. Two terms neither `IMPLEMENTATION_PLAN.md` nor `DATA_MODEL.md` precisely defined ("health," "department" grouping) resolved as documented implementation decisions. Performance validated at 3,000 vehicles / 12,000 events — sub-second, no optimization needed yet. | (same as above) |
 | Phase 3, Sprint 1 — Employee + Dealership | Phase 3, Sprint 1 | `database/migrations/0006_employee_dealership.sql`; `upsert_dealership`/`get_dealership`, `upsert_employee`/`get_employee` in `database/repository.py`. Real `FOREIGN KEY` from `employee.dealership_id` to `dealership`. Deliberately did not retrofit FKs onto the four existing tables' employee/dealership columns (same precedent as `event.sync_run_id`), and deliberately built no authentication scaffolding — see `PHASE_3_SPRINT_1_REVIEW.md`'s Risks section for both. | [`PHASE_3_SPRINT_1_REVIEW.md`](PHASE_3_SPRINT_1_REVIEW.md) |
 | Phase 3, Sprint 2 — Read API Foundation | Phase 3, Sprint 2 | First FastAPI layer: `GET /dashboard`, `/vehicles`, `/vehicles/{vin}` (reference implementation), `/tasks`, `/recommendations`, `/activity`, `/reports`. New `queries/vehicles.py`, `queries/tasks.py`, `queries/recommendations.py`; `recent_activity_feed` extended to embed Vehicle summaries. A real cross-thread SQLite bug caught and fixed (`connect()` now uses `check_same_thread=False`). One `API_CONTRACTS.md` correction (`VehicleSummaryDTO.color` removed — no such backend column). No writes, no auth, frontend untouched. | [`PHASE_3_SPRINT_2_REVIEW.md`](PHASE_3_SPRINT_2_REVIEW.md) |
+| Phase 3, Sprint 3 — Frontend Integration | Phase 3, Sprint 3 | New `frontend/src/api/` service layer (typed client + one module per domain + a shared `useApi` loading/error/success hook). Six screens wired to the real API: Vehicle Detail, Vehicles List, Dashboard (Lot Manager), Activity, Recommendations, Tasks. The frontend's collapsed Task `status` field was corrected into `commitment_standing`/`execution_status`, matching the backend's Pre-Sprint 4 design exactly — verified live against a real "surfaced disagreement" case. CORS added to `api/app.py` (transport plumbing, not a contract change). No writes, no auth, no new domain scope. | [`PHASE_3_SPRINT_3_REVIEW.md`](PHASE_3_SPRINT_3_REVIEW.md) |
 
 ## Upcoming slices
 
-**Phase 3, Sprint 3 recommendation** (not started; per this project's
+**Phase 3, Sprint 4 recommendation** (not started; per this project's
 standing practice, starting it is a separate, explicit decision — see
-`PHASE_3_SPRINT_2_REVIEW.md`'s "Sprint 3 Recommendation" section for
-the full reasoning): the smallest, safest frontend integration slice —
-wire ONE screen (recommended: Vehicle Detail, this sprint's own
-reference implementation) to its real endpoint, prove the integration
-pattern end-to-end, then decide whether to repeat it per-screen or
-batch several at once. Also the natural point to revisit whether any
-authentication scaffolding is actually needed yet, now that a real,
-running access surface exists for the first time.
+`PHASE_3_SPRINT_3_REVIEW.md`'s Section 6 for the full reasoning):
+authentication (a real access surface now spans six screens, and this
+sprint had to lean on a placeholder employee identity for "My Tasks"),
+a `GET /employees` endpoint (resolves actor-name gaps in three places
+at once), wiring the Lot Manager dashboard's "Today's Operations" board
+to the same grouped-Task data Tasks.tsx now has, and a lightweight
+frontend test setup (Vitest) before any write-path work begins.
 
 ## Regression status
 
-- **292 / 292 tests passing** (`tests/`, run via
+- **292 / 292 backend tests passing**, unchanged by this sprint
+  (`tests/`, run via
   `PYTHONPATH=.. python -m unittest discover -s tests -p "test_*.py"`
-  from the repo root).
-- Growth this sprint: 231 → 292 (+61: 21 across three new `queries/`
-  test files plus 4 added to `test_queries_dashboard.py`, 14 in
-  `test_api_dtos.py`, 22 in `test_api_routes.py`).
+  from the repo root) — re-confirmed green after adding CORS to
+  `api/app.py`.
 - No CI — the suite must be run manually. Standing risk, unchanged
   since Sprint 1.
-- **New for this sprint:** running `tests/test_api_routes.py` requires
-  `fastapi`/`uvicorn`/`httpx` installed (see `api/README.md`) — the
-  first test file in this project needing anything beyond the standard
-  library. Every other test file remains dependency-free.
+- **New risk as of Sprint 3:** the frontend has zero automated test
+  coverage — no test runner exists in `frontend/package.json` today.
+  This sprint's verification was entirely manual, browser-driven
+  (loading/error/success/backend-unavailable, checked live for all six
+  screens). Acceptable for a read-only integration sprint reusing one
+  proven pattern six times; not acceptable once write-path work starts.
+  See `PHASE_3_SPRINT_3_REVIEW.md`'s Recommendation #4.
 
 ## Environment
 
@@ -130,6 +132,23 @@ SQLite cross-thread connection error, fixed via `check_same_thread=False`
 on `connect()`) — again an implementation detail, not a governance
 question.
 
+**Phase 3, Sprint 3:** no governance document was touched, including
+`API_CONTRACTS.md` — every gap this sprint's frontend integration hit
+(Vehicle photo, no operational-status enum, no employee-name
+resolution, no `TaskExecutionEvent` history endpoint) was already
+named as an open question in `API_CONTRACTS.md` Section 9 or
+`FRONTEND_BACKEND_RECONCILIATION.md`'s Architectural Risks before this
+sprint started; this sprint confirmed those gaps are real and current
+rather than discovering a new one that would require a contract edit.
+The Task-model correction (collapsed `status` → `commitment_standing`/
+`execution_status`) is the frontend catching up to a design
+`DATA_MODEL.md` and `DECISION_FRAMEWORK.md` already settled during
+Pre-Sprint 4 — not a new decision. See `PHASE_3_SPRINT_3_REVIEW.md`
+for the full account, including a naming discrepancy this sprint
+surfaced (its kickoff called it "Phase 4," inconsistent with every
+other artifact's "Phase 3, Sprint 3") that's flagged for the product
+owner to resolve, not silently picked one way or the other.
+
 ## Phase 2 complete — what the backend now provides
 
 Every source (Tekion, Sold, MDD, RecovR, RapidRecon, Keyper) persists
@@ -152,9 +171,10 @@ output, unchanged, through all seven slices.
 **Phase 3 has begun**, scoped narrowly and deliberately, sprint by
 sprint: Sprint 1 built the Employee/Dealership backend foundation;
 Sprint 2 built the first read-only API layer over the existing Phase 2
-data. Both explicitly excluded authentication and frontend integration.
-**Next decision, not yet made:** whether to begin Phase 3, Sprint 3 (a
-single-screen frontend integration slice — see "Upcoming slices"
+data; Sprint 3 wired six frontend screens to that API and corrected the
+frontend's Task model to match the backend's already-settled design.
+Authentication is still explicitly not built. **Next decision, not yet
+made:** whether to begin Phase 3, Sprint 4 (see "Upcoming slices"
 above), per this project's standing practice of treating each sprint as
 its own scoped, reviewed unit rather than an automatic continuation
 into the next.

@@ -170,3 +170,20 @@ See [`PHASE_3_SPRINT_2_REVIEW.md`](PHASE_3_SPRINT_2_REVIEW.md) for full detail. 
 **A real bug caught before it shipped, worth recording:** the first test run against the new FastAPI routes failed with `sqlite3.ProgrammingError: SQLite objects created in a thread can only be used in that same thread`. FastAPI dispatches sync route handlers (and their dependencies) to a worker-pool thread, which is not necessarily the thread that opened the connection passed into a test's dependency override. Fixed at the source — `connect()` now opens with `check_same_thread=False`, safe because every request (real or test) still gets its own connection, never shared *concurrently* between two callers, only sequentially across threads. Zero behavior change for any existing single-threaded caller (`main.py`, every Phase 1/2 test) — confirmed via full-suite regression.
 
 **No change to:** any CSV report, any existing table or migration, any write path, `main.py`'s pipeline, or the LotSyncWeb frontend (untouched, as instructed). Verified via full-suite regression (231 → 292 passing).
+
+## Phase 3, Sprint 3 — Frontend Integration (2026-07-28)
+
+See [`PHASE_3_SPRINT_3_REVIEW.md`](PHASE_3_SPRINT_3_REVIEW.md) for full detail, every API/frontend mismatch found, and the Sprint 4 recommendations.
+
+**Added**
+- `frontend/src/api/` (new) — `types.ts` (wire types mirroring `api/dtos.py` field-for-field), `client.ts` (`apiGet`/`ApiError`/`isBackendUnavailable`), `useApi.ts` (shared loading/error/success hook), plus one module per domain (`vehicles.ts`, `tasks.ts`, `recommendations.ts`, `activity.ts`, `dashboard.ts`). The first API integration surface this frontend has ever had — previously zero `fetch`/`axios` calls existed anywhere in `frontend/src`.
+- `.claude/launch.json` — dev-server config for this environment's browser-preview tooling; not part of the application.
+
+**Changed**
+- `api/app.py` — added `CORSMiddleware` (origins via `LOTSYNC_CORS_ORIGINS`), so the Vite dev frontend can call the API cross-origin for the first time. Transport plumbing, not a contract change; full 292-test backend suite reconfirmed green.
+- `frontend/src/VehicleDetail.tsx`, `frontend/src/dashboards/{VehiclesList,LotManager,Activity,Tasks}.tsx` — rewritten to fetch real data instead of hardcoded mocks. `Tasks.tsx` specifically: corrected the frontend's collapsed `status` field into the backend's `commitment_standing`/`execution_status` split, and switched from one-Task-holds-many-vehicles to real one-vehicle-one-Task rows grouped by `task_type` for display, per `DATA_MODEL.md`'s already-governed Task shape.
+- `frontend/src/App.tsx` — `VehicleDetailPage` now receives a real `vin` prop (previously received none); header search regex widened to admit full 17-character VINs.
+
+**Deliberately NOT fabricated, rendered honestly instead:** Vehicle photo, lot zone, days-in-inventory (no backend source anywhere in `DATA_MODEL.md`); a composite Vehicle operational-status enum (`API_CONTRACTS.md` already names this open); employee display names (no employee-lookup endpoint exists — raw `emp-XXXX` ids shown instead); a multi-step Task execution timeline (no endpoint exposes `TaskExecutionEvent` history today). Every one of these was already an open question in `API_CONTRACTS.md` Section 9 or `FRONTEND_BACKEND_RECONCILIATION.md`'s Architectural Risks before this sprint — none required a new contract decision.
+
+**No change to:** any backend business logic, schema, or migration; any CSV report; `main.py`'s pipeline. Verified via full backend regression (292/292, unchanged) plus live, in-browser verification of every screen's success/empty/loading/backend-unavailable states.

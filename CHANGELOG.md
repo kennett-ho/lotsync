@@ -210,3 +210,25 @@ See [`PHASE_3_SPRINT_4_REVIEW.md`](PHASE_3_SPRINT_4_REVIEW.md) for full detail, 
 **Deliberately documented, not silently fixed:** a real `KeyError` `generate_key_out_aging_recommendations` would hit on a columnless empty `key_out_aging` DataFrame (guarded at the `sync/pipeline.py` call site, not inside `sync/reconciler.py`); a pre-existing RapidRecon idempotency gap (no diff-before-write at all) this sprint's partial-source testing newly exercised but did not introduce or fix.
 
 **No change to:** any CSV report's content or format via the CLI path; `main.py`; `sync/reconciler.py`; `sync/matcher.py`; `rules/validation.py`; any existing migration or DTO shape. Verified via full backend regression (292 → 309 passing) plus live, in-browser, real-multipart-upload verification of the complete six-source sync workflow.
+
+## v0.7.1 — Developer Tooling (2026-07-28)
+
+Local developer tooling only — no change to reconciliation logic, the API, or the frontend. Not a Phase 3 slice or sprint (Sprint 5 is still not started); see `tools/README.md` for full detail on how each script works and the governance decisions this work surfaced rather than silently resolved.
+
+**Added**
+- `tools/launch.ps1`, `stop.ps1`, `doctor.ps1`, `update.ps1`, `common.ps1` — a permanent one-command developer workflow: verifies Python/Node/npm/git, creates `.venv` and installs backend dependencies if needed, runs `npm install` if needed, gracefully stops any previous LotSync session this tooling itself started, starts backend + frontend, waits for both to come up, opens the browser, prints a startup summary. Process tracking is signature-verified (matches a live process's command line against the wrapper script it was launched with) before ever stopping anything — never a blanket "kill all python"/"kill all node."
+- `Launch LotSync.bat` — double-click entry point at the repo root.
+- `requirements.txt` (repo root, new) — the backend's dependency set, written down in one place for the first time. Fixes a real gap found while building this tooling: `.venv` had `fastapi`/`uvicorn`/`httpx` installed but was missing `pandas`, `openpyxl`, and `python-multipart` — all three real runtime dependencies (`config/settings.py` reads `oms_config.xlsx` via `pandas.read_excel`, which needs `openpyxl`; the inventory-sync upload route needs `python-multipart`).
+- `tools/README.md` — documents each script plus the governance decisions below.
+
+**Changed**
+- `README.md`, `api/README.md` — pip-install instructions now point at `requirements.txt`; new "Developer Quick Start" section; the frontend port note corrected to match `vite.config.ts`'s actual default (`8443`, not `5173` — see "Deliberately documented" below).
+- `.gitignore` — excludes `tools/.state/` (generated runtime state: wrapper scripts, PID files, logs — machine-local, never source).
+
+**Deliberately documented, not silently resolved:**
+- **npm vs. pnpm** — `frontend/` has both `package-lock.json` and `pnpm-lock.yaml`. Confirmed intentional, not accidental: six tracked scripts under `frontend/.figma/make/*` are Figma Make's own hosted dev-container/deploy pipeline, and every one of them hardcodes `pnpm`. Local development standardizes on npm (this tooling, `README.md`, `api/README.md`); `pnpm-lock.yaml` and `frontend/.mise.toml`'s pnpm pin are kept because Figma Make's pipeline depends on them. See `tools/README.md`'s "npm vs. pnpm" section.
+- **`README.md`'s stale frontend port note** — previously claimed the dev server falls back to port `5173` "outside this project's own dev-container setup"; `vite.config.ts` actually hardcodes `8443` as its fallback regardless of dev-container context. Corrected in this release.
+
+**A real bug caught during release review, worth recording:** under Windows PowerShell 5.1's `$ErrorActionPreference = "Stop"`, redirecting a native command's stderr (even `2>&1` or to `$null`) wraps each stderr line into an ErrorRecord and throws, regardless of exit code. This silently broke the exact check meant to catch it gracefully: on a machine where `python` on PATH resolves to the Microsoft Store's alias stub (a common fresh-Windows state), `Get-PythonCommand`'s `& python --version 2>&1` threw an uncaught terminating exception instead of falling through to a clean "[FAIL] No usable Python found" message. Confirmed by direct testing against the real stub; fixed via a shared `Invoke-Quiet`/`Get-CommandOutputText` helper pattern in `tools/common.ps1` that isolates the native call's error-action scope, and reverified against both a working `python` and a stub-only `PATH`.
+
+**No change to:** any CSV report's content or format; any backend business logic, schema, or migration; the frontend's architecture or component structure. Verified via full backend regression (309/309, unchanged), a genuine fresh `git clone` + `npm install` + `npm run dev` smoke test, and repeated live end-to-end `tools/launch.ps1`/`tools/stop.ps1` runs including a real "port already held by an unrelated process" refusal test and a relaunch-over-a-live-session regression test.

@@ -1,0 +1,21 @@
+# LotSync runtime dependencies -- backend (reconciliation engine + API).
+#
+# Unpinned, matching the install commands already documented in
+# README.md / api/README.md (`pip install fastapi uvicorn ...`). This
+# file exists so `tools/launch.ps1` / `tools/doctor.ps1` / `tools/update.ps1`
+# have one place to install from instead of hardcoding a package list --
+# it does not change what the project depends on, only where that list
+# is written down.
+#
+# pandas / openpyxl are required by config/settings.py (oms_config.xlsx)
+# and every importer under importers/ -- they were not previously listed
+# anywhere and were missing from .venv as of Phase 3 Sprint 4; see
+# tools/README.md for how this was found.
+fastapi
+uvicorn
+python-multipart
+pandas
+openpyxl
+
+# Used by tests/test_api_*.py via FastAPI's TestClient (see api/README.md).
+httpx

@@ -5,7 +5,7 @@ sprint. This is a snapshot, not a narrative — see `SPRINT_X_REVIEW.md`
 files for the story behind each entry, and `IMPLEMENTATION_PLAN.md`
 for the full plan this tracks progress against.
 
-**Last updated:** 2026-07-28 (Phase 3, Sprint 4 closed — real Inventory Sync)
+**Last updated:** 2026-07-28 (v0.7.1 — Developer Tooling added; Phase 3, Sprint 4 remains the last completed product-scope sprint — see "Developer tooling" below)
 
 ## Current position
 
@@ -62,6 +62,43 @@ same grouped-Task data Tasks.tsx already has.
   in addition to the read states Sprint 3 already covered. Materially
   less acceptable now than at Sprint 3's close — see
   `PHASE_3_SPRINT_4_REVIEW.md`'s Recommendation #4.
+
+## Developer tooling (v0.7.1)
+
+Not a Phase 3 slice or sprint — infrastructure alongside the product
+work, tracked here for visibility rather than folded into "Completed
+slices" above. Does not change Phase/Sprint scope: Phase 3, Sprint 4
+above remains the last completed product-scope sprint; Sprint 5
+(authentication, etc.) is still not started. See
+[`tools/README.md`](tools/README.md) for full detail and
+`CHANGELOG.md`'s v0.7.1 entry for the complete list.
+
+A permanent one-command local developer workflow:
+`tools/launch.ps1`/`stop.ps1`/`doctor.ps1`/`update.ps1` plus a
+double-click `Launch LotSync.bat` entry point. Verifies Python/Node/
+npm/git, installs missing backend (`.venv` + new repo-root
+`requirements.txt`) and frontend (`npm install`) dependencies, starts
+both servers, waits for each to come up, opens the browser. Process
+tracking never touches a process it didn't start itself — verified
+live against both a genuinely occupied port and a relaunch-over-a-
+live-session scenario, not just inspected.
+
+Two things surfaced and documented, not silently resolved: `.venv` was
+actually missing `pandas`/`openpyxl`/`python-multipart` (real runtime
+dependencies with no `requirements.txt` anywhere to catch the gap
+before this); and `frontend/`'s `pnpm-lock.yaml` alongside
+`package-lock.json` is confirmed intentional, not accidental — Figma
+Make's hosted dev-container/deploy pipeline
+(`frontend/.figma/make/*`) hardcodes pnpm, local development
+standardizes on npm. One real bug was caught and fixed during release
+review: a PowerShell 5.1 `$ErrorActionPreference`/native-stderr
+interaction that made `launch.ps1` crash ungracefully on a machine
+where `python` resolves to the Microsoft Store alias stub, instead of
+showing the intended clean error — fixed and reverified against the
+real stub.
+
+Backend regression reconfirmed unchanged at 309/309 as part of this
+work (not just assumed).
 
 ## Environment
 
@@ -169,6 +206,15 @@ implemented" gap, matching Sprint 2's own precedent for Employee. See
 `PHASE_3_SPRINT_4_REVIEW.md` for the two real, concrete
 reconciliation-engine findings this sprint's testing surfaced
 (documented, not silently patched into a governed module).
+
+**Developer tooling (v0.7.1):** no governance document was touched —
+`ARCHITECTURE.md`, `DATA_MODEL.md`, `PRODUCT.md`, `VISION.md`, and
+`DECISION_FRAMEWORK.md` all remain fully consistent with this work,
+which added only developer-facing scripts/docs (`tools/`, `Launch
+LotSync.bat`, `requirements.txt`) and corrected two stale references
+in `README.md`/`api/README.md` (the pip-install command and the
+frontend's default port). No business logic, API contract, schema, or
+frontend architecture changed.
 
 ## Phase 2 complete — what the backend now provides
 

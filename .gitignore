@@ -83,6 +83,12 @@ data/outputs/*
 data/api_uploads/*
 !data/api_uploads/.gitkeep
 
+# --- Developer tooling runtime state ---
+# tools/.state/ holds generated run-*.ps1 wrapper scripts, *.pid files,
+# and *.log output from tools/launch.ps1 -- machine-local runtime state,
+# not source. See tools/README.md.
+tools/.state/
+
 # --- Explicitly NOT ignored (documented for clarity, no pattern needed) ---
 # tests/fixtures/synthetic/ -- synthetic, checked-in test data, always tracked
 # database/migrations/ -- versioned schema, always tracked

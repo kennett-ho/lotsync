@@ -6,13 +6,14 @@ implemented, what's deliberately deferred, and why.
 
 ```
 cd lotsync
-PYTHONPATH=.. python -m pip install fastapi uvicorn python-multipart
+PYTHONPATH=.. python -m pip install -r requirements.txt
 PYTHONPATH=.. uvicorn lotsync.api.app:app --reload
 ```
 
-(`python-multipart` is new as of Phase 3, Sprint 4 -- required by
-`POST /inventory-sync/run`'s file-upload form fields, this project's
-first write route.)
+(`requirements.txt`, at the repo root, is where `python-multipart` --
+new as of Phase 3, Sprint 4, required by `POST /inventory-sync/run`'s
+file-upload form fields, this project's first write route -- is
+tracked, along with the rest of the backend's dependencies.)
 
 (Adjust `PYTHONPATH` to wherever the `lotsync/` package's parent
 directory lives, same convention as `tests/README.md`.)

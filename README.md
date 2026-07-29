@@ -18,15 +18,48 @@ browser, no folder or file-naming convention to manage by hand. Both
 paths call the exact same reconciliation code; neither is more
 authoritative than the other.
 
+## Developer Quick Start
+
+For day-to-day local development, double-click **`Launch LotSync.bat`**
+at the repo root (or run `tools\launch.ps1` from PowerShell). It
+automates everything in "Running LotSync" below: checks Python /
+Node / npm / git are present, creates `.venv` and installs backend
+dependencies if needed, runs `npm install` if needed, stops any
+previous LotSync backend/frontend it started, starts both fresh, waits
+for each to come up, opens your browser to the frontend, and prints a
+summary of the URLs, PIDs, and log locations.
+
+```
+Launch LotSync.bat
+```
+
+Also in `tools/`: `stop.ps1` (stop backend + frontend), `doctor.ps1`
+(read-only environment/status check -- run this first if something's
+wrong), and `update.ps1` (`git pull` + re-sync dependencies). None of
+these touch reconciliation logic, the API, or the frontend -- see
+[`tools/README.md`](tools/README.md) for exactly what each does and
+how it avoids ever stopping a process it didn't start itself.
+
+The sections below describe what's actually running underneath the
+launcher, and remain the reference if you want to run either half by
+hand.
+
 ## Running LotSync
 
 ### Backend (FastAPI)
 
 ```
 cd lotsync
-PYTHONPATH=.. python -m pip install fastapi uvicorn python-multipart
+PYTHONPATH=.. python -m pip install -r requirements.txt
 PYTHONPATH=.. uvicorn lotsync.api.app:app --reload
 ```
+
+`requirements.txt` (repo root) covers both the API's own dependencies
+(`fastapi`, `uvicorn`, `python-multipart`) and the reconciliation
+engine's (`pandas`, `openpyxl` -- also needed by the CLI workflow
+below, since `config/settings.py` reads `oms_config.xlsx` via
+`pandas.read_excel`) plus `httpx` for the test suite's `TestClient`
+usage.
 
 Serves at `http://localhost:8000` by default; interactive docs at
 `/docs`. See [`api/README.md`](api/README.md) for the full route list
@@ -40,8 +73,13 @@ npm install
 npm run dev
 ```
 
-Serves at `http://localhost:8443` (or `5173` outside this project's own
-dev-container setup) and calls the backend at `http://localhost:8000` by
+Serves at `http://localhost:8443` by default -- `vite.config.ts` reads
+the `PORT` environment variable and falls back to `8443` regardless of
+context (not `5173`; `strictPort: true` means it fails rather than
+silently picking a different port if `8443` is taken). Override by
+setting `$env:PORT` before running `npm run dev`, or via
+`LOTSYNC_FRONTEND_PORT` if launched through `tools\launch.ps1` (see
+`tools/README.md`). Calls the backend at `http://localhost:8000` by
 default -- override via a `.env.local` file's `VITE_API_BASE_URL` if
 your backend runs elsewhere (see `frontend/src/api/client.ts`).
 

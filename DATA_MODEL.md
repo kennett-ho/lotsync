@@ -176,7 +176,8 @@ requires. See ARCHITECTURE.md, "Event needed a richer shape."
 | `sync_run_id` | FK to SyncRun — which sync detected this |
 | `actor_employee_id` | Nullable — system-detected events have none |
 | `dealership_id` | Captured at write time, NOT derived from `Vehicle.current_dealership_id` — keeps past events historically accurate across a later transfer |
-| `observed_at` | |
+| `observed_at` | When LotSync's sync learned about this — always populated, the audit trail. NOT what the Timeline should render when `event_time` is available (see below) |
+| `event_time` | Sprint 3.7 addition. The source's own claimed timestamp for when this actually happened — nullable, populated only where a source genuinely exposes one with a confirmed meaning (Keyper's Checkout Date for `keyper_observed` events with `Status=Out` only — its meaning for `Status=In` isn't confirmed by anything, so left null rather than guessed; Tekion's Stocked In Date / Sold Date for `tekion_observed`/`tekion_sold`). Never derived from `observed_at` or vice versa — two independently populated fields, not one field overloaded. See `sync/reconciler.py`'s persist_* functions for the full per-source reasoning |
 | `summary` | Human-readable, for display |
 | `detail_fields` | Structured data (unvalidated dict for now — accepted debt, see gate review) |
 
@@ -220,6 +221,28 @@ ARCHITECTURE.md, to avoid two sources of truth that can drift).
 | `dealership_id` | Which dealership's export this run processed |
 | `records_processed`, `issues_found`, `tasks_generated` | |
 | `status` | "in_progress" / "complete" / "delayed" / "failed" -- "in_progress" added during Phase 2 Sprint 3 (Slice 4 implementation): the original three values had no way to describe a row between INSERT and completion, the same category of gap `Event.event_id`'s addition closed in Sprint 1 (a table that can't be correctly built and used as originally specified) |
+
+### EventFreshness
+Sprint 3.7 addition. One row per `(vin, event_type)`, recording when
+that claim was last reconfirmed — whether or not the reconfirmation
+wrote a new `Event`. Closes a real audit gap Sprint 3.7 surfaced:
+diff-before-write correctly suppresses a repeated identical
+observation from creating a duplicate `Event`, but before this table
+existed, nothing recorded that the observation happened at all —
+`SyncRun` only tracks aggregate per-source execution, not which VINs
+it touched. Deliberately mutable (upserted, not append-only) — this is
+current-state metadata sitting next to history, not inside it, the
+same `DECISION_FRAMEWORK.md` "current state is always a derived read"
+category as `Vehicle`'s own status-cache fields. Does not violate
+"history is immutable": no `Event` row is ever edited here, because
+this isn't one.
+
+| Field | Notes |
+|---|---|
+| `vin`, `event_type` | Composite primary key |
+| `source` | Which source last confirmed this claim |
+| `last_observed_at` | When the most recent sync (whether or not it wrote a new `Event`) reconfirmed this claim |
+| `last_sync_run_id` | Which `SyncRun` last reconfirmed it -- same opaque, unenforced provenance-tag convention as `Event.sync_run_id` (see `migrations/0003_sync_run.sql`), not a hard `FOREIGN KEY` |
 
 ### Recommendation
 Deliberately distinct from Task — has its own lifecycle (shown /

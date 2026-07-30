@@ -205,7 +205,7 @@ function Timeline({ events }: { events: ActivityDTO[] }) {
             <div className="absolute left-4 top-2 bottom-2 w-px bg-slate-200" />
             <div className="space-y-0">
               {events.map((ev) => {
-                const { date, time } = formatDateTime(ev.observed_at)
+                const { date, time } = formatDateTime(ev.event_time ?? ev.observed_at)
                 return (
                   <div key={ev.event_id} className="relative flex gap-4 group">
                     <div className="flex-shrink-0 relative z-10 mt-3">

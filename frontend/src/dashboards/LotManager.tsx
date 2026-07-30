@@ -375,7 +375,7 @@ function RightCol({ onVehicleSelect, recentActivity, recommendations }: {
                 {i < recentActivity.length - 1 && <div className="w-px flex-1 bg-slate-100 mt-0.5" />}
               </div>
               <div className="flex-1 min-w-0 pb-1">
-                <div className="text-[10px] font-mono text-slate-400 mb-0.5">{formatActivityTime(item.observed_at)}</div>
+                <div className="text-[10px] font-mono text-slate-400 mb-0.5">{formatActivityTime(item.event_time ?? item.observed_at)}</div>
                 <div className="text-[12px] text-slate-700">
                   {item.summary ?? item.event_type}
                   {item.vehicle?.stock_number && (

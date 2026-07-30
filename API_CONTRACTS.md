@@ -409,7 +409,18 @@ mechanism behind `execution_status`.
 - **Required fields:** `event_id`, `vin`, `event_type`, `source`,
   `observed_at`.
 - **Optional fields:** `sync_run_id`, `actor_employee_id`,
-  `dealership_id`, `summary`, `detail_fields`.
+  `dealership_id`, `event_time`, `summary`, `detail_fields`.
+- **`event_time` vs. `observed_at` (Sprint 3.7 / "Event Fidelity"):**
+  two deliberately independent fields, never one overloaded. `observed_at`
+  is when LotSync's sync learned about this — always populated, the
+  audit trail, unchanged by this addition. `event_time` is the
+  source's own claimed timestamp for when it actually happened — the
+  Timeline should render this when present, falling back to
+  `observed_at` only when it's null. Nullable because most sources
+  don't expose a per-observation timestamp with a confirmed meaning;
+  see `DATA_MODEL.md`'s Event entry for exactly which `event_type`s
+  populate it and why (e.g. Keyper's Checkout Date is trusted only for
+  `Status=Out`, deliberately not inferred for `Status=In`).
 - **Nested objects:** `vehicle` (`VehicleSummaryDTO`) — included
   specifically for the global Activity Log screen, which lists entries
   across many vehicles at once and needs to display which vehicle each
@@ -448,6 +459,7 @@ mechanism behind `execution_status`.
     "actor_employee_id": null,
     "dealership_id": "mark-kia",
     "observed_at": "2026-07-27T07:22:00",
+    "event_time": "2026-07-27T01:08:00",
     "summary": "Keys checked out by Sales — Checked out to James Miller, 6hrs14min outstanding, typically <2hrs",
     "detail_fields": { "checked_out_to": "James Miller (Sales)", "duration_minutes": 374, "typical_minutes": 120 }
   }

@@ -144,6 +144,62 @@ def get_last_event_detail_fields(conn: sqlite3.Connection, vin: str, event_type:
     return json.loads(row[0])
 
 
+def upsert_event_freshness(conn: sqlite3.Connection, vin: str, event_type: str, source: str,
+                            sync_run_id: str = None, observed_at: str = None):
+    """
+    Sprint 3.7 addition -- records "as of when was (vin, event_type)
+    last reconfirmed," independent of whether that reconfirmation wrote
+    a new Event. See migrations/0008_event_fidelity.sql for why this
+    table exists: without it, a source's diff-before-write correctly
+    suppressing a repeated identical observation also silently erases
+    the only record that the observation happened at all, which is a
+    real audit-capability loss, not just an unrecorded formality --
+    "how long has it actually been since RapidRecon last confirmed this
+    vehicle is still WHOLESALE" becomes unanswerable per vehicle.
+
+    Deliberately a plain upsert (mutable), not an insert -- this is
+    current-state metadata sitting next to history, not part of it
+    (DECISION_FRAMEWORK.md's "current state is always a derived read"
+    category). Call this on every observation, whether or not it
+    resulted in a new Event -- see
+    sync/reconciler.py's _insert_event_if_changed, the one intended
+    caller.
+
+    Does NOT commit -- same whole-batch-transaction convention as
+    upsert_vehicle/insert_event.
+    """
+    if observed_at is None:
+        observed_at = datetime.datetime.now().isoformat()
+    conn.execute(
+        "INSERT INTO event_freshness (vin, event_type, source, last_observed_at, last_sync_run_id) "
+        "VALUES (?, ?, ?, ?, ?) "
+        "ON CONFLICT(vin, event_type) DO UPDATE SET "
+        "source = excluded.source, last_observed_at = excluded.last_observed_at, "
+        "last_sync_run_id = excluded.last_sync_run_id",
+        (vin, event_type, source, observed_at, sync_run_id),
+    )
+
+
+def get_event_freshness(conn: sqlite3.Connection, vin: str, event_type: str):
+    """
+    Returns {"source", "last_observed_at", "last_sync_run_id"} for this
+    (vin, event_type), or None if it's never been observed. Read-side
+    counterpart to upsert_event_freshness above -- not yet wired into
+    any API route or report this sprint (no demonstrated UI need for it
+    yet, per DECISION_FRAMEWORK.md's "don't build ahead of a
+    demonstrated workflow"); exists so the data this sprint starts
+    recording is actually queryable, not stranded.
+    """
+    row = conn.execute(
+        "SELECT source, last_observed_at, last_sync_run_id FROM event_freshness "
+        "WHERE vin = ? AND event_type = ?",
+        (vin, event_type),
+    ).fetchone()
+    if row is None:
+        return None
+    return {"source": row[0], "last_observed_at": row[1], "last_sync_run_id": row[2]}
+
+
 def get_pending_identity(conn: sqlite3.Connection, source: str, raw_identifier: str):
     """
     Looks up a pending_identity row by its upsert key. Returns a dict of
@@ -229,12 +285,23 @@ def upsert_pending_identity(conn: sqlite3.Connection, source: str, raw_identifie
 def insert_event(conn: sqlite3.Connection, vin: str, event_type: str, source: str,
                   observed_at: str = None, summary: str = None, detail_fields: dict = None,
                   sync_run_id: str = None, actor_employee_id: str = None,
-                  dealership_id: str = None) -> int:
+                  dealership_id: str = None, event_time: str = None) -> int:
     """
     Always inserts a new row -- diff-before-write (whether an Event
     should be written at all) is the caller's decision, made in
     sync/reconciler.py before calling this (see IMPLEMENTATION_PLAN.md
     Slice 3).
+
+    event_time (Sprint 3.7 addition) vs. observed_at: two deliberately
+    separate concepts, not one field doing double duty. observed_at is
+    unchanged -- always populated, always "when LotSync's sync learned
+    about this" (the audit trail). event_time is the source's own
+    claimed timestamp for when the thing actually happened, and stays
+    NULL when no source provided one with a confirmed meaning -- see
+    migrations/0008_event_fidelity.sql and each persist_* function in
+    sync/reconciler.py for exactly which events populate it and why.
+    Never inferred or guessed here -- this function just stores
+    whatever the caller already decided.
 
     Does NOT commit -- see upsert_vehicle's docstring; Slice 4 moved
     commit responsibility to the caller's whole-batch boundary.
@@ -243,9 +310,11 @@ def insert_event(conn: sqlite3.Connection, vin: str, event_type: str, source: st
         observed_at = datetime.datetime.now().isoformat()
     cur = conn.execute(
         "INSERT INTO event (vin, event_type, source, sync_run_id, actor_employee_id, "
-        "dealership_id, observed_at, summary, detail_fields) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)",
+        "dealership_id, observed_at, summary, detail_fields, event_time) "
+        "VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
         (vin, event_type, source, sync_run_id, actor_employee_id, dealership_id,
-         observed_at, summary, json.dumps(detail_fields) if detail_fields is not None else None),
+         observed_at, summary, json.dumps(detail_fields) if detail_fields is not None else None,
+         event_time),
     )
     return cur.lastrowid
 

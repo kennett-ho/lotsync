@@ -22,7 +22,9 @@
 //   invented categories.
 // The "Employee" and "Verification" sidebar filters are replaced with
 // "Source" and "Actor" (the real fields available), and "Date Range"
-// is kept, computed honestly from each event's real observed_at.
+// is kept, computed honestly from each event's real timestamp --
+// event_time when the source provided one with a confirmed meaning
+// (Sprint 3.7), observed_at otherwise (see ActivityDTO in api/types.ts).
 //
 // GET /activity has no server-side search or offset pagination yet
 // (a known Sprint 2 compromise, same as Vehicles List) -- this screen
@@ -113,7 +115,7 @@ function formatDateTime(iso: string): { date: string; time: string; group: 'toda
 
 function ActivityRow({ entry, onVehicleSelect }: { entry: ActivityDTO; onVehicleSelect: (vin: string) => void }) {
   const isSystem = entry.actor_employee_id === null
-  const { time } = formatDateTime(entry.observed_at)
+  const { time } = formatDateTime(entry.event_time ?? entry.observed_at)
   return (
     <div className="flex items-center gap-3 px-4 py-3 hover:bg-slate-50 transition-colors min-h-[52px]">
       <Avatar actorId={entry.actor_employee_id} isSystem={isSystem} />
@@ -211,14 +213,14 @@ export default function Activity({ onVehicleSelect }: { onVehicleSelect: (vin: s
       }
       if (sourceFilter !== 'all' && e.source !== sourceFilter) return false
       if (actorFilter !== 'all' && e.actor_employee_id !== actorFilter) return false
-      if (dateFilter !== 'all' && formatDateTime(e.observed_at).group !== dateFilter) return false
+      if (dateFilter !== 'all' && formatDateTime(e.event_time ?? e.observed_at).group !== dateFilter) return false
       return true
     })
   }, [activities, search, sourceFilter, actorFilter, dateFilter])
 
   const groupsToShow = useMemo(() => {
     const byGroup: Record<string, ActivityDTO[]> = { today: [], yesterday: [], 'this-week': [], older: [] }
-    for (const e of filtered) byGroup[formatDateTime(e.observed_at).group].push(e)
+    for (const e of filtered) byGroup[formatDateTime(e.event_time ?? e.observed_at).group].push(e)
     return [
       { label: 'Today', entries: byGroup.today },
       { label: 'Yesterday', entries: byGroup.yesterday },

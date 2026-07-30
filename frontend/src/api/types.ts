@@ -89,7 +89,15 @@ export interface ActivityDTO {
   sync_run_id: string | null
   actor_employee_id: string | null
   dealership_id: string | null
+  /** When LotSync's sync learned about this -- audit trail, not for display. Use event_time first. */
   observed_at: string
+  /**
+   * The source's own claimed timestamp for when this actually happened
+   * -- render this for the Timeline when present, falling back to
+   * observed_at only when it's null (most events: no source-confirmed
+   * timestamp exists). Never the other way around.
+   */
+  event_time: string | null
   summary: string | null
   detail_fields: Record<string, unknown> | null
   vehicle: VehicleSummaryDTO | null

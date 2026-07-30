@@ -18,6 +18,23 @@ Event is only written when its source's discrete status field actually
 changed since the last sync -- see each function's docstring) plus
 PendingIdentity -> Vehicle promotion, the system's first genuine state
 transition -- see _promote_pending_identity_if_resolved.
+
+Sprint 3.7 (v0.7.3, "Event Fidelity") added _insert_event_if_changed
+below -- a generic version of the diff-before-write pattern Slice 3
+already established per-source, used to close the one source that
+never got it (RapidRecon -- see persist_rapidrecon_observations).
+Keyper/Tekion/MDD/RecovR's existing inline diff logic is deliberately
+left as-is, not migrated to the shared helper -- each already works
+and is already tested; touching it wasn't needed to fix the actual gap
+and would only add risk, per this sprint's own "preserve the original
+reconciliation philosophy wherever possible" instruction. The same
+sprint also added event_time to Keyper's Out events and Tekion's
+observed/sold events (source-provided timestamps, populated only
+where a source's meaning is actually confirmed -- see each function
+below) and a rapidrecon_df-aware Wholesale/AT AUCTION exclusion in
+build_tracker_install_tasks (a real business-rule gap between the
+live pipeline and this project's own stated intent, found during this
+sprint's review -- see that function's docstring).
 """
 
 import pandas as pd
@@ -28,7 +45,63 @@ from lotsync.sync.state_engine import day_out_bucket
 from lotsync.rules.inventory import is_new_car_stock, is_damaged_repair_stock
 
 
-def _persist_keyper_observation(db_conn, sync_run_id, vin, keyper_status, summary, detail_fields):
+def _insert_event_if_changed(db_conn, vin, event_type, source, diff_fields: dict,
+                              sync_run_id=None, summary=None, detail_fields=None,
+                              event_time=None) -> bool:
+    """
+    Sprint 3.7 addition -- a generic version of the diff-before-write
+    pattern _persist_keyper_observation/persist_tekion_observations/
+    persist_mdd_observations/persist_recovr_observations each already
+    implement inline, one field (or field-tuple) at a time. Introduced
+    to close persist_rapidrecon_observations' gap (it never diffed at
+    all -- every sync wrote a new Event unconditionally, so an
+    unchanged "Step=WHOLESALE" observation created a duplicate Timeline
+    card every single sync) with a mechanism generic enough that a
+    future source can reuse it directly instead of hand-rolling its own
+    copy -- see this module's own docstring for why the four existing
+    sources were NOT migrated to this helper as part of the same
+    change.
+
+    diff_fields: the current observation's comparison-relevant values,
+    e.g. {"recon_step": "WHOLESALE"}. Compared against the SAME keys
+    read back from get_last_event_detail_fields(vin, event_type) --
+    not the Vehicle cache, for the same reason every existing persist_*
+    function already avoids that (see persist_tekion_observations'
+    docstring on the idempotency bug that caused). Deliberately only
+    the fields the caller says matter -- a continuously-drifting value
+    (RapidRecon's DIS/DIR day-counters, e.g.) must never be included
+    here, the same way `days_out` alone was never treated as a claim
+    worth its own Event (DECISION_FRAMEWORK.md: "not just days_out
+    continuing to climb on the same still-open checkout").
+
+    Always calls upsert_event_freshness -- whether or not a new Event
+    is written, so "was this claim reconfirmed by the most recent sync"
+    stays answerable even when the observation was an unchanged repeat
+    (see migrations/0008_event_fidelity.sql for why that's a real,
+    separate concern from the Event itself).
+
+    Returns True if a new Event was written, False if the observation
+    was an unchanged repeat and was correctly suppressed.
+    """
+    from lotsync.database.repository import (
+        get_last_event_detail_fields, insert_event, upsert_event_freshness,
+    )
+    previous = get_last_event_detail_fields(db_conn, vin, event_type)
+    previous_key = tuple(previous.get(k) for k in diff_fields) if previous else None
+    new_key = tuple(diff_fields.values())
+
+    upsert_event_freshness(db_conn, vin, event_type, source, sync_run_id=sync_run_id)
+
+    if previous_key == new_key:
+        return False
+    insert_event(db_conn, vin=vin, event_type=event_type, source=source,
+                 sync_run_id=sync_run_id, summary=summary, detail_fields=detail_fields,
+                 event_time=event_time)
+    return True
+
+
+def _persist_keyper_observation(db_conn, sync_run_id, vin, keyper_status, summary, detail_fields,
+                                 checkout_dt=None):
     """
     Phase 2 Slice 1 addition. Writes this Keyper record's contribution
     to the Vehicle/Event tables -- a no-op when db_conn is None, which
@@ -56,6 +129,19 @@ def _persist_keyper_observation(db_conn, sync_run_id, vin, keyper_status, summar
     stays current even on a sync that produces no new Event. See
     IMPLEMENTATION_PLAN.md Slice 3 and DECISION_FRAMEWORK.md's "current
     state is always a derived read."
+
+    Sprint 3.7 addition: checkout_dt (Keyper's "Checkout Date", already
+    parsed by importers/keyper.py) becomes this Event's event_time --
+    but ONLY when keyper_status == "Out". That's the one interpretation
+    of this field this project already trusts (the existing days-out
+    aging calculation depends on it meaning exactly that). Keyper's
+    export has no separate field confirmed to mean "when this key was
+    checked back in" -- the same "Checkout Date" column is still
+    populated on an "In" row, but nothing establishes what it means
+    there (last checkout's start? something else?), so event_time stays
+    None for "In" events rather than guess. See this sprint's own
+    "explain differences before implementing" review for why this was
+    checked rather than assumed.
     """
     if db_conn is None:
         return
@@ -64,8 +150,12 @@ def _persist_keyper_observation(db_conn, sync_run_id, vin, keyper_status, summar
     upsert_vehicle(db_conn, vin, keyper_status=keyper_status)
     if previous is not None and previous.get("keyper_status") == keyper_status:
         return
+    event_time = None
+    if keyper_status == "Out" and checkout_dt is not None and pd.notna(checkout_dt):
+        event_time = checkout_dt.isoformat()
     insert_event(db_conn, vin=vin, event_type="keyper_observed", source="keyper",
-                 sync_run_id=sync_run_id, summary=summary, detail_fields=detail_fields)
+                 sync_run_id=sync_run_id, summary=summary, detail_fields=detail_fields,
+                 event_time=event_time)
 
 
 def _promote_pending_identity_if_resolved(db_conn, sync_run_id, raw_identifier, vin):
@@ -170,6 +260,17 @@ def persist_tekion_observations(tekion_df: pd.DataFrame, sold_df: pd.DataFrame,
     free-text description isn't an operational claim worth its own
     Event.
 
+    Sprint 3.7 addition: event_time. Unlike Keyper's Checkout Date
+    (ambiguous for "In" rows -- see _persist_keyper_observation),
+    Tekion's "Stocked In Date" and "Sold Date" are each unambiguously
+    tied to exactly one claim -- the master-list loop's "tekion_observed"
+    Event and the sold-list loop's "tekion_sold" Event respectively --
+    so both are populated. Parsed with the same "%b %d %Y" format
+    already used elsewhere in this module (build_incoming_or_missing_investigate,
+    build_sold_vehicles_report) for the same two fields; a date that
+    fails to parse leaves event_time None rather than raising, same
+    errors="coerce" convention already established there.
+
     Phase 2 Slice 3 addition: diff-before-write, keyed on
     (tekion_status, stock_number) TOGETHER, not tekion_status alone.
     This was a deliberate design discussion, not an implicit choice --
@@ -254,7 +355,7 @@ def persist_tekion_observations(tekion_df: pd.DataFrame, sold_df: pd.DataFrame,
             if open_task is not None:
                 moot_task(db_conn, open_task["task_id"])
 
-    def _persist(vin, status, stock, display_name, event_type, summary, detail_fields):
+    def _persist(vin, status, stock, display_name, event_type, summary, detail_fields, event_time):
         previous = get_last_event_detail_fields(db_conn, vin, event_type)
         previous_key = (previous.get("tekion_status"), previous.get("tekion_stock")) if previous else None
         upsert_vehicle(db_conn, vin, tekion_status=status, stock_number=stock,
@@ -262,26 +363,31 @@ def persist_tekion_observations(tekion_df: pd.DataFrame, sold_df: pd.DataFrame,
         if previous_key == (status, stock):
             return
         insert_event(db_conn, vin=vin, event_type=event_type, source="tekion",
-                     sync_run_id=sync_run_id, summary=summary, detail_fields=detail_fields)
+                     sync_run_id=sync_run_id, summary=summary, detail_fields=detail_fields,
+                     event_time=event_time)
         if event_type == "tekion_sold":
             _moot_open_install_tasks(vin)
 
     for _, trow in tekion_df.iterrows():
         vin = trow["VIN #"]
+        stocked_in_dt = pd.to_datetime(trow["Stocked In Date"], format="%b %d %Y", errors="coerce")
         _persist(
             vin, trow["Status"], trow["Stock #"], trow["Year Make Model"], "tekion_observed",
             summary=f"Tekion: {trow['Status']}, stock {trow['Stock #']}",
             detail_fields={"tekion_status": trow["Status"], "tekion_stock": trow["Stock #"],
                             "stocked_in_date": trow["Stocked In Date"]},
+            event_time=stocked_in_dt.isoformat() if pd.notna(stocked_in_dt) else None,
         )
 
     for _, srow in sold_df.iterrows():
         vin = srow["VIN #"]
+        sold_dt = pd.to_datetime(srow["Sold Date"], format="%b %d %Y", errors="coerce")
         _persist(
             vin, srow["Status"], srow["Stock #"], srow["Year Make Model"], "tekion_sold",
             summary=f"Tekion: sold, stock {srow['Stock #']}, {srow['Sold Date']}",
             detail_fields={"tekion_status": srow["Status"], "tekion_stock": srow["Stock #"],
                             "sold_date": srow["Sold Date"]},
+            event_time=sold_dt.isoformat() if pd.notna(sold_dt) else None,
         )
 
 
@@ -457,10 +563,27 @@ def persist_rapidrecon_observations(rapidrecon_df: pd.DataFrame, db_conn=None, s
     If a real Vehicle-level field is ever wanted here, that's a
     DATA_MODEL.md governance change to make explicitly then, not a
     default to slide into now.
+
+    Sprint 3.7 addition: diff-before-write, via the shared
+    _insert_event_if_changed helper (see its own docstring) -- this
+    function was the one source that never got Slice 3's diffing
+    discipline, so every sync wrote a new "rapidrecon_observed" Event
+    unconditionally, flooding a vehicle's Timeline with a duplicate
+    card every time (e.g. "Step=WHOLESALE" observed again, unchanged,
+    every single sync). Diffed on "recon_step" alone, matching the
+    granularity every other source's diff already uses (one field, or
+    one small tuple of genuinely-independent fields) -- deliberately
+    NOT including DIS/DIR (Days In Stock / Days In Recon): those are
+    continuously-drifting day-counters, the exact shape
+    DECISION_FRAMEWORK.md already excludes from "claims worth their own
+    Event" (same reasoning as days_out). Priority/Recall/Note are left
+    out of the diff key too, not because they can't change, but because
+    this project has no confirmed basis yet for treating a change in
+    any of them as its own narrative-worthy claim distinct from Step --
+    inventing that now would be guessing, not reconciling.
     """
     if db_conn is None:
         return
-    from lotsync.database.repository import insert_event
     known_vins = {row[0] for row in db_conn.execute("SELECT vin FROM vehicle")}
 
     recon_cols = ["Step", "DIS", "DIR", "Priority", "Recall", "Note"]
@@ -471,10 +594,12 @@ def persist_rapidrecon_observations(rapidrecon_df: pd.DataFrame, db_conn=None, s
         if vin not in known_vins:
             continue
         detail_fields = {f"recon_{c.lower()}": row[c] for c in available_cols}
-        insert_event(
+        step = row.get("Step", "unknown")
+        _insert_event_if_changed(
             db_conn, vin=vin, event_type="rapidrecon_observed", source="rapidrecon",
+            diff_fields={"recon_step": step},
             sync_run_id=sync_run_id,
-            summary=f"RapidRecon: Step={row.get('Step', 'unknown')}",
+            summary=f"RapidRecon: Step={step}",
             detail_fields=detail_fields,
         )
 
@@ -565,6 +690,7 @@ def reconcile_keyper_tekion(keyper_df: pd.DataFrame, tekion_df: pd.DataFrame,
                     summary=f"Keyper: key checked In, matched Tekion stock {trow['Stock #']}",
                     detail_fields={"keyper_identifier": raw, "keyper_status": "In",
                                     "tekion_stock": trow["Stock #"]},
+                    checkout_dt=krow["checkout_dt"],
                 )
             else:  # "Out"
                 days_out = None
@@ -581,6 +707,7 @@ def reconcile_keyper_tekion(keyper_df: pd.DataFrame, tekion_df: pd.DataFrame,
                             + (f" ({days_out} days out)" if days_out is not None else ""),
                     detail_fields={"keyper_identifier": raw, "keyper_status": "Out",
                                     "tekion_stock": trow["Stock #"], "days_out": days_out},
+                    checkout_dt=krow["checkout_dt"],
                 )
             _promote_pending_identity_if_resolved(db_conn, sync_run_id, raw, trow["VIN #"])
             continue
@@ -610,6 +737,7 @@ def reconcile_keyper_tekion(keyper_df: pd.DataFrame, tekion_df: pd.DataFrame,
                         f"{srow['Stock #']}, sold {srow['Sold Date']}",
                 detail_fields={"keyper_identifier": raw, "keyper_status": status,
                                 "tekion_stock": srow["Stock #"], "sold_date": srow["Sold Date"]},
+                checkout_dt=krow["checkout_dt"],
             )
             _promote_pending_identity_if_resolved(db_conn, sync_run_id, raw, srow["VIN #"])
         else:
@@ -900,15 +1028,55 @@ def build_recovr_install_from_keyper(fully_verified: pd.DataFrame, key_out_aging
 
 def build_tracker_install_tasks(tekion_df: pd.DataFrame, sold_df: pd.DataFrame,
                                  mdd_df: pd.DataFrame, recovr_df: pd.DataFrame,
-                                 store_name: str) -> pd.DataFrame:
+                                 store_name: str, rapidrecon_df: pd.DataFrame = None) -> pd.DataFrame:
     """
     See rules/tracker.py for why this logic lives here and not there.
+
+    Sprint 3.7 addition: excludes a RecovR install candidate whose
+    RapidRecon Step is WHOLESALE or AT AUCTION -- a real gap between
+    this project's own stated intent and what the live pipeline
+    actually did, found during this sprint's review, not a new rule
+    invented for this sprint. Before this change, this was the ONE
+    function that actually feeds tracker_install_tasks.csv, the API
+    path, and Task generation (generate_install_tasks below) -- and it
+    took no RapidRecon input at all, so a Wholesale-bound vehicle with
+    an unpaired RecovR device generated an install task like any other.
+    A second, structurally different function,
+    build_recovr_install_from_keyper (Keyper-starting-point population,
+    not wired into anything live -- see its own docstring), already
+    implemented this exact exclusion (`wholesale_steps = {"WHOLESALE",
+    "AT AUCTION"}`) -- confirmed sound and reused verbatim here, not
+    reinvented. Its broader Archive-step "needs review" bucket and its
+    entirely different Keyper-driven starting population were
+    deliberately NOT adopted -- neither was part of what was asked
+    (only the RecovR/Wholesale exclusion), and adopting either would be
+    a materially different, bigger change than restoring this one rule.
+    MDD beacon installs are deliberately NOT given the same exclusion
+    -- neither this project's stated rule nor the dead-code function
+    ever covered MDD, so extending it there now would be inventing a
+    new rule, not restoring an existing one.
+
+    rapidrecon_df defaults to None (rather than being required) so
+    every direct caller that predates this change -- and any test
+    exercising MDD-only or sold-vehicle behavior with no reason to
+    care about RapidRecon -- keeps working unmodified; with it omitted,
+    every RecovR candidate is treated as having no RapidRecon Step on
+    file (i.e. never excluded), the same as if rapidrecon_df were
+    empty.
     """
     active_vins = set(
         tekion_df.loc[~tekion_df["is_internal_fleet"], "VIN #"].astype(str).str.strip()
     )
     sold_vins = set(sold_df["VIN #"].astype(str).str.strip())
     tekion_prefixes = {stock_prefix(s) for s in tekion_df["Stock #"]}
+
+    wholesale_steps = {"WHOLESALE", "AT AUCTION"}
+    recon_step_by_vin = {}
+    if rapidrecon_df is not None and "VIN" in rapidrecon_df.columns and "Step" in rapidrecon_df.columns:
+        for _, rrow in rapidrecon_df.iterrows():
+            rvin = str(rrow["VIN"]).strip()
+            if rvin not in recon_step_by_vin:
+                recon_step_by_vin[rvin] = str(rrow["Step"]).strip().upper()
 
     tasks = []
 
@@ -940,6 +1108,8 @@ def build_tracker_install_tasks(tekion_df: pd.DataFrame, sold_df: pd.DataFrame,
             vin = candidates[0]
             if vin in sold_vins:
                 continue
+        if recon_step_by_vin.get(vin) in wholesale_steps:
+            continue
         tasks.append({
             "source": "RecovR", "task": "install_recovr_device", "vin": vin,
             "stock": row["Stock Number"], "vehicle": f"{row['Year']} {row['Make']} {row['Model']}",
@@ -949,7 +1119,8 @@ def build_tracker_install_tasks(tekion_df: pd.DataFrame, sold_df: pd.DataFrame,
 
 
 def generate_install_tasks(tekion_df: pd.DataFrame, sold_df: pd.DataFrame, mdd_df: pd.DataFrame,
-                            recovr_df: pd.DataFrame, store_name: str, db_conn=None):
+                            recovr_df: pd.DataFrame, store_name: str, db_conn=None,
+                            rapidrecon_df: pd.DataFrame = None):
     """
     Phase 2 Sprint 4 (Slice 5). Task-generation logic reuses
     build_tracker_install_tasks directly, per IMPLEMENTATION_PLAN.md's
@@ -959,17 +1130,20 @@ def generate_install_tasks(tekion_df: pd.DataFrame, sold_df: pd.DataFrame, mdd_d
 
     A second existing function, build_recovr_install_from_keyper,
     answers a related but materially different question (a
-    Keyper-matched population with RapidRecon-based wholesale/archive
-    exclusions). Reconciling the two methodologies into one was
-    explicitly out of scope for the Pre-Sprint 4 design review -- that
-    review was about implementing the new Task architecture, not
-    reopening which business rule is authoritative for "needs a
-    RecovR." Slice 5's own Definition of Done only asks for Task counts
-    consistent "in substance, not necessarily row-for-row" with the
-    CSVs, so this divergence is expected at this stage, not a bug. If a
-    real difference between the two methodologies ever matters
-    operationally, that's a separate product refinement, not a reason
-    to reopen this slice's Task architecture.
+    Keyper-matched population, not a Tekion-Stocked-In-matched one).
+    Reconciling the two methodologies into one remains out of scope --
+    that's a bigger change than anything this sprint asked for. Sprint
+    3.7 DID pull one specific piece across, though: the WHOLESALE/AT
+    AUCTION RecovR exclusion build_recovr_install_from_keyper already
+    implemented, verified sound and reused verbatim inside
+    build_tracker_install_tasks itself (see that function's own
+    docstring for the full comparison) -- rapidrecon_df below exists to
+    carry that through to Task generation, not to adopt the other
+    function's different starting population. Slice 5's own Definition
+    of Done only asks for Task counts consistent "in substance, not
+    necessarily row-for-row" with the CSVs, so whatever divergence
+    remains between the two functions beyond the Wholesale rule is
+    still expected, not a bug.
 
     For each candidate row, ensures exactly one outstanding Task exists
     -- get_open_task first, insert_task only if none is already open,
@@ -1050,7 +1224,8 @@ def generate_install_tasks(tekion_df: pd.DataFrame, sold_df: pd.DataFrame, mdd_d
         return
     from lotsync.database.repository import get_open_task, insert_task, upsert_vehicle
 
-    candidates = build_tracker_install_tasks(tekion_df, sold_df, mdd_df, recovr_df, store_name)
+    candidates = build_tracker_install_tasks(tekion_df, sold_df, mdd_df, recovr_df, store_name,
+                                              rapidrecon_df=rapidrecon_df)
     for _, row in candidates.iterrows():
         vin = row["vin"]
         task_type = row["task"]

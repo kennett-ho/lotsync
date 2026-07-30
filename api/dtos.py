@@ -116,7 +116,18 @@ class ActivityDTO(BaseModel):
     sync_run_id: Optional[str] = None
     actor_employee_id: Optional[str] = None
     dealership_id: Optional[str] = None
+    # When LotSync's sync learned about this -- the audit trail, always
+    # populated, unchanged by Sprint 3.7. NOT what the Timeline should
+    # display when event_time is available -- see event_time below.
     observed_at: str
+    # Sprint 3.7 addition. The source's own claimed timestamp for when
+    # this actually happened -- what the Timeline should render, when
+    # present. Nullable: most sources don't expose a per-observation
+    # timestamp with a confirmed meaning (see DATA_MODEL.md's Event
+    # entry and sync/reconciler.py's persist_* functions for exactly
+    # which event_types populate this and why). Frontend fallback is
+    # event_time ?? observed_at, never the reverse.
+    event_time: Optional[str] = None
     summary: Optional[str] = None
     detail_fields: Optional[dict] = None
     vehicle: Optional[VehicleSummaryDTO] = None

@@ -202,7 +202,8 @@ def run_inventory_sync(file_paths: dict, *, store_name: str, sync_date,
     tasks_before = _count(db_conn, "task")
     recommendations_before = _count(db_conn, "recommendation")
 
-    generate_install_tasks(tekion_df, sold_df, mdd_df, recovr_df, store_name, db_conn=db_conn)
+    generate_install_tasks(tekion_df, sold_df, mdd_df, recovr_df, store_name, db_conn=db_conn,
+                            rapidrecon_df=rapidrecon_df)
     # Guarded on len(), not called unconditionally like main.py's
     # equivalent line: key_out_aging is built via pd.DataFrame(list) in
     # reconcile_keyper_tekion, which returns a genuinely COLUMNLESS empty
@@ -223,7 +224,8 @@ def run_inventory_sync(file_paths: dict, *, store_name: str, sync_date,
             tekion_df, matched_idx, sync_date, incoming_missing_buckets, new_car_buckets)
         incoming_or_missing = enrich_with_rapidrecon(incoming_or_missing, "tekion_vin", rapidrecon_df)
         sold_report = build_sold_vehicles_report(sold_df, keyper_df, recovr_df, sync_date)
-        tracker_tasks = build_tracker_install_tasks(tekion_df, sold_df, mdd_df, recovr_df, store_name)
+        tracker_tasks = build_tracker_install_tasks(tekion_df, sold_df, mdd_df, recovr_df, store_name,
+                                                     rapidrecon_df=rapidrecon_df)
         sync_conflicts = find_tekion_sync_conflicts(tekion_df, sold_df)
 
         write_reports({

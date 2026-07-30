@@ -121,27 +121,32 @@ class FirstImportTest(SyncPipelineTestCase):
 
 
 class RepeatImportTest(SyncPipelineTestCase):
-    def test_rerunning_the_same_files_adds_no_new_events_except_two_documented_gaps(self):
+    def test_rerunning_the_same_files_adds_no_new_events_except_one_documented_gap(self):
         """
-        Two pre-existing, documented exceptions to full idempotency --
-        neither introduced by this sprint, both surfaced concretely by
-        this test:
+        One pre-existing, documented exception to full idempotency,
+        surfaced concretely by this test:
 
-        1. persist_rapidrecon_observations has no diff-before-write at
-           all -- SPRINT_3_REVIEW.md's diffing work explicitly covers
-           "four diffed sources" (tekion/keyper/mdd/recovr), not
-           RapidRecon. It re-writes one rapidrecon_observed Event per
-           matched VIN on every single run. This fixture set's only
-           known-VIN match is 1TESTVIN000000001, so +1 Event per rerun.
-        2. tekion_sold.csv's K80001/K80002 rows (same VIN, two different
-           stock numbers) are SPRINT_3_REVIEW.md's own named, accepted
-           idempotency gap for an internally contradictory Tekion export
-           -- +2 Events per rerun (see persist_tekion_observations'
-           docstring for the exact mechanism).
+        tekion_sold.csv's K80001/K80002 rows (same VIN, two different
+        stock numbers) are SPRINT_3_REVIEW.md's own named, accepted
+        idempotency gap for an internally contradictory Tekion export
+        -- +2 Events per rerun (see persist_tekion_observations'
+        docstring for the exact mechanism).
+
+        A second, previously-documented gap was closed in Sprint 3.7
+        (see persist_rapidrecon_observations' docstring and
+        test_database_slice3.py's
+        test_second_identical_run_does_not_duplicate_rapidrecon_event):
+        persist_rapidrecon_observations had no diff-before-write at
+        all, so it used to re-write one rapidrecon_observed Event per
+        matched VIN on every single rerun (+1 Event, against this
+        fixture set's one known-VIN match, 1TESTVIN000000001). This
+        test previously asserted a delta of 3 to account for both gaps
+        together; it now asserts 2, reflecting only the one that
+        remains.
 
         Asserting zero new Events here would assert something false
         about the system's real, already-documented behavior -- so this
-        asserts the exact expected delta (3) instead.
+        asserts the exact expected delta (2) instead.
         """
         first = self._run(ALL_SOURCES)
         events_after_first = self.conn.execute("SELECT COUNT(*) FROM event").fetchone()[0]
@@ -149,7 +154,7 @@ class RepeatImportTest(SyncPipelineTestCase):
         second = self._run(ALL_SOURCES)
         events_after_second = self.conn.execute("SELECT COUNT(*) FROM event").fetchone()[0]
 
-        self.assertEqual(events_after_second - events_after_first, 3)
+        self.assertEqual(events_after_second - events_after_first, 2)
         self.assertEqual(second["tasks_generated"], 0)
         self.assertEqual(second["recommendations_generated"], 0)
         # Every source still gets a fresh SyncRun row -- a rerun with

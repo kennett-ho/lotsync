@@ -66,9 +66,11 @@ class IdempotencyTest(unittest.TestCase):
     """
     IMPLEMENTATION_PLAN.md Slice 3 Definition of Done: running the
     pipeline twice on identical input produces zero new Events on the
-    second run -- across all four diffed sources (tekion/keyper/mdd/
-    recovr), for every VIN in the SUPPORTED operational model: at most
-    one observation per event_type per VIN per sync.
+    second run -- across all five diffed sources (tekion/keyper/mdd/
+    recovr/rapidrecon -- RapidRecon joined the other four in Sprint 3.7,
+    see persist_rapidrecon_observations' docstring), for every VIN in
+    the SUPPORTED operational model: at most one observation per
+    event_type per VIN per sync.
 
     KNOWN, DOCUMENTED EXCEPTION, not a silent gap: 1TESTVIN000080001
     (K80001/K80002) has TWO "tekion_sold" rows for the same VIN in one
@@ -92,47 +94,80 @@ class IdempotencyTest(unittest.TestCase):
         self.conn = connect(":memory:")
 
     def test_second_identical_run_produces_zero_new_events_for_diffed_sources(self):
-        # Scoped to the four sources Slice 3 actually diffs, and to
-        # VINs within the supported one-observation-per-event_type-per-
-        # run model -- excludes 1TESTVIN000080001, covered separately
-        # below. RapidRecon is deliberately excluded entirely -- it
-        # writes an Event every run by design (see
-        # persist_rapidrecon_observations' docstring and the kickoff
-        # discussion on why Step/DIS/DIR stay outside diffing), so
-        # asserting zero new RapidRecon events on rerun would be
-        # asserting the wrong thing, not verifying idempotency.
+        # Scoped to VINs within the supported one-observation-per-
+        # event_type-per-run model -- excludes 1TESTVIN000080001,
+        # covered separately below. RapidRecon is included in this
+        # blanket assertion as of Sprint 3.7 (previously excluded here
+        # because it wasn't diffed at all -- see
+        # test_second_identical_run_does_not_duplicate_rapidrecon_event
+        # below for the dedicated regression test and why this changed).
         _run_full_pipeline(self.conn, self.keyper_df, self.tekion_df, self.sold_df,
                             self.mdd_df, self.recovr_df, self.rapidrecon_df,
                             self.sync_date, self.buckets, sync_run_id="run-1")
         (count_after_first,) = self.conn.execute(
-            "SELECT COUNT(*) FROM event WHERE source != 'rapidrecon' AND vin != '1TESTVIN000080001'"
+            "SELECT COUNT(*) FROM event WHERE vin != '1TESTVIN000080001'"
         ).fetchone()
 
         _run_full_pipeline(self.conn, self.keyper_df, self.tekion_df, self.sold_df,
                             self.mdd_df, self.recovr_df, self.rapidrecon_df,
                             self.sync_date, self.buckets, sync_run_id="run-2")
         (count_after_second,) = self.conn.execute(
-            "SELECT COUNT(*) FROM event WHERE source != 'rapidrecon' AND vin != '1TESTVIN000080001'"
+            "SELECT COUNT(*) FROM event WHERE vin != '1TESTVIN000080001'"
         ).fetchone()
 
         self.assertGreater(count_after_first, 0, "sanity check -- first run must actually write Events")
         self.assertEqual(count_after_second, count_after_first,
                           "identical rerun must not write any new Events for the supported operational model")
 
-    def test_second_identical_run_still_writes_a_new_rapidrecon_event(self):
-        # The deliberate exception, made explicit rather than just
-        # excluded silently above: RapidRecon is NOT diffed, so an
-        # identical rerun DOES produce a new Event for it every time.
+    def test_second_identical_run_does_not_duplicate_rapidrecon_event(self):
+        """
+        Sprint 3.7 regression test -- this project's own real-world
+        example of the bug this sprint fixed (see
+        persist_rapidrecon_observations' docstring): before this
+        sprint, RapidRecon was the one source with no diff-before-write
+        at all, so an identical second sync produced a second, fully
+        redundant "rapidrecon_observed" Event for every VIN, unbounded,
+        forever -- literally the "RapidRecon WHOLESALE / RapidRecon
+        WHOLESALE" duplicate-Timeline-card case this sprint's own
+        review named as the motivating example.
+
+        This test used to assert the OLD behavior directly
+        (test_second_identical_run_still_writes_a_new_rapidrecon_event,
+        removed) -- kept as its own dedicated test, not folded silently
+        into the blanket assertion above, because this is the specific
+        regression this sprint exists to prevent recurring.
+        """
         _run_full_pipeline(self.conn, self.keyper_df, self.tekion_df, self.sold_df,
                             self.mdd_df, self.recovr_df, self.rapidrecon_df,
                             self.sync_date, self.buckets, sync_run_id="run-1")
+        (rapidrecon_events_run_1,) = self.conn.execute(
+            "SELECT COUNT(*) FROM event WHERE source = 'rapidrecon' AND sync_run_id = 'run-1'"
+        ).fetchone()
+        self.assertGreater(rapidrecon_events_run_1, 0, "sanity check -- first run must write RapidRecon Events")
+
         _run_full_pipeline(self.conn, self.keyper_df, self.tekion_df, self.sold_df,
                             self.mdd_df, self.recovr_df, self.rapidrecon_df,
                             self.sync_date, self.buckets, sync_run_id="run-2")
         (rapidrecon_events_run_2,) = self.conn.execute(
             "SELECT COUNT(*) FROM event WHERE source = 'rapidrecon' AND sync_run_id = 'run-2'"
         ).fetchone()
-        self.assertGreater(rapidrecon_events_run_2, 0)
+        self.assertEqual(rapidrecon_events_run_2, 0,
+                          "an unchanged RapidRecon observation must not create a duplicate Timeline event")
+
+        # Audit integrity (Sprint 3.7 objective 4): the suppressed
+        # observation must still be recorded as freshness metadata, not
+        # silently dropped -- "was this vehicle's RapidRecon claim
+        # reconfirmed by the most recent sync" must stay answerable even
+        # when no new Event was written.
+        freshness = self.conn.execute(
+            "SELECT last_sync_run_id FROM event_freshness "
+            "WHERE event_type = 'rapidrecon_observed' AND source = 'rapidrecon' "
+            "ORDER BY vin LIMIT 1"
+        ).fetchone()
+        self.assertIsNotNone(freshness, "event_freshness must be populated even for a suppressed observation")
+        self.assertEqual(freshness[0], "run-2",
+                          "freshness must reflect the most recent sync that reconfirmed the claim, "
+                          "even though it wrote no new Event")
 
     def test_documented_limitation_duplicate_sold_vin_refires_on_rerun(self):
         # Pins down the known, accepted exception explicitly (see this

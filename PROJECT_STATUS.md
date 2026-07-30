@@ -5,16 +5,16 @@ sprint. This is a snapshot, not a narrative — see `SPRINT_X_REVIEW.md`
 files for the story behind each entry, and `IMPLEMENTATION_PLAN.md`
 for the full plan this tracks progress against.
 
-**Last updated:** 2026-07-28 (v0.7.1 — Developer Tooling added; Phase 3, Sprint 4 remains the last completed product-scope sprint — see "Developer tooling" below)
+**Last updated:** 2026-07-29 (Sprint 3.7 / v0.7.3 — Event Fidelity closed)
 
 ## Current position
 
 | | |
 |---|---|
-| **Phase** | Phase 3 — Web application — **Sprint 4 done, real upload-triggered sync replaces manual seeding** (Phase 2 remains complete underneath it) |
-| **Sprint** | Phase 3, Sprint 4 — Real Inventory Sync (done) |
-| **Scope note** | The complete Inventory Sync workflow: six upload slots (Tekion Unsold, Tekion Sold, Keyper, MDD, RecovR, RapidRecon), a thin orchestration layer (`sync/pipeline.py`) reusing the existing reconciliation engine unmodified, this project's first write route (`POST /inventory-sync/run`), and the Inventory Sync page wired to real data. No authentication, no Task/Recommendation write APIs, no Requests/Trade-Ins/Transportation. See `PHASE_3_SPRINT_4_REVIEW.md` for the full report, the partial-source architecture decisions, and two real reconciliation-engine findings this sprint's testing surfaced. |
-| **Last completed** | Phase 3, Sprint 4 — `sync/pipeline.py`, `api/routers/inventory_sync.py`, `frontend/src/dashboards/InventorySync.tsx` wired end-to-end, verified live via real multipart file upload in-browser |
+| **Phase** | Phase 3 — Web application — **Sprint 3.7 done, Timeline reflects operational history rather than sync noise** (Phase 2 remains complete underneath it) |
+| **Sprint** | Sprint 3.7 (v0.7.3) — Event Fidelity (done) |
+| **Scope note** | `event.event_time` (source-provided timestamps, populated only where a source's meaning is confirmed: Keyper Checkout Date for `Status=Out` only, Tekion Stocked In/Sold Date); `event_freshness` (generic per-`(vin, event_type)` audit tracking, closing a gap that predates this sprint); RapidRecon's missing diff-before-write fixed via a new shared, reusable helper; a real, live gap between this project's stated Wholesale/RecovR rule and the actual wired pipeline found and closed (`build_tracker_install_tasks` now honors `Step ∈ {WHOLESALE, AT AUCTION}`, verified against the already-correct but previously unwired exclusion logic before reuse). No new features; no business rule invented — see `CHANGELOG.md`'s v0.7.3 entry for the full account, including the two findings surfaced and confirmed before implementing. |
+| **Last completed** | Sprint 3.7 — `database/migrations/0008_event_fidelity.sql`, `sync/reconciler.py`'s `_insert_event_if_changed`/Wholesale exclusion/event_time wiring, `queries/dashboard.py`, `api/dtos.py`, and `VehicleDetail.tsx`/`Activity.tsx`/`LotManager.tsx`'s Timeline rendering, all wired end-to-end and verified against the real, live 4,312-vehicle database |
 
 ## Completed slices
 
@@ -30,38 +30,47 @@ for the full plan this tracks progress against.
 | Phase 3, Sprint 2 — Read API Foundation | Phase 3, Sprint 2 | First FastAPI layer: `GET /dashboard`, `/vehicles`, `/vehicles/{vin}` (reference implementation), `/tasks`, `/recommendations`, `/activity`, `/reports`. New `queries/vehicles.py`, `queries/tasks.py`, `queries/recommendations.py`; `recent_activity_feed` extended to embed Vehicle summaries. A real cross-thread SQLite bug caught and fixed (`connect()` now uses `check_same_thread=False`). One `API_CONTRACTS.md` correction (`VehicleSummaryDTO.color` removed — no such backend column). No writes, no auth, frontend untouched. | [`PHASE_3_SPRINT_2_REVIEW.md`](PHASE_3_SPRINT_2_REVIEW.md) |
 | Phase 3, Sprint 3 — Frontend Integration | Phase 3, Sprint 3 | New `frontend/src/api/` service layer (typed client + one module per domain + a shared `useApi` loading/error/success hook). Six screens wired to the real API: Vehicle Detail, Vehicles List, Dashboard (Lot Manager), Activity, Recommendations, Tasks. The frontend's collapsed Task `status` field was corrected into `commitment_standing`/`execution_status`, matching the backend's Pre-Sprint 4 design exactly — verified live against a real "surfaced disagreement" case. CORS added to `api/app.py` (transport plumbing, not a contract change). No writes, no auth, no new domain scope. | [`PHASE_3_SPRINT_3_REVIEW.md`](PHASE_3_SPRINT_3_REVIEW.md) |
 | Phase 3, Sprint 4 — Real Inventory Sync | Phase 3, Sprint 4 | `sync/pipeline.py` orchestrates an upload-triggered sync over the unmodified reconciliation engine, gracefully degrading across the six upload slots' every partial combination via empty-columned `DataFrame` stand-ins. `POST /inventory-sync/run` (first write route), `GET /inventory-sync/history` (a derived, grouped-by-shared-timestamp read — no new `SyncRun` schema), `GET /inventory-sync/exceptions` (`PendingIdentityDTO`, implemented for the first time). Inventory Sync page rewired to real uploads/data, mockup layout preserved. Two real reconciliation-engine findings surfaced and documented, not silently patched: a `key_out_aging_df` empty-DataFrame `KeyError` (guarded at the call site) and a pre-existing RapidRecon idempotency gap. | [`PHASE_3_SPRINT_4_REVIEW.md`](PHASE_3_SPRINT_4_REVIEW.md) |
+| Sprint 3.7 (v0.7.3) — Event Fidelity | Sprint 3.7 | `event.event_time` + `event_freshness` (`migrations/0008`); generic `_insert_event_if_changed` helper closes RapidRecon's missing diff-before-write (this project's own real instance of "repeated observation shouldn't duplicate the Timeline"); `build_tracker_install_tasks` now honors the Wholesale/AT AUCTION RecovR exclusion this project always intended but never actually wired into the live pipeline — verified against the existing, previously-unused correct logic before reuse, not reinvented. Two findings surfaced and confirmed with the product owner before implementing rather than assumed: the Wholesale rule wasn't live anywhere, and Keyper only exposes one confirmed timestamp (Checkout Date, trusted for `Status=Out` only). 12 new regression tests (`tests/test_event_fidelity.py`) plus two existing tests updated because they asserted the exact old, buggy behavior this sprint fixed. | (no dedicated review file — this dashboard + `CHANGELOG.md`'s v0.7.3 entry are the record) |
 
 ## Upcoming slices
 
 **Phase 3, Sprint 5 recommendation** (not started; per this project's
 standing practice, starting it is a separate, explicit decision — see
 `PHASE_3_SPRINT_4_REVIEW.md`'s Section 6 for the full reasoning):
-authentication (now overdue across two sprints of recommending it, and
-this sprint added this project's first write route with no permission
+authentication (now overdue across three sprints of recommending it,
+and Sprint 4 added this project's first write route with no permission
 model behind it), a `GET /employees` endpoint, a lightweight frontend
 test setup (Vitest, more pressing now that a real write path exists
-with zero automated frontend coverage), fixing the RapidRecon
-idempotency gap `PHASE_3_SPRINT_4_REVIEW.md` Section 3.3 documents, and
-wiring the Lot Manager dashboard's "Today's Operations" board to the
-same grouped-Task data Tasks.tsx already has.
+with zero automated frontend coverage), and wiring the Lot Manager
+dashboard's "Today's Operations" board to the same grouped-Task data
+Tasks.tsx already has. (The RapidRecon idempotency gap
+`PHASE_3_SPRINT_4_REVIEW.md` Section 3.3 named is no longer on this
+list — Sprint 3.7 closed it; see `CHANGELOG.md`'s v0.7.3 entry.) A new
+item Sprint 3.7 surfaced but deliberately did not build: the "Verify if
+these cars are going to wholesale" dashboard module `ARCHITECTURE.md`
+already names for Archive-step (ambiguous) RapidRecon cases — Sprint
+3.7 only restored the confident WHOLESALE/AT AUCTION exclusion, not
+this separate, still-undesigned module.
 
 ## Regression status
 
-- **309 / 309 backend tests passing** (292 → 309 this sprint: 11 new in
-  `tests/test_sync_pipeline.py`, 6 new in `tests/test_api_inventory_sync.py`),
-  run via
+- **328 / 328 backend tests passing** (309 at Sprint 4's close → 316
+  via v0.7.2's Task/vehicle FK fix and `vehicle.display_name` work →
+  328 this sprint: 12 new in `tests/test_event_fidelity.py`, plus two
+  existing tests in `test_database_slice3.py`/`test_sync_pipeline.py`
+  deliberately rewritten because they asserted the exact old RapidRecon
+  behavior this sprint fixed, not left silently broken or silently
+  deleted), run via
   `PYTHONPATH=.. python -m unittest discover -s tests -p "test_*.py"`
   from the repo root.
 - No CI — the suite must be run manually. Standing risk, unchanged
   since Sprint 1.
 - **Frontend automated test coverage remains zero**, unchanged since
   Sprint 3 — no test runner exists in `frontend/package.json` today.
-  This sprint's verification was again entirely manual, browser-driven,
-  now covering a real write path (real multipart file upload through
-  the actual six `<input type="file">` slots, not a simulated request)
-  in addition to the read states Sprint 3 already covered. Materially
-  less acceptable now than at Sprint 3's close — see
-  `PHASE_3_SPRINT_4_REVIEW.md`'s Recommendation #4.
+  This sprint's Timeline/event_time verification was again entirely
+  manual, browser-driven, against the real, live 4,312-vehicle
+  database. Materially less acceptable now than at Sprint 3's close —
+  see `PHASE_3_SPRINT_4_REVIEW.md`'s Recommendation #4.
 
 ## Developer tooling (v0.7.1)
 
@@ -215,6 +224,29 @@ LotSync.bat`, `requirements.txt`) and corrected two stale references
 in `README.md`/`api/README.md` (the pip-install command and the
 frontend's default port). No business logic, API contract, schema, or
 frontend architecture changed.
+
+**Sprint 3.7 (v0.7.3) — Event Fidelity:** `DATA_MODEL.md` edited under
+the same "genuine architectural flaw" trigger as every prior schema
+addition — `Event.event_time` and the new `EventFreshness` entry
+document real columns this sprint's own migration adds, not a design
+change (`event_time` is additive and independently nullable;
+`observed_at`'s meaning is unchanged). `API_CONTRACTS.md`'s
+`ActivityDTO` gained `event_time` for the same reason, plus two stale
+`"color"` fields removed from example payloads (dead since Sprint 2's
+own correction, never cleaned from these specific examples until now).
+`ARCHITECTURE.md` received one correction, not a new decision: its
+existing Wholesale/RecovR text already described `Step =
+WHOLESALE/AT AUCTION` as "already" excluding vehicles from install
+lists, a claim this sprint's review found wasn't actually true of the
+live pipeline — now genuinely true, the text corrected to say so
+explicitly. No change to `VISION.md`, `PRODUCT.md`, or
+`DECISION_FRAMEWORK.md` — this sprint's mechanisms (generic
+diff-before-write, freshness-as-current-state-not-history) are
+applications of principles those documents already establish, not new
+ones. See `CHANGELOG.md`'s v0.7.3 entry for the two findings (Wholesale
+rule not actually live; Keyper's single, `Status=Out`-only-confirmed
+timestamp) surfaced and confirmed with the product owner before any
+code was written, per this sprint's own explicit instruction.
 
 ## Phase 2 complete — what the backend now provides
 

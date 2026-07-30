@@ -55,7 +55,11 @@ def recent_activity_feed(conn: sqlite3.Connection, limit: int = 20, vin: str = N
     guarantee), so ties resolve deterministically.
 
     Returns a list of dicts: event_id, vin, event_type, source,
-    sync_run_id, actor_employee_id, dealership_id, observed_at, summary,
+    sync_run_id, actor_employee_id, dealership_id, observed_at,
+    event_time (Sprint 3.7 addition -- the source's own claimed
+    timestamp, nullable; see DATA_MODEL.md's Event entry and
+    sync/reconciler.py's persist_* functions for which events populate
+    it), summary,
     detail_fields (parsed back from JSON, same as
     database/repository.py's get_last_event_detail_fields already
     does -- never left as a raw JSON string), plus a nested `vehicle`
@@ -85,7 +89,7 @@ def recent_activity_feed(conn: sqlite3.Connection, limit: int = 20, vin: str = N
     """
     base_query = (
         "SELECT e.event_id, e.vin, e.event_type, e.source, e.sync_run_id, "
-        "e.actor_employee_id, e.dealership_id, e.observed_at, e.summary, e.detail_fields, "
+        "e.actor_employee_id, e.dealership_id, e.observed_at, e.event_time, e.summary, e.detail_fields, "
         "v.stock_number, v.display_name, v.year, v.make, v.model "
         "FROM event e JOIN vehicle v ON v.vin = e.vin "
     )
@@ -102,7 +106,7 @@ def recent_activity_feed(conn: sqlite3.Connection, limit: int = 20, vin: str = N
 
     columns = [
         "event_id", "vin", "event_type", "source", "sync_run_id",
-        "actor_employee_id", "dealership_id", "observed_at", "summary", "detail_fields",
+        "actor_employee_id", "dealership_id", "observed_at", "event_time", "summary", "detail_fields",
         "stock_number", "display_name", "year", "make", "model",
     ]
     results = []

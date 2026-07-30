@@ -226,6 +226,17 @@ remembering when that gets built, surfaced during design discussion:
   wholesale status is genuinely unclear and needs a human to check,
   closer in spirit to `recovr_install_needs_review.csv`'s Archive-step
   bucket, but likely needs to be broader. Not designed in detail yet.
+  **Correction (Sprint 3.7):** when this was originally written, the
+  confident-exclusion side wasn't actually true of the live pipeline
+  either -- `build_tracker_install_tasks`, the function that actually
+  feeds `tracker_install_tasks.csv`, the API, and Task generation, took
+  no RapidRecon input at all; only `build_recovr_install_from_keyper`
+  (a different, un-wired methodology) had the exclusion. Sprint 3.7's
+  review found this gap and closed it -- `Step = WHOLESALE/AT AUCTION`
+  now genuinely excludes vehicles from the live RecovR-install
+  candidate list, not just a disconnected alternate function. The
+  Archive-step "needs review" module described above remains not
+  built, unaffected by this correction.
 
 ## A known non-obvious bug fixed during the Phase 1 split
 

@@ -258,3 +258,94 @@ The Timeline should represent the operational history of a vehicle, not a log of
 - `DATA_MODEL.md` (`Event.event_time`, new `EventFreshness` entry), `API_CONTRACTS.md` (`ActivityDTO.event_time`, two stale `"color"` fields removed from unrelated example payloads found in passing), `ARCHITECTURE.md` (correction note on the Wholesale section, since its "already does" claim wasn't actually true of the live pipeline until this sprint).
 
 **No change to:** `build_tracker_install_tasks`'s MDD logic; any of Keyper/Tekion/MDD/RecovR's existing diff-before-write mechanics; any DTO or column beyond the additions above; any CSV report's *format* (only `tracker_install_tasks.csv`'s *content* changes, and only for the Wholesale-excluded rows — a deliberate, confirmed fix, not drift). Verified via full backend regression (316 → 328 passing), and empirically against the real, live seeded database (4,312 vehicles) and a real Inventory Sync run through the actual API and browser.
+
+## Sprint 3.8 (v0.7.4) — Product Alignment (2026-08-03)
+
+Governance-only sprint — no schema, migration, API, or frontend code
+changed. Closes a real drift found by direct product-owner review, not
+invented: `PRODUCT.md`'s stakeholder framing had begun treating Tower,
+Sales, Service, and Controller as co-equal, workspace-owning users
+rather than lightweight contributors to lot staff's workflow, and the
+Phase 3 frontend mockup had independently drifted the same direction —
+several department-specific dashboards, a cross-department Request
+object, and a Transportation/dispatch module with no backend
+equivalent anywhere in `DATA_MODEL.md`. No code changes because the
+backend (`Vehicle`/`Task`/`Event`/`Recommendation`/`SyncRun`) had
+already, mostly, converged on the corrected shape on its own — this
+sprint's work is bringing the documents back in line with it, not the
+other way around.
+
+**Changed**
+- `PRODUCT.md` — "Users and stakeholders" rewritten: lot staff named
+  explicitly as the primary user, with a tiebreaker rule for design
+  conflicts; Tower/Sales/Service/Controller reframed as contributors
+  with explicit lightweight-interaction constraints. New Product
+  Philosophy principle: "A confirmed dealership policy is context, not
+  enforcement logic." "Explicit boundaries" split into "Permanent
+  product boundaries" (identity-level — no DMS replacement, no
+  predictive/ML recommendations, no department workspaces, no
+  cross-department ticketing, no dispatch/logistics platform, not an
+  AI operations manager) and "Deferred technical scope" (sequencing —
+  auth, hosting, PostgreSQL, Attachment model, mobile). New "Beta
+  Vision (v1.0)" section naming what a deployable beta does and does
+  not include. Three stale-consistency issues fixed on direct re-read
+  (a "lot attendant or controller" phrase, an Open Questions item
+  overtaken by this sprint's own stakeholder work, and a boundary/Beta
+  Vision auth cross-reference).
+- `VISION.md` — new Principle added to the Principles list: "Lot staff
+  are the primary user; everyone else contributes," cross-referencing
+  `PRODUCT.md` for the full reasoning.
+- `FRONTEND_BACKEND_RECONCILIATION.md` — fully re-dispositioned against
+  the corrected identity, not just re-read. Every object and screen the
+  original pass catalogued now carries a Keep/Revise/Remove/Discuss
+  call: Requests, Vehicle Movement, the Audit Queue, Customer Delivery,
+  and every department-specific dashboard (Tower Manager, Controller)
+  removed outright as permanent-boundary conflicts; Trade-Ins,
+  Transportation's status-visibility need, Staged Vehicle, Incoming
+  Vehicle, Exception handling, and Authentication revised down to a
+  smaller shape; Vehicle, Task, Event, Recommendation, SyncRun, and
+  Quick Log confirmed already aligned. New "Product grammar" section
+  formalizes the four core objects (Vehicle, Task, Recommendation,
+  Event/Timeline), the two ingestion mechanisms (Sync, Quick Log), and
+  `PendingIdentity`'s resolution as decomposing into Task rather than
+  standing alone. Sections 6–9 (Domain Review, Implementation Order,
+  Architectural Risks, Documentation Recommendations) rewritten
+  accordingly; Sections 1–5 (Business Object Inventory, Backend
+  Mapping, Screen Dependency Matrix, User Action Inventory, API
+  Surface) preserved as the factual record the dispositions were
+  reasoned from, not deleted.
+
+**Two real cross-document issues caught during this sprint's own
+closing read-through, not shipped silently:**
+- `PRODUCT.md`'s Beta Vision section still described
+  Trade-In-as-its-own-domain-model as an undecided architecture
+  question, while the rewritten `FRONTEND_BACKEND_RECONCILIATION.md`
+  treated the `PendingIdentity` + Task decomposition as settled.
+  Confirmed with the product owner that the later product-grammar
+  review — defining the core objects, then validating them against a
+  full lot-attendant-shift walkthrough that specifically checked
+  whether `PendingIdentity` needed its own product surface —
+  constitutes a real product decision, not just a convenient reading.
+  `PRODUCT.md` corrected to match: Trade-In is no longer listed as a
+  deferred, undecided beta item; a new paragraph states the resolution
+  and its source directly. Beta Vision's deferred-items list now names
+  only the two items that are genuinely still open (Reports, full
+  RBAC).
+- `PROJECT_STATUS.md`'s Environment section — a stale note claiming a
+  `v0.4.0` tag was still this project's next tagging step (accurate
+  when written at Sprint 4's close, never updated as `v0.4.0`–`v0.7.3`
+  actually landed) corrected to the real tag history.
+
+**Deliberately left open, not resolved by this sprint:** whether Report
+aggregates belong in LotSync's grammar at all; whether a lot manager's
+view of their own team (Lot Manager Dashboard, Lot Staffing/Team
+Status) is in-bounds as still-lot-staff or edges toward the
+department-workspace pattern just removed elsewhere; how contributors
+(Tower, Sales) authenticate for Quick Log without full department
+accounts. See `FRONTEND_BACKEND_RECONCILIATION.md`'s "Needs
+discussion" list.
+
+**No change to:** any schema, migration, API route, DTO, or frontend
+component; any CSV report; any backend business logic. Backend
+regression unchanged at 328/328 — nothing in this sprint's scope could
+have affected it, and it was not rerun for this reason alone.

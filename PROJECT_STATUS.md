@@ -5,16 +5,16 @@ sprint. This is a snapshot, not a narrative — see `SPRINT_X_REVIEW.md`
 files for the story behind each entry, and `IMPLEMENTATION_PLAN.md`
 for the full plan this tracks progress against.
 
-**Last updated:** 2026-07-29 (Sprint 3.7 / v0.7.3 — Event Fidelity closed)
+**Last updated:** 2026-08-03 (Sprint 3.8 / v0.7.4 — Product Alignment closed)
 
 ## Current position
 
 | | |
 |---|---|
-| **Phase** | Phase 3 — Web application — **Sprint 3.7 done, Timeline reflects operational history rather than sync noise** (Phase 2 remains complete underneath it) |
-| **Sprint** | Sprint 3.7 (v0.7.3) — Event Fidelity (done) |
-| **Scope note** | `event.event_time` (source-provided timestamps, populated only where a source's meaning is confirmed: Keyper Checkout Date for `Status=Out` only, Tekion Stocked In/Sold Date); `event_freshness` (generic per-`(vin, event_type)` audit tracking, closing a gap that predates this sprint); RapidRecon's missing diff-before-write fixed via a new shared, reusable helper; a real, live gap between this project's stated Wholesale/RecovR rule and the actual wired pipeline found and closed (`build_tracker_install_tasks` now honors `Step ∈ {WHOLESALE, AT AUCTION}`, verified against the already-correct but previously unwired exclusion logic before reuse). No new features; no business rule invented — see `CHANGELOG.md`'s v0.7.3 entry for the full account, including the two findings surfaced and confirmed before implementing. |
-| **Last completed** | Sprint 3.7 — `database/migrations/0008_event_fidelity.sql`, `sync/reconciler.py`'s `_insert_event_if_changed`/Wholesale exclusion/event_time wiring, `queries/dashboard.py`, `api/dtos.py`, and `VehicleDetail.tsx`/`Activity.tsx`/`LotManager.tsx`'s Timeline rendering, all wired end-to-end and verified against the real, live 4,312-vehicle database |
+| **Phase** | Phase 3 — Web application — **Sprint 3.8 done, product identity and governing docs realigned around lot staff as primary user** (Phase 2 remains complete underneath it; no code changed this sprint) |
+| **Sprint** | Sprint 3.8 (v0.7.4) — Product Alignment (done) |
+| **Scope note** | Governance-only sprint. `PRODUCT.md`'s "Users and stakeholders" rewritten (lot staff as primary user, others as contributors, "lot staff wins" tiebreaker), new "confirmed dealership policy is context, not enforcement logic" principle, "Explicit boundaries" split into Permanent product boundaries vs. Deferred technical scope, new Beta Vision (v1.0) section. `VISION.md` gained a matching Principle. `FRONTEND_BACKEND_RECONCILIATION.md` fully re-dispositioned (Keep/Revise/Remove/Discuss) against a new four-object product grammar (Vehicle, Task, Recommendation, Event/Timeline) and its two ingestion mechanisms (Sync, Quick Log) — no schema, API, or frontend code touched. See `CHANGELOG.md`'s v0.7.4 entry for the full account. |
+| **Last completed** | Sprint 3.8 — `PRODUCT.md`, `VISION.md`, `FRONTEND_BACKEND_RECONCILIATION.md` rewritten; `CHANGELOG.md`/this file updated; no code, schema, or test changes |
 
 ## Completed slices
 
@@ -31,6 +31,7 @@ for the full plan this tracks progress against.
 | Phase 3, Sprint 3 — Frontend Integration | Phase 3, Sprint 3 | New `frontend/src/api/` service layer (typed client + one module per domain + a shared `useApi` loading/error/success hook). Six screens wired to the real API: Vehicle Detail, Vehicles List, Dashboard (Lot Manager), Activity, Recommendations, Tasks. The frontend's collapsed Task `status` field was corrected into `commitment_standing`/`execution_status`, matching the backend's Pre-Sprint 4 design exactly — verified live against a real "surfaced disagreement" case. CORS added to `api/app.py` (transport plumbing, not a contract change). No writes, no auth, no new domain scope. | [`PHASE_3_SPRINT_3_REVIEW.md`](PHASE_3_SPRINT_3_REVIEW.md) |
 | Phase 3, Sprint 4 — Real Inventory Sync | Phase 3, Sprint 4 | `sync/pipeline.py` orchestrates an upload-triggered sync over the unmodified reconciliation engine, gracefully degrading across the six upload slots' every partial combination via empty-columned `DataFrame` stand-ins. `POST /inventory-sync/run` (first write route), `GET /inventory-sync/history` (a derived, grouped-by-shared-timestamp read — no new `SyncRun` schema), `GET /inventory-sync/exceptions` (`PendingIdentityDTO`, implemented for the first time). Inventory Sync page rewired to real uploads/data, mockup layout preserved. Two real reconciliation-engine findings surfaced and documented, not silently patched: a `key_out_aging_df` empty-DataFrame `KeyError` (guarded at the call site) and a pre-existing RapidRecon idempotency gap. | [`PHASE_3_SPRINT_4_REVIEW.md`](PHASE_3_SPRINT_4_REVIEW.md) |
 | Sprint 3.7 (v0.7.3) — Event Fidelity | Sprint 3.7 | `event.event_time` + `event_freshness` (`migrations/0008`); generic `_insert_event_if_changed` helper closes RapidRecon's missing diff-before-write (this project's own real instance of "repeated observation shouldn't duplicate the Timeline"); `build_tracker_install_tasks` now honors the Wholesale/AT AUCTION RecovR exclusion this project always intended but never actually wired into the live pipeline — verified against the existing, previously-unused correct logic before reuse, not reinvented. Two findings surfaced and confirmed with the product owner before implementing rather than assumed: the Wholesale rule wasn't live anywhere, and Keyper only exposes one confirmed timestamp (Checkout Date, trusted for `Status=Out` only). 12 new regression tests (`tests/test_event_fidelity.py`) plus two existing tests updated because they asserted the exact old, buggy behavior this sprint fixed. | (no dedicated review file — this dashboard + `CHANGELOG.md`'s v0.7.3 entry are the record) |
+| Sprint 3.8 (v0.7.4) — Product Alignment | Sprint 3.8 | Governance-only. `PRODUCT.md`/`VISION.md` rewritten around lot staff as primary user, contributors reframed, Permanent/Deferred boundary split, Beta Vision section added. `FRONTEND_BACKEND_RECONCILIATION.md` re-dispositioned in full against a new four-object product grammar (Vehicle, Task, Recommendation, Event/Timeline) — Requests, Vehicle Movement, the Audit Queue, Customer Delivery, and department-specific dashboards removed as permanent-boundary conflicts; Trade-Ins, Transportation, Staged/Incoming Vehicle, Exception handling, and Authentication revised down; Vehicle/Task/Event/Recommendation/SyncRun/Quick Log confirmed already aligned. No schema, API, or frontend code changed; no test count change. | (no dedicated review file — this dashboard + `CHANGELOG.md`'s v0.7.4 entry are the record) |
 
 ## Upcoming slices
 
@@ -116,10 +117,13 @@ work (not just assumed).
   `LOTSYNC_UPLOADS_DIR` / `LOTSYNC_CONFIG_PATH` / `LOTSYNC_OUT_DIR` /
   `LOTSYNC_DB_PATH` env vars, each defaulting to a repo-relative
   `data/` subfolder.
-- Git-tracked, tagged `v0.1.0`, `v0.2.0`, and `v0.3.0` (Sprint 3),
-  pushed to `origin` on GitHub (private repository). Sprint 4's
-  Slice 5/6/7 work is committed on top of `v0.3.0`; a `v0.4.0` tag
-  (closing Sprint 4 and Phase 2) is this closeout's tagging step.
+- Git-tracked, tagged `v0.1.0` through `v0.7.3`, pushed to `origin` on
+  GitHub (private repository) — `v0.4.0` closed Sprint 4 and Phase 2;
+  `v0.7.0` through `v0.7.3` cover Phase 3, Sprints 1–4, developer
+  tooling, and Event Fidelity respectively. `v0.7.4` (Sprint 3.8 —
+  Product Alignment) is this closeout's tagging step. This note was
+  previously stale — written at Sprint 4's close and never updated as
+  later tags landed; corrected during the Sprint 3.8 governance pass.
 
 ## Governance document status
 
@@ -247,6 +251,38 @@ ones. See `CHANGELOG.md`'s v0.7.3 entry for the two findings (Wholesale
 rule not actually live; Keyper's single, `Status=Out`-only-confirmed
 timestamp) surfaced and confirmed with the product owner before any
 code was written, per this sprint's own explicit instruction.
+
+**Sprint 3.8 (v0.7.4) — Product Alignment:** the first sprint whose
+*entire* scope is governance documents — no `DATA_MODEL.md` or
+`ARCHITECTURE.md` change, because nothing about the backend's schema
+or reasoning structure was wrong; the drift this sprint corrects was
+in `PRODUCT.md`'s stakeholder framing and in the Phase 3 frontend
+mockup, not in anything already implemented. `PRODUCT.md` and
+`VISION.md` edited directly, under a new trigger this project hasn't
+used before — not "genuine architectural flaw" (the Sprint 1–3.7
+trigger for `DATA_MODEL.md`/`ARCHITECTURE.md`), but a direct,
+explicit product-owner identity correction, following a full
+Identity/Scope/Beta-Vision review conducted deliberately before any
+document was touched. `FRONTEND_BACKEND_RECONCILIATION.md` rewritten
+in full — its original factual inventory (Sections 1–5) preserved
+rather than replaced, since the underlying observations about what
+the frontend files contain didn't change; only the disposition drawn
+from those observations did. No change to `DATA_MODEL.md`,
+`ARCHITECTURE.md`, or `DECISION_FRAMEWORK.md`. This sprint deliberately
+left three questions open rather than force a resolution: whether
+Report aggregates belong in the grammar, whether manager/staffing
+views are in-bounds as lot staff, and how contributor authentication
+for Quick Log should work — see `FRONTEND_BACKEND_RECONCILIATION.md`'s
+"Needs discussion" list and `CHANGELOG.md`'s v0.7.4 entry.
+
+This sprint's own closing read-through caught two real
+cross-document issues before they shipped, both corrected rather than
+left for a future sprint: `PRODUCT.md`'s Beta Vision still called
+Trade-In-as-its-own-domain-model undecided after the product-grammar
+review had already settled it (`PendingIdentity` + Task, no new
+model), and this file's own Environment section still described a
+`v0.4.0` tag as an upcoming step three major versions after it
+actually landed. See `CHANGELOG.md`'s v0.7.4 entry for both.
 
 ## Phase 2 complete — what the backend now provides
 

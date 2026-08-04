@@ -44,6 +44,12 @@ and turning that into work someone can actually act on.
 - **Vehicles are the center.** Everything organizes around one
   physical vehicle's complete story, not around any single system's
   report of it.
+- **Lot staff are the primary user; everyone else contributes.**
+  Tower, Sales, Service, and Controller touch LotSync to get
+  operational information to lot staff — not to gain a workspace of
+  their own. When those interests conflict, lot staff's daily workflow
+  wins. See `PRODUCT.md`, "Users and stakeholders," for the full
+  reasoning and what this ruled out.
 - **Reports are outputs, not the product.** A CSV, a dashboard card,
   a task list — these are different views into current vehicle state,
   not the thing LotSync is actually for.

@@ -157,6 +157,20 @@ def _rapidrecon_df(vin, step):
     return pd.DataFrame([{"VIN": vin, "Step": step}])
 
 
+# Sprint 3.8: build_tracker_install_tasks/generate_install_tasks now
+# require Keyper evidence to generate any RecovR-related task -- a
+# minimal "this VIN's key is confirmed In" fixture, matching the real
+# fully_verified_df shape reconcile_keyper_tekion returns (only the
+# "tekion_vin" column is ever read). key_out_aging_df just needs to be
+# a real (non-None) DataFrame to signal "Keyper was part of this run" --
+# empty is correct here since none of these scenarios have a key Out.
+def _fully_verified_df(vin):
+    return pd.DataFrame([{"tekion_vin": vin}])
+
+
+_EMPTY_KEY_OUT_AGING = pd.DataFrame(columns=["tekion_vin", "days_out", "tekion_stock", "tekion_vehicle"])
+
+
 class WholesaleExclusionTest(unittest.TestCase):
     """
     Sprint 3.7 -- restores a real gap between this project's stated
@@ -172,6 +186,7 @@ class WholesaleExclusionTest(unittest.TestCase):
         tasks = build_tracker_install_tasks(
             _tekion_df(self.VIN), _EMPTY_SOLD, _EMPTY_MDD, _recovr_not_paired_df(self.VIN),
             "TestStore", rapidrecon_df=_rapidrecon_df(self.VIN, "WHOLESALE"),
+            fully_verified_df=_fully_verified_df(self.VIN), key_out_aging_df=_EMPTY_KEY_OUT_AGING,
         )
         self.assertTrue(tasks.empty, "a Wholesale-bound vehicle must not get a RecovR install task")
 
@@ -179,6 +194,7 @@ class WholesaleExclusionTest(unittest.TestCase):
         tasks = build_tracker_install_tasks(
             _tekion_df(self.VIN), _EMPTY_SOLD, _EMPTY_MDD, _recovr_not_paired_df(self.VIN),
             "TestStore", rapidrecon_df=_rapidrecon_df(self.VIN, "AT AUCTION"),
+            fully_verified_df=_fully_verified_df(self.VIN), key_out_aging_df=_EMPTY_KEY_OUT_AGING,
         )
         self.assertTrue(tasks.empty, "an At-Auction-bound vehicle must not get a RecovR install task")
 
@@ -190,6 +206,7 @@ class WholesaleExclusionTest(unittest.TestCase):
         tasks = build_tracker_install_tasks(
             _tekion_df(self.VIN), _EMPTY_SOLD, _EMPTY_MDD, _recovr_not_paired_df(self.VIN),
             "TestStore", rapidrecon_df=_rapidrecon_df(self.VIN, "Inspection"),
+            fully_verified_df=_fully_verified_df(self.VIN), key_out_aging_df=_EMPTY_KEY_OUT_AGING,
         )
         self.assertEqual(len(tasks), 1)
         self.assertEqual(tasks.iloc[0]["vin"], self.VIN)
@@ -202,6 +219,7 @@ class WholesaleExclusionTest(unittest.TestCase):
         tasks = build_tracker_install_tasks(
             _tekion_df(self.VIN), _EMPTY_SOLD, _EMPTY_MDD, _recovr_not_paired_df(self.VIN),
             "TestStore", rapidrecon_df=pd.DataFrame(columns=["VIN", "Step"]),
+            fully_verified_df=_fully_verified_df(self.VIN), key_out_aging_df=_EMPTY_KEY_OUT_AGING,
         )
         self.assertEqual(len(tasks), 1)
 
@@ -212,6 +230,7 @@ class WholesaleExclusionTest(unittest.TestCase):
         tasks = build_tracker_install_tasks(
             _tekion_df(self.VIN), _EMPTY_SOLD, _EMPTY_MDD, _recovr_not_paired_df(self.VIN),
             "TestStore",
+            fully_verified_df=_fully_verified_df(self.VIN), key_out_aging_df=_EMPTY_KEY_OUT_AGING,
         )
         self.assertEqual(len(tasks), 1)
 
@@ -226,6 +245,7 @@ class WholesaleExclusionTest(unittest.TestCase):
         generate_install_tasks(
             _tekion_df(self.VIN), _EMPTY_SOLD, _EMPTY_MDD, _recovr_not_paired_df(self.VIN),
             "TestStore", db_conn=conn, rapidrecon_df=_rapidrecon_df(self.VIN, "WHOLESALE"),
+            fully_verified_df=_fully_verified_df(self.VIN), key_out_aging_df=_EMPTY_KEY_OUT_AGING,
         )
         (count,) = conn.execute(
             "SELECT COUNT(*) FROM task WHERE vin = ? AND task_type = 'install_recovr_device'",

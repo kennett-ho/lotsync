@@ -12,11 +12,12 @@ import unittest
 
 import pandas as pd
 
-from lotsync.config.settings import load_settings
+from lotsync.config.settings import load_settings, load_day_out_buckets
 from lotsync.importers.tekion import load_tekion
 from lotsync.importers.sold import load_tekion_sold
 from lotsync.importers.mdd import load_mdd_not_paired
 from lotsync.importers.recovr import load_recovr_full
+from lotsync.importers.keyper import load_keyper
 from lotsync.database.repository import (
     connect, insert_task, get_open_task, get_task, honor_task, moot_task,
     cancel_task, escalate_task, insert_task_execution_event, assert_task_completed,
@@ -24,6 +25,7 @@ from lotsync.database.repository import (
 )
 from lotsync.sync.reconciler import (
     generate_install_tasks, persist_tekion_observations, persist_recovr_observations,
+    reconcile_keyper_tekion,
 )
 
 FIXTURES = os.path.join(os.path.dirname(__file__), "fixtures", "synthetic")
@@ -216,12 +218,57 @@ class ExecutionLogTest(unittest.TestCase):
 
 
 def _load_task_generation_inputs():
+    """
+    Sprint 3.8 (Friday MVP task-generation refinements): now also
+    returns fully_verified_df/key_out_aging_df, computed via
+    reconcile_keyper_tekion against the same keyper.csv fixture the
+    CSV-facing reports already use -- generate_install_tasks now
+    requires Keyper evidence to generate any RecovR-related task (see
+    that function's own docstring).
+
+    Per keyper.csv itself: K30001 is In, K30002 is Out. Under Sprint
+    3.8's rules that makes 1TESTVIN000000002 (K30002) an
+    investigate_key_for_recovr candidate now, not install_recovr_device
+    -- see TaskGenerationTest below. K50001 (the fragment-matched
+    RecovR candidate) has no Keyper record at all in this fixture, so
+    it now generates neither task type: "don't guess" applies whether
+    there's no Keyper evidence at all just as much as when there's
+    conflicting evidence.
+    """
     settings = load_settings(CONFIG)
+    day_out_buckets = load_day_out_buckets(CONFIG)
     tekion_df = load_tekion(set(), os.path.join(FIXTURES, "tekion_master.csv"))
     sold_df = load_tekion_sold(os.path.join(FIXTURES, "tekion_sold.csv"))
     mdd_df = load_mdd_not_paired(os.path.join(FIXTURES, "mdd_not_paired.csv"))
     recovr_df = load_recovr_full(os.path.join(FIXTURES, "recovr.csv"))
-    return tekion_df, sold_df, mdd_df, recovr_df, settings["store_name"]
+    keyper_df = load_keyper(os.path.join(FIXTURES, "keyper.csv"))
+    fully_verified_df, key_out_aging_df, _, _, _ = reconcile_keyper_tekion(
+        keyper_df, tekion_df, sold_df, settings["sync_date"], day_out_buckets,
+    )
+    return (tekion_df, sold_df, mdd_df, recovr_df, settings["store_name"],
+            fully_verified_df, key_out_aging_df)
+
+
+def _load_recovr_install_ready_inputs():
+    """
+    Same base fixture as _load_task_generation_inputs(), except
+    1TESTVIN000000002 (K30002) is flipped to Keyper "In" -- the shared
+    fixture deliberately has it "Out" (exercised by
+    TaskGenerationTest's investigate_key_for_recovr case instead), so
+    tests that specifically need a genuine install_recovr_device
+    candidate to exercise Reality-discharge against need this variant.
+    """
+    tekion_df, sold_df, mdd_df, recovr_df, store_name, _, _ = _load_task_generation_inputs()
+    settings = load_settings(CONFIG)
+    day_out_buckets = load_day_out_buckets(CONFIG)
+    keyper_df = load_keyper(os.path.join(FIXTURES, "keyper.csv"))
+    keyper_df = keyper_df.copy()
+    keyper_df.loc[keyper_df["identifier_raw"] == "K30002", "Status"] = "In"
+    fully_verified_df, key_out_aging_df, _, _, _ = reconcile_keyper_tekion(
+        keyper_df, tekion_df, sold_df, settings["sync_date"], day_out_buckets,
+    )
+    return (tekion_df, sold_df, mdd_df, recovr_df, store_name,
+            fully_verified_df, key_out_aging_df)
 
 
 class TaskGenerationTest(unittest.TestCase):
@@ -233,28 +280,44 @@ class TaskGenerationTest(unittest.TestCase):
     """
 
     def setUp(self):
-        self.tekion_df, self.sold_df, self.mdd_df, self.recovr_df, self.store_name = \
-            _load_task_generation_inputs()
+        (self.tekion_df, self.sold_df, self.mdd_df, self.recovr_df, self.store_name,
+         self.fully_verified_df, self.key_out_aging_df) = _load_task_generation_inputs()
         self.conn = connect(":memory:")
         persist_tekion_observations(self.tekion_df, self.sold_df, db_conn=self.conn)
 
+    def _generate(self):
+        return generate_install_tasks(
+            self.tekion_df, self.sold_df, self.mdd_df, self.recovr_df, self.store_name,
+            db_conn=self.conn,
+            fully_verified_df=self.fully_verified_df, key_out_aging_df=self.key_out_aging_df,
+        )
+
     def test_generates_one_outstanding_task_per_candidate(self):
-        generate_install_tasks(self.tekion_df, self.sold_df, self.mdd_df, self.recovr_df,
-                               self.store_name, db_conn=self.conn)
+        self._generate()
         rows = self.conn.execute(
             "SELECT vin, task_type, commitment_standing, execution_status FROM task ORDER BY vin"
         ).fetchall()
         self.assertEqual(set(rows), {
             ("1TESTVIN000000001", "install_mdd_beacon", "outstanding", "not_started"),
-            ("1TESTVIN000000002", "install_recovr_device", "outstanding", "not_started"),
-            ("1TESTVIN000050001", "install_recovr_device", "outstanding", "not_started"),
+            # K30002's key is Out per keyper.csv -- Sprint 3.8 rules make
+            # this investigate_key_for_recovr, not install_recovr_device.
+            ("1TESTVIN000000002", "investigate_key_for_recovr", "outstanding", "not_started"),
+            # K50001 (fragment-matched) has no Keyper record at all in
+            # this fixture -- no RecovR-related task without Keyper
+            # evidence either way.
+            # K30003's key has been Out since 6/20/2026 (~31 days per
+            # the fixture's own documented scenario) -- well past
+            # KEY_OUT_INVESTIGATE_THRESHOLD_DAYS, independent of RecovR
+            # entirely (K30003 isn't even a RecovR candidate). This
+            # coexists with the separate key_out_aging Recommendation
+            # the same vehicle already generates at the 25-day bucket --
+            # two different, complementary signals, not a duplicate.
+            ("1TESTVIN000000003", "investigate_checked_out_key", "outstanding", "not_started"),
         })
 
     def test_rerun_does_not_create_duplicate_tasks(self):
-        generate_install_tasks(self.tekion_df, self.sold_df, self.mdd_df, self.recovr_df,
-                               self.store_name, db_conn=self.conn)
-        generate_install_tasks(self.tekion_df, self.sold_df, self.mdd_df, self.recovr_df,
-                               self.store_name, db_conn=self.conn)
+        self._generate()
+        self._generate()
         (count,) = self.conn.execute("SELECT COUNT(*) FROM task").fetchone()
         self.assertEqual(count, 3, "rerun must not create a second Task for an already-outstanding one")
 
@@ -301,6 +364,15 @@ class TaskGenerationTest(unittest.TestCase):
             "VIN": "1TESTVIN000099999", "Stock Number": "K99999", "Paired": "No",
             "Year": "2024", "Make": "Test", "Model": "Sedan",
         }])
+        # Sprint 3.8: install_recovr_device now also requires Keyper
+        # evidence the key is In -- this test's own point (the FK-safety
+        # bug) is orthogonal to Keyper gating, so a minimal
+        # fully_verified_df naming this VIN keeps testing exactly what
+        # it always tested. key_out_aging_df only needs to be a real
+        # (not None) DataFrame to signal "Keyper was part of this run";
+        # empty is fine since nothing here has a key checked Out.
+        fully_verified_df = pd.DataFrame([{"tekion_vin": "1TESTVIN000099999"}])
+        key_out_aging_df = pd.DataFrame(columns=["tekion_vin", "days_out", "tekion_stock", "tekion_vehicle"])
 
         conn = connect(":memory:")
         persist_tekion_observations(tekion_df, sold_df, db_conn=conn)
@@ -312,7 +384,8 @@ class TaskGenerationTest(unittest.TestCase):
         )
 
         # Must not raise sqlite3.IntegrityError (FOREIGN KEY constraint failed).
-        generate_install_tasks(tekion_df, sold_df, mdd_df, recovr_df, "TestStore", db_conn=conn)
+        generate_install_tasks(tekion_df, sold_df, mdd_df, recovr_df, "TestStore", db_conn=conn,
+                                fully_verified_df=fully_verified_df, key_out_aging_df=key_out_aging_df)
 
         task = get_open_task(conn, "1TESTVIN000099999", "install_recovr_device")
         self.assertIsNotNone(task, "the RecovR candidate Task must actually be created")
@@ -333,12 +406,14 @@ class RecovrHonorDischargeTest(unittest.TestCase):
     """Milestone B: RecovR's positive "paired" signal Reality-discharges an outstanding install_recovr_device Task."""
 
     def setUp(self):
-        self.tekion_df, self.sold_df, self.mdd_df, self.recovr_df, self.store_name = \
-            _load_task_generation_inputs()
+        (self.tekion_df, self.sold_df, self.mdd_df, self.recovr_df, self.store_name,
+         self.fully_verified_df, self.key_out_aging_df) = _load_recovr_install_ready_inputs()
         self.conn = connect(":memory:")
         persist_tekion_observations(self.tekion_df, self.sold_df, db_conn=self.conn)
         generate_install_tasks(self.tekion_df, self.sold_df, self.mdd_df, self.recovr_df,
-                               self.store_name, db_conn=self.conn)
+                               self.store_name, db_conn=self.conn,
+                               fully_verified_df=self.fully_verified_df,
+                               key_out_aging_df=self.key_out_aging_df)
         self.task_id = get_open_task(self.conn, "1TESTVIN000000002", "install_recovr_device")["task_id"]
 
     def test_recovr_flip_to_paired_honors_the_task(self):
@@ -372,12 +447,14 @@ class TekionSoldMootDischargeTest(unittest.TestCase):
     """Milestone B: a vehicle selling Reality-discharges (moots) any outstanding install-type Task for it."""
 
     def setUp(self):
-        self.tekion_df, self.sold_df, self.mdd_df, self.recovr_df, self.store_name = \
-            _load_task_generation_inputs()
+        (self.tekion_df, self.sold_df, self.mdd_df, self.recovr_df, self.store_name,
+         self.fully_verified_df, self.key_out_aging_df) = _load_recovr_install_ready_inputs()
         self.conn = connect(":memory:")
         persist_tekion_observations(self.tekion_df, self.sold_df, db_conn=self.conn)
         generate_install_tasks(self.tekion_df, self.sold_df, self.mdd_df, self.recovr_df,
-                               self.store_name, db_conn=self.conn)
+                               self.store_name, db_conn=self.conn,
+                               fully_verified_df=self.fully_verified_df,
+                               key_out_aging_df=self.key_out_aging_df)
 
     def test_vehicle_selling_moots_its_outstanding_recovr_task(self):
         recovr_task_id = get_open_task(self.conn, "1TESTVIN000000002", "install_recovr_device")["task_id"]
@@ -429,12 +506,14 @@ class CompletionAssertionCoexistenceTest(unittest.TestCase):
     """
 
     def setUp(self):
-        self.tekion_df, self.sold_df, self.mdd_df, self.recovr_df, self.store_name = \
-            _load_task_generation_inputs()
+        (self.tekion_df, self.sold_df, self.mdd_df, self.recovr_df, self.store_name,
+         self.fully_verified_df, self.key_out_aging_df) = _load_recovr_install_ready_inputs()
         self.conn = connect(":memory:")
         persist_tekion_observations(self.tekion_df, self.sold_df, db_conn=self.conn)
         generate_install_tasks(self.tekion_df, self.sold_df, self.mdd_df, self.recovr_df,
-                               self.store_name, db_conn=self.conn)
+                               self.store_name, db_conn=self.conn,
+                               fully_verified_df=self.fully_verified_df,
+                               key_out_aging_df=self.key_out_aging_df)
         self.task_id = get_open_task(self.conn, "1TESTVIN000000002", "install_recovr_device")["task_id"]
 
     def test_assertion_alone_does_not_honor_the_task(self):

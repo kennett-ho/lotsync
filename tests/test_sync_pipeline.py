@@ -226,14 +226,29 @@ class PartialSourceCombinationTest(SyncPipelineTestCase):
     def test_tekion_unsold_plus_keyper_plus_mdd(self):
         summary = self._run({"tekion": TEKION_PATH, "keyper": KEYPER_PATH, "mdd": MDD_PATH})
         self.assertEqual({r["source"] for r in summary["sync_runs"]}, {"tekion", "keyper", "mdd"})
-        # Only K30001 (active, unsold, MDD not-paired) produces a
+        self.assertEqual(summary["warnings"], [], "Keyper was provided this run -- no skip warning expected")
+        # K30001 (active, unsold, MDD not-paired) produces the MDD
         # candidate -- K30005 isn't in this run's Tekion Unsold data at
         # all, so it's excluded the same way build_tracker_install_tasks
         # already excludes any MDD row for an unknown/out-of-scope VIN.
-        self.assertEqual(summary["tasks_generated"], 1)
-        task = self.conn.execute("SELECT vin, task_type FROM task").fetchone()
-        self.assertEqual(task[0], "1TESTVIN000000001")
-        self.assertEqual(task[1], "install_mdd_beacon")
+        #
+        # K30003's key has been checked Out since 6/20/2026 (~31 days
+        # per the fixture's own documented scenario, no "sold" upload
+        # this run to remove it) -- independent of RecovR entirely (no
+        # RecovR file uploaded this run either), Sprint 3.8's
+        # investigate_checked_out_key still fires: the key being out
+        # too long is itself worth flagging regardless of what else was
+        # uploaded. See build_tracker_install_tasks' "Task-generation
+        # philosophy" note.
+        self.assertEqual(summary["tasks_generated"], 2)
+        tasks = {
+            row[0]: row[1] for row in
+            self.conn.execute("SELECT vin, task_type FROM task").fetchall()
+        }
+        self.assertEqual(tasks, {
+            "1TESTVIN000000001": "install_mdd_beacon",
+            "1TESTVIN000000003": "investigate_checked_out_key",
+        })
 
 
 class SyncRunHistoryTest(SyncPipelineTestCase):

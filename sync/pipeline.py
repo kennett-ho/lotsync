@@ -122,6 +122,11 @@ def run_inventory_sync(file_paths: dict, *, store_name: str, sync_date,
             "tasks_generated": task rows inserted during this run,
             "recommendations_generated": recommendation rows inserted
                 during this run,
+            "warnings": [str, ...] -- see generate_install_tasks'
+                docstring; currently populated only when "keyper" is
+                not in uploaded, since RecovR-related task generation
+                requires Keyper as evidence and is skipped entirely
+                rather than silently producing zero tasks.
         }
     """
     triggered_at = datetime.datetime.now().isoformat()
@@ -202,8 +207,19 @@ def run_inventory_sync(file_paths: dict, *, store_name: str, sync_date,
     tasks_before = _count(db_conn, "task")
     recommendations_before = _count(db_conn, "recommendation")
 
-    generate_install_tasks(tekion_df, sold_df, mdd_df, recovr_df, store_name, db_conn=db_conn,
-                            rapidrecon_df=rapidrecon_df)
+    # Sprint 3.8: fully_verified/key_out_aging are only passed through
+    # when Keyper was actually uploaded this run -- "keyper" not in
+    # uploaded must produce None, not reconcile_keyper_tekion's own
+    # (real, just built from an empty keyper_df) empty DataFrames, or
+    # generate_install_tasks couldn't tell "Keyper ran and found
+    # nothing" apart from "Keyper wasn't part of this sync" -- see
+    # that function's own docstring for why the distinction matters.
+    warnings = generate_install_tasks(
+        tekion_df, sold_df, mdd_df, recovr_df, store_name, db_conn=db_conn,
+        rapidrecon_df=rapidrecon_df,
+        fully_verified_df=fully_verified if "keyper" in uploaded else None,
+        key_out_aging_df=key_out_aging if "keyper" in uploaded else None,
+    )
     # Guarded on len(), not called unconditionally like main.py's
     # equivalent line: key_out_aging is built via pd.DataFrame(list) in
     # reconcile_keyper_tekion, which returns a genuinely COLUMNLESS empty
@@ -224,8 +240,12 @@ def run_inventory_sync(file_paths: dict, *, store_name: str, sync_date,
             tekion_df, matched_idx, sync_date, incoming_missing_buckets, new_car_buckets)
         incoming_or_missing = enrich_with_rapidrecon(incoming_or_missing, "tekion_vin", rapidrecon_df)
         sold_report = build_sold_vehicles_report(sold_df, keyper_df, recovr_df, sync_date)
-        tracker_tasks = build_tracker_install_tasks(tekion_df, sold_df, mdd_df, recovr_df, store_name,
-                                                     rapidrecon_df=rapidrecon_df)
+        tracker_tasks = build_tracker_install_tasks(
+            tekion_df, sold_df, mdd_df, recovr_df, store_name,
+            rapidrecon_df=rapidrecon_df,
+            fully_verified_df=fully_verified if "keyper" in uploaded else None,
+            key_out_aging_df=key_out_aging if "keyper" in uploaded else None,
+        )
         sync_conflicts = find_tekion_sync_conflicts(tekion_df, sold_df)
 
         write_reports({
@@ -246,4 +266,5 @@ def run_inventory_sync(file_paths: dict, *, store_name: str, sync_date,
         "exceptions_found": len(exceptions),
         "tasks_generated": tasks_generated,
         "recommendations_generated": recommendations_generated,
+        "warnings": warnings,
     }

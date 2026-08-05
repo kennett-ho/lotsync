@@ -211,6 +211,15 @@ class SyncSummaryDTO(BaseModel):
     triggered_at (the shared batch key every sync_run in this run was
     stamped with) and the full per-source sync_runs list, each with its
     own real sync_run_id.
+
+    Sprint 3.8 (Friday MVP task-generation refinements) addition:
+    warnings -- currently populated only when Keyper wasn't uploaded
+    this run, since RecovR-related task generation requires Keyper as
+    evidence and is skipped entirely rather than silently reporting
+    tasks_generated as if nothing was wrong. See
+    sync/reconciler.py's generate_install_tasks docstring. Defaults to
+    an empty list so this stays backward compatible with any consumer
+    that predates this field.
     """
     triggered_at: str
     sync_runs: List[SyncRunDTO]
@@ -218,6 +227,7 @@ class SyncSummaryDTO(BaseModel):
     exceptions_found: int
     tasks_generated: int
     recommendations_generated: int
+    warnings: List[str] = []
 
 
 class VehicleDetailDTO(VehicleDTO):

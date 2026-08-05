@@ -19,6 +19,8 @@ just not as an automated, committed test (see fixtures notes).
 import os
 import unittest
 
+import pandas as pd
+
 from lotsync.config.settings import (
     load_settings, load_day_out_buckets, load_incoming_missing_buckets,
     load_new_car_buckets, load_internal_fleet_vins,
@@ -63,7 +65,8 @@ class ReconciliationRegressionTest(unittest.TestCase):
             incoming_missing_buckets, new_car_buckets)
         cls.sold_report = build_sold_vehicles_report(cls.sold_df, cls.keyper_df, cls.recovr_df)
         cls.tracker_tasks = build_tracker_install_tasks(
-            cls.tekion_df, cls.sold_df, cls.mdd_df, cls.recovr_df, settings["store_name"])
+            cls.tekion_df, cls.sold_df, cls.mdd_df, cls.recovr_df, settings["store_name"],
+            fully_verified_df=cls.fully_verified, key_out_aging_df=cls.key_out_aging)
         cls.sync_conflicts = find_tekion_sync_conflicts(cls.tekion_df, cls.sold_df)
 
     def _lookup(self, df, key_col, key_val):
@@ -209,11 +212,28 @@ class ReconciliationRegressionTest(unittest.TestCase):
         self.assertEqual(len(tasks), 1)
 
     def test_recovr_short_vin_fragment_resolves_via_last6_match(self):
-        tasks = self.tracker_tasks[
-            (self.tracker_tasks["source"] == "RecovR") &
-            (self.tracker_tasks["vin"].str.endswith("000050001"))
+        # K50001 (RecovR's short identifier "050001") has no Keyper
+        # record at all in the shared fixture -- Sprint 3.8's Keyper
+        # gate correctly withholds any RecovR-related task without that
+        # evidence (see the class-level tracker_tasks, which reflects
+        # this). To confirm the fragment-resolution mechanic itself
+        # (RecovR's short VIN matched via last-6 against Tekion) still
+        # works unchanged, independently supply Keyper "In" evidence for
+        # the resolved VIN and rebuild tracker_tasks for just this check.
+        augmented_fully_verified = pd.concat([
+            self.fully_verified, pd.DataFrame([{"tekion_vin": "1TESTVIN000050001"}]),
+        ], ignore_index=True)
+        settings = load_settings(CONFIG)
+        tasks = build_tracker_install_tasks(
+            self.tekion_df, self.sold_df, self.mdd_df, self.recovr_df, settings["store_name"],
+            fully_verified_df=augmented_fully_verified, key_out_aging_df=self.key_out_aging,
+        )
+        matches = tasks[
+            (tasks["source"] == "RecovR") &
+            (tasks["vin"].str.endswith("000050001"))
         ]
-        self.assertEqual(len(tasks), 1)
+        self.assertEqual(len(matches), 1)
+        self.assertEqual(matches.iloc[0]["task"], "install_recovr_device")
 
     # --- tekion_sync_conflicts ---
 

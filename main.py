@@ -100,9 +100,21 @@ def main():
     # it isn't wrapped in sync_run() (it's a derived computation, not a
     # source import) and for the known install_mdd_beacon
     # Reality-discharge asymmetry.
-    generate_install_tasks(tekion_df, sold_df, mdd_df, recovr_df,
-                            settings["store_name"], db_conn=db_conn,
-                            rapidrecon_df=rapidrecon_df)
+    # main.py always loads all six sources unconditionally (no partial-
+    # upload concept, unlike the API path) -- fully_verified/key_out_aging
+    # are therefore always real DataFrames here, never the "Keyper wasn't
+    # part of this sync" None that sync/pipeline.py can produce. Passed
+    # through anyway (rather than omitted) for the same reason the API
+    # path passes them: install_recovr_device now requires Keyper
+    # evidence to generate at all -- see generate_install_tasks' Sprint
+    # 3.8 docstring note.
+    warnings = generate_install_tasks(tekion_df, sold_df, mdd_df, recovr_df,
+                                       settings["store_name"], db_conn=db_conn,
+                                       rapidrecon_df=rapidrecon_df,
+                                       fully_verified_df=fully_verified,
+                                       key_out_aging_df=key_out_aging)
+    for warning in warnings:
+        print(f"WARNING: {warning}")
 
     # Phase 2 Sprint 4 (Slice 6): Recommendations, over the same
     # key_out_aging data already computed above for the CSV report --
@@ -118,7 +130,8 @@ def main():
     sold_report = build_sold_vehicles_report(sold_df, keyper_df, recovr_df, settings["sync_date"])
     tracker_tasks = build_tracker_install_tasks(
         tekion_df, sold_df, mdd_df, recovr_df, settings["store_name"],
-        rapidrecon_df=rapidrecon_df)
+        rapidrecon_df=rapidrecon_df,
+        fully_verified_df=fully_verified, key_out_aging_df=key_out_aging)
     sync_conflicts = find_tekion_sync_conflicts(tekion_df, sold_df)
 
     outputs = {

@@ -50,7 +50,7 @@ def _run_full_pipeline(conn):
     rapidrecon_df = load_rapidrecon(os.path.join(FIXTURES, "rapidrecon.csv"))
 
     with sync_run(conn, "keyper", records_processed=len(keyper_df)) as run_id:
-        _, key_out_aging, _, _, _ = reconcile_keyper_tekion(
+        fully_verified, key_out_aging, _, _, _ = reconcile_keyper_tekion(
             keyper_df, tekion_df, sold_df, settings["sync_date"], day_out_buckets,
             db_conn=conn, sync_run_id=run_id,
         )
@@ -63,7 +63,12 @@ def _run_full_pipeline(conn):
     with sync_run(conn, "rapidrecon", records_processed=len(rapidrecon_df)) as run_id:
         persist_rapidrecon_observations(rapidrecon_df, db_conn=conn, sync_run_id=run_id)
 
-    generate_install_tasks(tekion_df, sold_df, mdd_df, recovr_df, settings["store_name"], db_conn=conn)
+    # Sprint 3.8: fully_verified/key_out_aging now threaded through --
+    # main.py's real orchestration always has real Keyper data (see
+    # generate_install_tasks' docstring), and this helper's whole point
+    # is mirroring main.py end to end.
+    generate_install_tasks(tekion_df, sold_df, mdd_df, recovr_df, settings["store_name"], db_conn=conn,
+                            fully_verified_df=fully_verified, key_out_aging_df=key_out_aging)
     generate_key_out_aging_recommendations(key_out_aging, day_out_buckets, db_conn=conn)
 
 

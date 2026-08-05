@@ -68,6 +68,16 @@ function statusLabel(status: string): string {
   }
 }
 
+// Source keys are stored lowercase (sync_run.source); these are real
+// product/brand names, so a generic `capitalize` mangles three of the
+// five ("Mdd", "Recovr", "Rapidrecon").
+const SOURCE_LABEL: Record<string, string> = {
+  tekion: 'Tekion', keyper: 'Keyper', mdd: 'MDD', recovr: 'RecovR', rapidrecon: 'RapidRecon',
+}
+function sourceLabel(source: string): string {
+  return SOURCE_LABEL[source] ?? source
+}
+
 function RefreshIcon({ className }: { className?: string }) {
   return (
     <svg className={className} width="15" height="15" viewBox="0 0 16 16" fill="none" xmlns="http://www.w3.org/2000/svg">
@@ -280,7 +290,7 @@ export default function InventorySync(): JSX.Element {
                   <SystemDot status={batch.overall_status} />
                   <span className="font-semibold text-slate-700">{formatTimestamp(batch.started_at)}</span>
                   <span className="text-[11px] text-slate-400">
-                    {batch.sources.map(s => s.source).join(', ')}
+                    {batch.sources.map(s => sourceLabel(s.source)).join(', ')}
                   </span>
                 </div>
               ))}
@@ -363,7 +373,7 @@ export default function InventorySync(): JSX.Element {
                             </td>
                             <td className="px-4 py-3 align-top text-slate-700 leading-snug">{e.identifier_type}</td>
                             <td className="px-4 py-3 align-top whitespace-nowrap">
-                              <span className="bg-slate-100 text-slate-600 text-[11px] font-medium px-2 py-0.5 rounded-md capitalize">{e.source}</span>
+                              <span className="bg-slate-100 text-slate-600 text-[11px] font-medium px-2 py-0.5 rounded-md">{sourceLabel(e.source)}</span>
                             </td>
                             <td className="px-4 py-3 align-top text-slate-500 whitespace-nowrap">{formatTimestamp(e.first_observed_at)}</td>
                             <td className="px-4 py-3 align-top text-slate-500 whitespace-nowrap">{formatTimestamp(e.last_observed_at)}</td>
@@ -393,7 +403,7 @@ export default function InventorySync(): JSX.Element {
                       <div className="mt-1.5"><SystemDot status={status.status} /></div>
                       <div className="flex-1 min-w-0">
                         <div className="flex items-center gap-2">
-                          <span className="text-[13px] font-semibold text-slate-800 capitalize">{source}</span>
+                          <span className="text-[13px] font-semibold text-slate-800">{sourceLabel(source)}</span>
                           <span className={`text-[11px] font-medium ${status.status === 'complete' ? 'text-emerald-600' : status.status === 'failed' ? 'text-red-600' : 'text-amber-600'}`}>
                             {statusLabel(status.status)}
                           </span>

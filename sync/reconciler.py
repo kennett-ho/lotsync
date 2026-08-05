@@ -43,6 +43,7 @@ from lotsync.sync.normalizer import last6, stock_prefix
 from lotsync.sync.matcher import build_tekion_lookup, build_sold_lookup
 from lotsync.sync.state_engine import day_out_bucket
 from lotsync.rules.inventory import is_new_car_stock, is_damaged_repair_stock
+from lotsync.rules.aging import KEY_OUT_INVESTIGATE_THRESHOLD_DAYS
 
 
 def _insert_event_if_changed(db_conn, vin, event_type, source, diff_fields: dict,
@@ -496,6 +497,20 @@ def persist_recovr_observations(recovr_df: pd.DataFrame, db_conn=None, sync_run_
     is silence, not a claim (DECISION_FRAMEWORK.md), so it cannot honor
     a Task on its own. Left as a known asymmetry, not silently
     papered over -- see generate_install_tasks' docstring.
+
+    Sprint 3.8 addition: also honors an outstanding
+    investigate_key_for_recovr Task the same way. That task type exists
+    because a RecovR-eligible vehicle's key was checked Out (see
+    build_tracker_install_tasks' "Task-generation philosophy" block);
+    RecovR reporting Paired=Yes means the device got installed
+    regardless of what this pipeline believed about the key, so the
+    real-world problem the investigate task existed to flag is
+    resolved either way -- same signal, same discharge, just checking
+    one more task_type for it. investigate_checked_out_key is
+    deliberately NOT included here: it isn't about RecovR at all, and
+    nothing currently Reality-discharges it (or the "key came back In"
+    case of investigate_key_for_recovr) -- a known limitation, not
+    fixed here; see generate_install_tasks' docstring.
     """
     if db_conn is None:
         return
@@ -531,9 +546,10 @@ def persist_recovr_observations(recovr_df: pd.DataFrame, db_conn=None, sync_run_
                             "recovr_vin_raw": raw_vin},
         )
         if status == "paired":
-            open_task = get_open_task(db_conn, vin, "install_recovr_device")
-            if open_task is not None:
-                honor_task(db_conn, open_task["task_id"])
+            for recovr_task_type in ("install_recovr_device", "investigate_key_for_recovr"):
+                open_task = get_open_task(db_conn, vin, recovr_task_type)
+                if open_task is not None:
+                    honor_task(db_conn, open_task["task_id"])
 
 
 def persist_rapidrecon_observations(rapidrecon_df: pd.DataFrame, db_conn=None, sync_run_id=None):
@@ -1026,9 +1042,58 @@ def build_recovr_install_from_keyper(fully_verified: pd.DataFrame, key_out_aging
     return install_list, needs_review, exceptions
 
 
+# ─────────────────────────────────────────────────────────────────────────
+# Task-generation philosophy: Installation vs. Investigation
+# ─────────────────────────────────────────────────────────────────────────
+# Sprint 3.8 (Friday MVP task-generation refinements) makes this
+# distinction explicit for the first time, though it was already
+# implicit in install_mdd_beacon/install_recovr_device. Every Task this
+# module generates falls into exactly one of two kinds, and the
+# difference is not cosmetic -- it's what the Task is actually asking
+# a person to do:
+#
+#   INSTALLATION tasks (install_mdd_beacon, install_recovr_device) mean
+#   "the vehicle is confirmed accessible and a device is confirmed
+#   missing -- go install it." Every precondition is positively
+#   confirmed by a source this pipeline trusts. Nothing stands in the
+#   way; the task IS the fix.
+#
+#   INVESTIGATION tasks (investigate_key_for_recovr,
+#   investigate_checked_out_key) mean "normal progress is blocked by
+#   something a person needs to go resolve -- go find out why, not go
+#   perform the install." An investigation task is never itself "the
+#   fix": it exists because this pipeline deliberately will NOT guess
+#   past an obstacle (the same "don't guess" restraint documented
+#   throughout this module, e.g. ambiguous fragment matches, Archive-
+#   step handling). investigate_key_for_recovr exists because a
+#   RecovR-eligible vehicle's key is checked Out, so the install
+#   physically cannot happen yet. investigate_checked_out_key exists
+#   independently of RecovR entirely -- ANY vehicle whose key has been
+#   Out past KEY_OUT_INVESTIGATE_THRESHOLD_DAYS (rules/aging.py) is
+#   itself an operational problem worth a look, whether or not it also
+#   needs a RecovR device.
+#
+# Known, deliberately out-of-scope limitation: this module has no
+# mechanism to retroactively downgrade a still-open install_recovr_device
+# Task if a LATER sync finds the same vehicle's key now checked Out (or
+# the reverse). Task discharge in this codebase is always wired at the
+# point a source's own diff detects the relevant change (see
+# generate_install_tasks' "Never discharges a Task here" note below),
+# never derived retroactively from a later generation pass -- the same
+# principle already named for install_mdd_beacon's Reality-discharge
+# gap. A vehicle can therefore carry a stale install_recovr_device Task
+# alongside a fresh investigate_key_for_recovr Task if its key status
+# changed between syncs; get_open_task's per-(vin, task_type) dedup
+# still guarantees no duplicate of either individual Task, but doesn't
+# reconcile the two against each other. Building that reconciliation is
+# a bigger change than this refinement asked for.
+
+
 def build_tracker_install_tasks(tekion_df: pd.DataFrame, sold_df: pd.DataFrame,
                                  mdd_df: pd.DataFrame, recovr_df: pd.DataFrame,
-                                 store_name: str, rapidrecon_df: pd.DataFrame = None) -> pd.DataFrame:
+                                 store_name: str, rapidrecon_df: pd.DataFrame = None,
+                                 fully_verified_df: pd.DataFrame = None,
+                                 key_out_aging_df: pd.DataFrame = None) -> pd.DataFrame:
     """
     See rules/tracker.py for why this logic lives here and not there.
 
@@ -1063,6 +1128,32 @@ def build_tracker_install_tasks(tekion_df: pd.DataFrame, sold_df: pd.DataFrame,
     every RecovR candidate is treated as having no RapidRecon Step on
     file (i.e. never excluded), the same as if rapidrecon_df were
     empty.
+
+    Sprint 3.8 addition: fully_verified_df/key_out_aging_df --
+    reconcile_keyper_tekion's own two return values, threaded straight
+    through rather than recomputed (this module's own "must call the
+    same functions, not reimplement" convention) -- gate every
+    RecovR-related task (install_recovr_device, investigate_key_for_recovr,
+    investigate_checked_out_key) on real Keyper evidence. See the
+    "Task-generation philosophy" block above this function for what
+    installation vs. investigation means, and generate_install_tasks
+    below for how a caller signals "Keyper genuinely wasn't part of
+    this sync" instead of silently producing zero RecovR-related tasks.
+
+    Both default to None, and None is treated DIFFERENTLY from an
+    empty-but-present DataFrame -- this is the same silence-vs-absence
+    distinction DECISION_FRAMEWORK.md already names for MDD's not-paired
+    list: None means "no Keyper evidence at all this run" (do not
+    generate any RecovR-related task -- MDD beacon tasks are unaffected,
+    they were never Keyper-gated), while a real DataFrame with zero rows
+    means "Keyper ran and genuinely found nothing to report" (a
+    legitimate outcome, not a reason to skip). Callers that don't pass
+    either (every pre-Sprint-3.8 caller and test) get None for both,
+    which reproduces this exact "skip RecovR-related generation, keep
+    MDD" behavior -- a real, intentional change from before this sprint
+    (previously RecovR installs generated with zero Keyper awareness),
+    not an accidental one; see generate_install_tasks' docstring for the
+    full before/after.
     """
     active_vins = set(
         tekion_df.loc[~tekion_df["is_internal_fleet"], "VIN #"].astype(str).str.strip()
@@ -1078,6 +1169,13 @@ def build_tracker_install_tasks(tekion_df: pd.DataFrame, sold_df: pd.DataFrame,
             if rvin not in recon_step_by_vin:
                 recon_step_by_vin[rvin] = str(rrow["Step"]).strip().upper()
 
+    # Keyper gating for RecovR-related tasks -- see this function's own
+    # docstring ("Sprint 3.8 addition") for the None-vs-empty contract.
+    keyper_available = fully_verified_df is not None and key_out_aging_df is not None
+    keyper_in_vins = set()
+    if keyper_available and len(fully_verified_df):
+        keyper_in_vins = set(fully_verified_df["tekion_vin"].astype(str).str.strip())
+
     tasks = []
 
     mdd_not_paired = mdd_df[mdd_df["Dealership"] == store_name]
@@ -1085,10 +1183,27 @@ def build_tracker_install_tasks(tekion_df: pd.DataFrame, sold_df: pd.DataFrame,
         vin = str(row["vin"]).strip()
         if vin in sold_vins or vin not in active_vins:
             continue
+        vehicle_desc = f"{row['year']} {row['make']} {row['model']}"
         tasks.append({
             "source": "MDD", "task": "install_mdd_beacon", "vin": vin,
-            "stock": row["stock"], "vehicle": f"{row['year']} {row['make']} {row['model']}",
+            "stock": row["stock"], "vehicle": vehicle_desc,
+            "reason": f"MDD: no device found on stock {row['stock']} ({vehicle_desc})",
         })
+
+    if not keyper_available:
+        # No Keyper evidence this run -- see docstring. MDD is unaffected
+        # (handled above); every RecovR-related task type is skipped
+        # entirely rather than guessing key availability.
+        return pd.DataFrame(tasks)
+
+    keyper_out_days_by_vin = {}
+    for _, krow in key_out_aging_df.iterrows():
+        kvin = str(krow["tekion_vin"]).strip()
+        keyper_out_days_by_vin[kvin] = {
+            "days_out": krow["days_out"],
+            "stock": krow["tekion_stock"],
+            "vehicle": krow["tekion_vehicle"],
+        }
 
     recovr_not_paired = recovr_df[recovr_df["Paired"] == "No"]
     for _, row in recovr_not_paired.iterrows():
@@ -1110,9 +1225,52 @@ def build_tracker_install_tasks(tekion_df: pd.DataFrame, sold_df: pd.DataFrame,
                 continue
         if recon_step_by_vin.get(vin) in wholesale_steps:
             continue
+
+        vehicle_desc = f"{row['Year']} {row['Make']} {row['Model']}"
+        if vin in keyper_in_vins:
+            # INSTALLATION: every precondition positively confirmed.
+            tasks.append({
+                "source": "RecovR", "task": "install_recovr_device", "vin": vin,
+                "stock": row["Stock Number"], "vehicle": vehicle_desc,
+                "reason": f"RecovR: no device found on stock {row['Stock Number']} "
+                          f"({vehicle_desc}); Keyper confirms the key is In, ready to install",
+            })
+        elif vin in keyper_out_days_by_vin:
+            # INVESTIGATION: install is blocked, not a task to install.
+            days_out = keyper_out_days_by_vin[vin]["days_out"]
+            days_clause = f" ({days_out} day{'s' if days_out != 1 else ''} out)" if days_out is not None else ""
+            tasks.append({
+                "source": "RecovR", "task": "investigate_key_for_recovr", "vin": vin,
+                "stock": row["Stock Number"], "vehicle": vehicle_desc,
+                "reason": f"RecovR: no device found on stock {row['Stock Number']} ({vehicle_desc}), "
+                          f"but Keyper shows the key checked Out{days_clause} -- "
+                          f"install cannot proceed until the key is available",
+            })
+        # else: vin has no Keyper record at all (neither fully_verified
+        # nor key_out_aging) -- absence of a Keyper record is not
+        # evidence the key is In, so no task is generated either way.
+        # Same "don't guess" restraint as everywhere else in this module.
+
+    # INVESTIGATION, independent of RecovR entirely -- see philosophy
+    # block above. Any vehicle whose key has been Out at least
+    # KEY_OUT_INVESTIGATE_THRESHOLD_DAYS is worth a look, whether or not
+    # it also needs a RecovR device (a vehicle already RecovR-paired can
+    # still generate this).
+    for vin, info in keyper_out_days_by_vin.items():
+        if vin not in active_vins or vin in sold_vins:
+            continue
+        if recon_step_by_vin.get(vin) in wholesale_steps:
+            continue
+        days_out = info["days_out"]
+        if days_out is None or days_out < KEY_OUT_INVESTIGATE_THRESHOLD_DAYS:
+            continue
         tasks.append({
-            "source": "RecovR", "task": "install_recovr_device", "vin": vin,
-            "stock": row["Stock Number"], "vehicle": f"{row['Year']} {row['Make']} {row['Model']}",
+            "source": "Keyper", "task": "investigate_checked_out_key", "vin": vin,
+            "stock": info["stock"], "vehicle": info["vehicle"],
+            "reason": f"Keyper: key checked out {days_out} days on stock {info['stock']} "
+                      f"({info['vehicle']}) -- at or beyond the "
+                      f"{KEY_OUT_INVESTIGATE_THRESHOLD_DAYS}-day investigate threshold; "
+                      f"keys are normally returned within a day or two",
         })
 
     return pd.DataFrame(tasks)
@@ -1120,7 +1278,9 @@ def build_tracker_install_tasks(tekion_df: pd.DataFrame, sold_df: pd.DataFrame,
 
 def generate_install_tasks(tekion_df: pd.DataFrame, sold_df: pd.DataFrame, mdd_df: pd.DataFrame,
                             recovr_df: pd.DataFrame, store_name: str, db_conn=None,
-                            rapidrecon_df: pd.DataFrame = None):
+                            rapidrecon_df: pd.DataFrame = None,
+                            fully_verified_df: pd.DataFrame = None,
+                            key_out_aging_df: pd.DataFrame = None) -> list:
     """
     Phase 2 Sprint 4 (Slice 5). Task-generation logic reuses
     build_tracker_install_tasks directly, per IMPLEMENTATION_PLAN.md's
@@ -1219,13 +1379,51 @@ def generate_install_tasks(tekion_df: pd.DataFrame, sold_df: pd.DataFrame, mdd_d
     so leaving those fields NULL (same "don't fabricate" restraint
     persist_recovr_observations already applies to its own writes) is
     the honest choice, not a gap to fill in here.
+
+    Sprint 3.8 (Friday MVP task-generation refinements) addition:
+    fully_verified_df/key_out_aging_df, passed straight through to
+    build_tracker_install_tasks -- see that function's own docstring
+    for the None-vs-empty contract and the "Task-generation philosophy"
+    block above it for what installation vs. investigation means. Adds
+    two new task_types this function can create:
+    investigate_key_for_recovr and investigate_checked_out_key. Dedup
+    is unchanged -- get_open_task keyed on (vin, task_type) already
+    generalizes to any task_type, so a vehicle can hold at most one
+    open Task of each of the (now four) types simultaneously, never two
+    of the same type.
+
+    BEFORE this sprint, install_recovr_device generated with zero
+    Keyper awareness at all -- a vehicle with an unpaired RecovR device
+    got an install task whether or not a key was actually available to
+    do the install with. AFTER this sprint, install_recovr_device
+    additionally requires Keyper to confirm the key is In; a
+    RecovR-eligible vehicle whose key is Out gets
+    investigate_key_for_recovr instead of a (currently unactionable)
+    install task. This is a deliberate, real behavior change requested
+    by the dealership, not an accidental narrowing.
+
+    Returns a list of warning strings -- empty in the normal case.
+    Currently the only warning this function can produce: Keyper
+    genuinely wasn't part of this sync (fully_verified_df/
+    key_out_aging_df both None), so every RecovR-related task type was
+    skipped entirely rather than silently producing zero tasks with no
+    explanation. Per this project's own "reduce uncertainty rather than
+    make assumptions" standard: a sync that ran with no Keyper evidence
+    at all is a materially different, worse-understood situation than
+    one that ran with Keyper evidence showing nothing needs attention,
+    and the caller (sync/pipeline.py's run_inventory_sync,
+    SyncSummaryDTO.warnings) is expected to surface this rather than
+    swallow it. MDD beacon generation is unaffected either way -- it
+    was never Keyper-gated.
     """
     if db_conn is None:
-        return
+        return []
     from lotsync.database.repository import get_open_task, insert_task, upsert_vehicle
 
     candidates = build_tracker_install_tasks(tekion_df, sold_df, mdd_df, recovr_df, store_name,
-                                              rapidrecon_df=rapidrecon_df)
+                                              rapidrecon_df=rapidrecon_df,
+                                              fully_verified_df=fully_verified_df,
+                                              key_out_aging_df=key_out_aging_df)
     for _, row in candidates.iterrows():
         vin = row["vin"]
         task_type = row["task"]
@@ -1235,11 +1433,17 @@ def generate_install_tasks(tekion_df: pd.DataFrame, sold_df: pd.DataFrame, mdd_d
         # function's "A REAL BUG" docstring section above for exactly
         # which candidates this matters for and why.
         upsert_vehicle(db_conn, vin)
-        insert_task(
-            db_conn, vin, task_type,
-            reason=f"{row['source']}: no device found on stock {row['stock']} ({row['vehicle']})",
-        )
+        insert_task(db_conn, vin, task_type, reason=row["reason"])
     db_conn.commit()
+
+    warnings = []
+    if fully_verified_df is None or key_out_aging_df is None:
+        warnings.append(
+            "RecovR task generation skipped -- Keyper report was not provided this sync. "
+            "Install RecovR, Investigate Key for RecovR, and Investigate Checked-Out Key "
+            "tasks all require Keyper's key status as evidence and were not evaluated this run."
+        )
+    return warnings
 
 
 _KEY_OUT_AGING_RULE_SOURCE = "key_out_aging"

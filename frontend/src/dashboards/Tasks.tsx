@@ -60,7 +60,8 @@ const PRIORITIES = ['Critical', 'High', 'Medium', 'Low']
 const PRIORITY_RANK: Record<string, number> = { Critical: 0, High: 1, Medium: 2, Low: 3 }
 
 function humanize(taskType: string): string {
-  return taskType.replace(/_/g, ' ').replace(/\b\w/g, c => c.toUpperCase())
+  const words = taskType.replace(/_/g, ' ').replace(/\b\w/g, c => c.toUpperCase())
+  return words.replace(/\bRecovr\b/, 'RecovR').replace(/\bMdd\b/, 'MDD')
 }
 
 // ─── Display-status derivation (read-only; never written back) ────────────────
@@ -165,6 +166,18 @@ function Sidebar({ tasks, filter, onFilter }: { tasks: TaskDTO[]; filter: Sideba
     <div className="text-[9px] font-bold uppercase tracking-widest text-slate-400 px-3 pt-4 pb-1">{label}</div>
   )
 
+  // Demo Polish: department/priority are real Task columns, but nothing
+  // populates them today (Slice 5's auto-generated install tasks never
+  // set department, and no rule assigns priority yet -- see
+  // queries/dashboard.py's task_counts_by_department docstring). A
+  // filter button that can only ever show "0 tasks" is worse than no
+  // button -- it invites a click that looks broken. Only show the ones
+  // that can currently return something; the section itself disappears
+  // once nothing in it can match. Fully data-driven, so both reappear
+  // automatically the moment real values start showing up.
+  const availableDepartments = DEPARTMENTS.filter(d => cnt({ type: 'department', value: d }) > 0)
+  const availablePriorities = PRIORITIES.filter(p => cnt({ type: 'priority', value: p }) > 0)
+
   return (
     <aside className="flex-shrink-0 w-48 bg-white border-r border-slate-200 flex flex-col py-3 overflow-y-auto" style={{ scrollbarWidth: 'none' }}>
       {section('Queue')}
@@ -177,19 +190,27 @@ function Sidebar({ tasks, filter, onFilter }: { tasks: TaskDTO[]; filter: Sideba
         <Btn label="Completed Today"     f={{ type: 'queue', value: 'completed-today' }} />
       </div>
 
-      {section('Department')}
-      <div className="px-2 space-y-0.5">
-        {DEPARTMENTS.map(d => (
-          <Btn key={d} label={d} f={{ type: 'department', value: d }} />
-        ))}
-      </div>
+      {availableDepartments.length > 0 && (
+        <>
+          {section('Department')}
+          <div className="px-2 space-y-0.5">
+            {availableDepartments.map(d => (
+              <Btn key={d} label={d} f={{ type: 'department', value: d }} />
+            ))}
+          </div>
+        </>
+      )}
 
-      {section('Priority')}
-      <div className="px-2 space-y-0.5">
-        {PRIORITIES.map(p => (
-          <Btn key={p} label={p} f={{ type: 'priority', value: p }} />
-        ))}
-      </div>
+      {availablePriorities.length > 0 && (
+        <>
+          {section('Priority')}
+          <div className="px-2 space-y-0.5">
+            {availablePriorities.map(p => (
+              <Btn key={p} label={p} f={{ type: 'priority', value: p }} />
+            ))}
+          </div>
+        </>
+      )}
     </aside>
   )
 }
@@ -270,7 +291,17 @@ function GroupCard({ group, onSelectTask, onVehicleSelect }: {
 
           {isMulti && !expanded && (
             <div className="text-[11px] text-slate-400">
-              {group.tasks.length} vehicles across {[...new Set(group.tasks.map(t => t.department ?? 'Unassigned'))].length} department(s)
+              {(() => {
+                // Demo Polish: department is null for every task today,
+                // so counting distinct values (including the "Unassigned"
+                // placeholder) always produced the false claim "across 1
+                // department(s)". Only state a department count when at
+                // least one task actually has one.
+                const departments = new Set(group.tasks.map(t => t.department).filter((d): d is string => d !== null))
+                return departments.size > 0
+                  ? `${group.tasks.length} vehicles across ${departments.size} department${departments.size === 1 ? '' : 's'}`
+                  : `${group.tasks.length} vehicles`
+              })()}
             </div>
           )}
         </div>

@@ -15,12 +15,12 @@
 // outright (this sprint's UI is frozen), they render an honest
 // "Not tracked yet" note in place of a fabricated value.
 
-import { useState } from 'react'
+import { useMemo, useState } from 'react'
 import { getVehicleDetail } from './api/vehicles'
 import { useApi } from './api/useApi'
 import { ApiError, isBackendUnavailable } from './api/client'
 import type {
-  ActivityDTO, ConnectedSystemStatusDTO, RecommendationDTO, VehicleDetailDTO,
+  ActivityDTO, ConnectedSystemStatusDTO, RecommendationDTO, TaskDTO, VehicleDetailDTO,
 } from './api/types'
 
 // ─── Icons ────────────────────────────────────────────────────────────────────
@@ -66,6 +66,38 @@ const systemColor: Record<string, string> = {
   mdd: 'bg-indigo-50 text-indigo-700',
   recovr: 'bg-orange-50 text-orange-700',
   rapidrecon: 'bg-teal-50 text-teal-700',
+}
+
+// Source keys are stored lowercase (sync_run.source / event.source);
+// these are real product/brand names, so a generic `capitalize` mangles
+// three of the five ("Mdd", "Recovr", "Rapidrecon").
+const SOURCE_LABEL: Record<string, string> = {
+  tekion: 'Tekion', keyper: 'Keyper', mdd: 'MDD', recovr: 'RecovR', rapidrecon: 'RapidRecon', lot: 'Lot',
+}
+function sourceLabel(source: string): string {
+  return SOURCE_LABEL[source] ?? source
+}
+
+function humanizeTaskType(taskType: string): string {
+  const words = taskType.replace(/_/g, ' ').replace(/\b\w/g, c => c.toUpperCase())
+  return words.replace(/\bRecovr\b/, 'RecovR').replace(/\bMdd\b/, 'MDD')
+}
+
+function deriveTaskStatusLabel(t: TaskDTO): string {
+  switch (t.commitment_standing) {
+    case 'honored':    return 'Honored'
+    case 'moot':       return 'Moot'
+    case 'cancelled':  return 'Cancelled'
+    case 'superseded': return 'Superseded'
+    default:
+      switch (t.execution_status) {
+        case 'not_started': return 'Outstanding'
+        case 'in_progress':  return 'In Progress'
+        case 'blocked':      return 'Blocked'
+        case 'completed':    return 'Waiting Verification'
+        default:             return t.execution_status
+      }
+  }
 }
 
 const urgencyConfig: Record<string, { bar: string; border: string; bg: string; badge: string; label: string }> = {
@@ -181,7 +213,26 @@ function LeftPanel({ vehicle }: { vehicle: VehicleDetailDTO }) {
 
 // ─── Timeline ─────────────────────────────────────────────────────────────────
 
+// Demo Polish: the backend returns timeline events in insertion order
+// (event_id DESC -- an audit-trail ordering, see queries/dashboard.py's
+// recent_activity_feed), not the order things actually happened in. A
+// vehicle whose data arrived out of chronological order (e.g. a later
+// sync re-adds a "Stocked In" event for an earlier date) could show a
+// Timeline whose dates visibly ran backwards. Sorted here by each
+// event's own real timestamp (event_time when the source provided one,
+// else observed_at) so the story reads newest-to-oldest by when it
+// happened, not by when LotSync happened to write it down.
+function sortEventsByWhenTheyHappened(events: ActivityDTO[]): ActivityDTO[] {
+  return [...events].sort((a, b) => {
+    const at = a.event_time ?? a.observed_at
+    const bt = b.event_time ?? b.observed_at
+    return new Date(bt).getTime() - new Date(at).getTime()
+  })
+}
+
 function Timeline({ events }: { events: ActivityDTO[] }) {
+  const sorted = useMemo(() => sortEventsByWhenTheyHappened(events), [events])
+
   return (
     <div className="flex-1 flex flex-col overflow-hidden min-w-0">
       <div className="flex items-center justify-between mb-4 flex-shrink-0">
@@ -204,7 +255,7 @@ function Timeline({ events }: { events: ActivityDTO[] }) {
           <div className="relative pb-4">
             <div className="absolute left-4 top-2 bottom-2 w-px bg-slate-200" />
             <div className="space-y-0">
-              {events.map((ev) => {
+              {sorted.map((ev) => {
                 const { date, time } = formatDateTime(ev.event_time ?? ev.observed_at)
                 return (
                   <div key={ev.event_id} className="relative flex gap-4 group">
@@ -215,8 +266,8 @@ function Timeline({ events }: { events: ActivityDTO[] }) {
                     </div>
                     <div className="flex-1 min-w-0 mb-1 rounded-xl p-3.5 transition-all duration-150 group-hover:shadow-sm bg-white border border-slate-100 group-hover:border-slate-200">
                       <div className="flex items-start justify-between gap-2 mb-1">
-                        <span className={`text-[10px] font-bold px-1.5 py-0.5 rounded-md capitalize ${systemColor[ev.source] ?? 'bg-slate-100 text-slate-600'}`}>
-                          {ev.source}
+                        <span className={`text-[10px] font-bold px-1.5 py-0.5 rounded-md ${systemColor[ev.source] ?? 'bg-slate-100 text-slate-600'}`}>
+                          {sourceLabel(ev.source)}
                         </span>
                         <div className="text-right flex-shrink-0">
                           <div className="text-[10px] font-mono text-slate-400">{date}</div>
@@ -252,7 +303,7 @@ function SysCardHeader({ name, status, tone }: { name: string; status: string; t
     <div className={`flex items-center justify-between px-4 py-2.5 border-b ${styles[tone]}`}>
       <div className="flex items-center gap-2">
         <span className={`w-2 h-2 rounded-full ${dots[tone]}`} />
-        <span className="text-[13px] font-bold capitalize">{name}</span>
+        <span className="text-[13px] font-bold">{sourceLabel(name)}</span>
       </div>
       <div className="flex items-center gap-1.5">
         <span className="text-[11px] font-semibold capitalize">{status}</span>
@@ -311,6 +362,60 @@ function SystemCards({ connectedSystems }: { connectedSystems: Record<string, Co
   )
 }
 
+// ─── Tasks -- the direct answer to "why is this vehicle on the task list" ──────
+//
+// VehicleDetailDTO.tasks was already fetched (api/routers/vehicles.py) and
+// typed here, but never rendered -- this screen showed only the LeftPanel's
+// "N Open Tasks" count, with no way to see which tasks or why. Timeline
+// events give an indirect clue (e.g. a "RecovR: not_paired" event) but
+// never the Task's own task_type/reason/priority. Added per PRODUCT.md's
+// own Vehicle Detail ordering: identity, connected systems, timeline,
+// Tasks, Recommendations.
+
+function TasksPanel({ tasks }: { tasks: TaskDTO[] }) {
+  const outstanding = tasks.filter(t => t.commitment_standing === 'outstanding')
+
+  return (
+    <div className="flex-shrink-0 border-t border-slate-200 bg-white px-5 py-4">
+      <div className="flex items-center gap-2 mb-3">
+        <span className="text-blue-500">{I.insights}</span>
+        <span className="text-[12px] font-bold text-slate-700 uppercase tracking-wider">Tasks</span>
+        <span className="text-[10px] font-bold text-amber-600 bg-amber-50 border border-amber-100 px-1.5 py-0.5 rounded-full">
+          {outstanding.length} open
+        </span>
+      </div>
+
+      {tasks.length === 0 ? (
+        <div className="flex items-center gap-2 py-3 text-[12px] text-slate-400">
+          <span className="text-emerald-500">{I.check}</span> No tasks generated for this vehicle.
+        </div>
+      ) : (
+        <div className="flex gap-3 overflow-x-auto pb-1" style={{ scrollbarWidth: 'none' }}>
+          {tasks.map((task) => {
+            // Demo Polish: no rule assigns Task.priority yet, so most tasks
+            // have priority=None -- coercing that to 'low' rendered a
+            // confident "Low" badge implying a classification that never
+            // happened. Styling still falls back to the neutral/low
+            // treatment; the text label itself only shows when real.
+            const uc = task.priority ? (urgencyConfig[task.priority.toLowerCase()] ?? urgencyConfig.low) : urgencyConfig.low
+            return (
+              <div key={task.task_id} className={`flex-shrink-0 w-64 rounded-xl border p-3.5 ${uc.border} ${uc.bg}`}>
+                <div className={`h-0.5 w-full rounded-full mb-3 ${uc.bar}`} />
+                <div className="flex items-center gap-1.5 mb-1.5 flex-wrap">
+                  {task.priority && <span className={`text-[10px] font-bold px-1.5 py-0.5 rounded ${uc.badge}`}>{uc.label}</span>}
+                  <span className="text-[10px] font-semibold text-slate-500">{deriveTaskStatusLabel(task)}</span>
+                </div>
+                <p className="text-[12px] font-bold text-slate-900 leading-snug mb-1">{humanizeTaskType(task.task_type)}</p>
+                {task.reason && <p className="text-[11px] text-slate-500 leading-relaxed">{task.reason}</p>}
+              </div>
+            )
+          })}
+        </div>
+      )}
+    </div>
+  )
+}
+
 // ─── Operational Insights (Recommendations) ────────────────────────────────────
 
 function OperationalInsights({ recommendations }: { recommendations: RecommendationDTO[] }) {
@@ -335,12 +440,14 @@ function OperationalInsights({ recommendations }: { recommendations: Recommendat
       ) : (
         <div className="flex gap-3 overflow-x-auto pb-1" style={{ scrollbarWidth: 'none' }}>
           {open.map((rec) => {
-            const uc = urgencyConfig[(rec.severity ?? 'low').toLowerCase()] ?? urgencyConfig.low
+            // Demo Polish: same fix as TasksPanel above -- don't coerce a
+            // missing severity into a confident "Low" label.
+            const uc = rec.severity ? (urgencyConfig[rec.severity.toLowerCase()] ?? urgencyConfig.low) : urgencyConfig.low
             return (
               <div key={rec.recommendation_id} className={`flex-shrink-0 w-64 rounded-xl border p-3.5 ${uc.border} ${uc.bg}`}>
                 <div className={`h-0.5 w-full rounded-full mb-3 ${uc.bar}`} />
                 <div className="flex items-center gap-1.5 mb-1.5">
-                  <span className={`text-[10px] font-bold px-1.5 py-0.5 rounded ${uc.badge}`}>{uc.label}</span>
+                  {rec.severity && <span className={`text-[10px] font-bold px-1.5 py-0.5 rounded ${uc.badge}`}>{uc.label}</span>}
                 </div>
                 <p className="text-[12px] font-bold text-slate-900 leading-snug mb-1">{rec.title ?? rec.rule_source}</p>
                 {rec.detail && <p className="text-[11px] text-slate-500 leading-relaxed mb-3">{rec.detail}</p>}
@@ -440,6 +547,7 @@ export default function VehicleDetailPage({ vin, onBack, backLabel = 'Dashboard'
             <Timeline events={state.data.timeline} />
             <SystemCards connectedSystems={state.data.connected_systems} />
           </div>
+          <TasksPanel tasks={state.data.tasks} />
           <OperationalInsights recommendations={state.data.recommendations} />
         </>
       )}

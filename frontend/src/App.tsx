@@ -77,15 +77,10 @@ function Sidebar({ activeNav, onNav, mobileOpen, onCloseMobile }: {
         {/* Logo */}
         <div className="px-4 pt-5 pb-4 border-b border-white/10 flex items-center justify-between">
           <div className="flex items-center gap-2.5">
-            <div className="w-7 h-7 rounded-md bg-blue-600 flex items-center justify-center flex-shrink-0">
-              <svg width="13" height="13" fill="none" viewBox="0 0 24 24">
-                <path d="M12 2L2 7l10 5 10-5-10-5zM2 17l10 5 10-5M2 12l10 5 10-5" stroke="white" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round"/>
-              </svg>
+            <div className="w-7 h-7 rounded-md flex items-center justify-center flex-shrink-0 overflow-hidden">
+              <img src="/img/logo/lotsynclogo.png" alt="LotSync" className="w-full h-full object-contain" />
             </div>
-            <div>
-              <div className="text-white font-bold text-[14px] tracking-tight leading-none">LotSync</div>
-              <div className="text-white/30 text-[9px] font-bold tracking-widest uppercase mt-0.5">OMS</div>
-            </div>
+            <div className="text-white font-bold text-[24px] tracking-tight leading-none">LotSync</div>
           </div>
           <button onClick={onCloseMobile} aria-label="Close menu"
             className="lg:hidden w-8 h-8 flex items-center justify-center rounded-md text-white/50 hover:text-white hover:bg-white/10 transition-colors">

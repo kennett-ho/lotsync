@@ -1,0 +1,14 @@
+# Vite copies this directory's contents byte-for-byte into dist/ at
+# build time, and Vercel's build does NOT fetch Git LFS objects during
+# its clone -- so anything here that matched frontend/.gitattributes'
+# blanket "*.png filter=lfs" (and friends) shipped as a ~130-byte LFS
+# pointer text file instead of the real asset, which a browser can't
+# render as an image. Confirmed against the deployed site: the pointer
+# text ("version https://git-lfs.github.com/spec/v1...") was exactly
+# what Vercel served at /img/logo/lotsynclogo.png.
+#
+# A more specific .gitattributes overrides the parent for anything
+# under this directory (git's normal precedence rule), so everything
+# in public/ is unconditionally exempted from LFS, regardless of what
+# extension-based rules frontend/.gitattributes adds in the future.
+* -filter -diff -merge -text

@@ -337,20 +337,23 @@ export default function Profile(): JSX.Element {
   return (
     <div className="h-full flex flex-col bg-slate-50 overflow-hidden">
       {/* Header */}
-      <div className="flex-shrink-0 bg-white border-b border-slate-100 px-6 py-4">
+      <div className="flex-shrink-0 bg-white border-b border-slate-100 px-4 sm:px-6 py-4">
         <h1 className="text-[18px] font-bold text-slate-800">Profile & Settings</h1>
         <p className="text-[12px] text-slate-400 mt-0.5">Manage your account, preferences, and session</p>
       </div>
 
-      {/* Body */}
-      <div className="flex-1 flex overflow-hidden">
+      {/* Body -- below lg the section nav becomes a horizontal wrapping tab
+          row above the content instead of a fixed-width left rail (same
+          "stack, don't scroll" approach used throughout this pass); lg+ is
+          the original unchanged left-nav layout. */}
+      <div className="flex-1 flex flex-col lg:flex-row overflow-y-auto lg:overflow-hidden">
         {/* Left nav */}
-        <div className="w-48 flex-shrink-0 border-r border-slate-100 bg-white overflow-y-auto py-3">
+        <div className="w-full lg:w-48 flex-shrink-0 border-b lg:border-b-0 lg:border-r border-slate-100 bg-white lg:overflow-y-auto py-2 lg:py-3 flex flex-wrap lg:block gap-1 px-2 lg:px-0">
           {SECTIONS.map((sec) => (
             <button
               key={sec.id}
               onClick={() => setActiveSection(sec.id)}
-              className={`w-full text-left px-4 py-2.5 text-[13px] font-medium transition-colors ${
+              className={`w-auto lg:w-full text-left px-3 lg:px-4 py-2 lg:py-2.5 rounded-lg lg:rounded-none text-[13px] font-medium whitespace-nowrap transition-colors ${
                 activeSection === sec.id
                   ? "text-blue-700 bg-blue-50"
                   : "text-slate-600 hover:bg-slate-50"
@@ -361,8 +364,13 @@ export default function Profile(): JSX.Element {
           ))}
         </div>
 
-        {/* Content */}
-        <div className="flex-1 overflow-y-auto p-6">
+        {/* Content -- flex-shrink-0 below lg for the same reason as
+            Dashboard.tsx's left column / VehicleDetail.tsx's panel row:
+            the parent's overflow-y-auto at that breakpoint expects to grow
+            past the viewport, so this child must not flex-shrink below its
+            content height. lg:flex-1 restores the original fill-remaining-
+            width behavior once the parent is bounded and non-scrolling. */}
+        <div className="flex-shrink-0 lg:flex-1 lg:overflow-y-auto p-4 sm:p-6">
           <div className="max-w-xl">
             <SectionContent section={activeSection} />
           </div>

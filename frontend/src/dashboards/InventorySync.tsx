@@ -198,8 +198,8 @@ export default function InventorySync(): JSX.Element {
   return (
     <div className="h-full flex flex-col bg-slate-50 overflow-hidden">
       {/* Page Header */}
-      <div className="bg-white border-b border-slate-100 px-6 py-4 flex-shrink-0">
-        <div className="flex items-center justify-between">
+      <div className="bg-white border-b border-slate-100 px-4 sm:px-6 py-4 flex-shrink-0">
+        <div className="flex items-center justify-between flex-wrap gap-3">
           <div>
             <h1 className="text-[22px] font-bold text-slate-900 leading-tight">Inventory Sync</h1>
             <p className="text-[13px] text-slate-500 mt-0.5">
@@ -224,13 +224,14 @@ export default function InventorySync(): JSX.Element {
         </div>
       </div>
 
-      <div className="flex-1 min-h-0 overflow-y-auto px-6 py-5 flex flex-col gap-5">
-        {/* Upload Reports */}
+      <div className="flex-1 min-h-0 overflow-y-auto px-4 sm:px-6 py-5 flex flex-col gap-5">
+        {/* Upload Reports -- 1 col on phones, 2 on tablet-portrait/narrow
+            windows, 3 (unchanged) from lg up */}
         <div className="bg-white rounded-2xl border border-slate-100 p-4">
           <p className="text-[11px] font-semibold text-slate-400 uppercase tracking-wider mb-3">
             Upload Reports
           </p>
-          <div className="grid grid-cols-3 gap-3">
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
             {UPLOAD_SLOTS.map(slot => {
               const file = files[slot.field]
               return (
@@ -299,7 +300,7 @@ export default function InventorySync(): JSX.Element {
         </div>
 
         {/* Stats Bar */}
-        <div className="grid grid-cols-4 gap-4">
+        <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 sm:gap-4">
           {[
             { label: 'Vehicles Processed', value: summary?.vehicles_processed ?? '—', color: 'text-blue-600' },
             { label: 'Exceptions', value: summary?.exceptions_found ?? exceptions.length, color: 'text-amber-600' },
@@ -313,26 +314,26 @@ export default function InventorySync(): JSX.Element {
           ))}
         </div>
 
-        {/* Two-column body */}
-        <div className="flex gap-5 items-start pb-8">
+        {/* Two-column body -- stacks below lg */}
+        <div className="flex flex-col lg:flex-row gap-5 items-start pb-8">
           {/* Left: exceptions table (60%) */}
-          <div className="flex-[3] min-w-0">
+          <div className="w-full lg:flex-[3] min-w-0">
             <div className="bg-white rounded-2xl border border-slate-100 overflow-hidden">
-              <div className="flex items-center justify-between px-5 py-4 border-b border-slate-100">
+              <div className="flex items-center justify-between px-5 py-4 border-b border-slate-100 flex-wrap gap-2">
                 <div className="flex items-center gap-2.5">
                   <h2 className="text-[15px] font-semibold text-slate-900">Exceptions</h2>
                   <span className="bg-amber-100 text-amber-700 text-[11px] font-semibold px-2 py-0.5 rounded-full">
                     {exceptions.length}
                   </span>
                 </div>
-                <div className="relative">
+                <div className="relative w-full sm:w-auto">
                   <SearchIcon className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" />
                   <input
                     type="text"
                     placeholder="Search exceptions…"
                     value={search}
                     onChange={e => setSearch(e.target.value)}
-                    className="pl-8 pr-3 py-1.5 text-[12px] border border-slate-200 rounded-lg bg-slate-50 focus:outline-none focus:ring-2 focus:ring-blue-100 focus:border-blue-300 w-52 text-slate-700 placeholder-slate-400"
+                    className="pl-8 pr-3 py-1.5 text-[12px] border border-slate-200 rounded-lg bg-slate-50 focus:outline-none focus:ring-2 focus:ring-blue-100 focus:border-blue-300 w-full sm:w-52 text-slate-700 placeholder-slate-400"
                   />
                 </div>
               </div>
@@ -344,26 +345,44 @@ export default function InventorySync(): JSX.Element {
                       ? 'The LotSync API is unreachable.'
                       : 'Could not load exceptions.'}
                   </div>
+                ) : filteredExceptions.length === 0 ? (
+                  <div className="text-center py-10 text-slate-400 text-[13px]">
+                    {exceptionsState.status === 'loading' ? 'Loading…' : 'No exceptions match your search.'}
+                  </div>
                 ) : (
-                  <table className="w-full text-[12px]">
-                    <thead className="sticky top-0 bg-slate-50 z-10">
-                      <tr className="border-b border-slate-100">
-                        <th className="text-left px-4 py-2.5 font-semibold text-slate-500 text-[11px] uppercase tracking-wider whitespace-nowrap">Identifier</th>
-                        <th className="text-left px-4 py-2.5 font-semibold text-slate-500 text-[11px] uppercase tracking-wider">Reason</th>
-                        <th className="text-left px-4 py-2.5 font-semibold text-slate-500 text-[11px] uppercase tracking-wider whitespace-nowrap">Source</th>
-                        <th className="text-left px-4 py-2.5 font-semibold text-slate-500 text-[11px] uppercase tracking-wider whitespace-nowrap">First Observed</th>
-                        <th className="text-left px-4 py-2.5 font-semibold text-slate-500 text-[11px] uppercase tracking-wider whitespace-nowrap">Last Observed</th>
-                      </tr>
-                    </thead>
-                    <tbody>
-                      {filteredExceptions.length === 0 ? (
-                        <tr>
-                          <td colSpan={5} className="text-center py-10 text-slate-400 text-[13px]">
-                            {exceptionsState.status === 'loading' ? 'Loading…' : 'No exceptions match your search.'}
-                          </td>
+                  <>
+                    {/* Below lg: stacked cards -- the table's five
+                        whitespace-nowrap columns can't fit a phone/tablet
+                        width without clipping or a horizontal scrollbar,
+                        so this mirrors VehiclesList.tsx's table->card
+                        pattern instead of introducing horizontal scroll. */}
+                    <div className="lg:hidden divide-y divide-slate-50">
+                      {filteredExceptions.map(e => (
+                        <div key={e.pending_identity_id} className="px-4 py-3 border-l-2 border-l-amber-400">
+                          <div className="flex items-center gap-2 flex-wrap">
+                            <span className="font-mono text-[12px] text-slate-800 font-medium">{e.raw_identifier}</span>
+                            <span className="bg-slate-100 text-slate-600 text-[11px] font-medium px-2 py-0.5 rounded-md">{sourceLabel(e.source)}</span>
+                          </div>
+                          <div className="text-[12px] text-slate-700 leading-snug mt-1">{e.identifier_type}</div>
+                          <div className="text-[11px] text-slate-500 mt-1.5">
+                            First {formatTimestamp(e.first_observed_at)} · Last {formatTimestamp(e.last_observed_at)}
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+
+                    <table className="hidden lg:table w-full text-[12px]">
+                      <thead className="sticky top-0 bg-slate-50 z-10">
+                        <tr className="border-b border-slate-100">
+                          <th className="text-left px-4 py-2.5 font-semibold text-slate-500 text-[11px] uppercase tracking-wider whitespace-nowrap">Identifier</th>
+                          <th className="text-left px-4 py-2.5 font-semibold text-slate-500 text-[11px] uppercase tracking-wider">Reason</th>
+                          <th className="text-left px-4 py-2.5 font-semibold text-slate-500 text-[11px] uppercase tracking-wider whitespace-nowrap">Source</th>
+                          <th className="text-left px-4 py-2.5 font-semibold text-slate-500 text-[11px] uppercase tracking-wider whitespace-nowrap">First Observed</th>
+                          <th className="text-left px-4 py-2.5 font-semibold text-slate-500 text-[11px] uppercase tracking-wider whitespace-nowrap">Last Observed</th>
                         </tr>
-                      ) : (
-                        filteredExceptions.map((e, idx) => (
+                      </thead>
+                      <tbody>
+                        {filteredExceptions.map((e, idx) => (
                           <tr
                             key={e.pending_identity_id}
                             className={`border-b border-slate-50 last:border-0 ${idx % 2 === 0 ? 'bg-white' : 'bg-slate-50/50'} border-l-2 border-l-amber-400`}
@@ -378,17 +397,17 @@ export default function InventorySync(): JSX.Element {
                             <td className="px-4 py-3 align-top text-slate-500 whitespace-nowrap">{formatTimestamp(e.first_observed_at)}</td>
                             <td className="px-4 py-3 align-top text-slate-500 whitespace-nowrap">{formatTimestamp(e.last_observed_at)}</td>
                           </tr>
-                        ))
-                      )}
-                    </tbody>
-                  </table>
+                        ))}
+                      </tbody>
+                    </table>
+                  </>
                 )}
               </div>
             </div>
           </div>
 
           {/* Right column (40%) */}
-          <div className="flex-[2] min-w-0 flex flex-col gap-4">
+          <div className="w-full lg:flex-[2] min-w-0 flex flex-col gap-4">
             {/* System Status */}
             <div className="bg-white rounded-2xl border border-slate-100">
               <div className="px-5 py-4 border-b border-slate-100">

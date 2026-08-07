@@ -164,6 +164,46 @@ function VehicleRow({ v, query, selected, onToggle, onSelect }: {
   )
 }
 
+// ─── Vehicle card (below lg -- the table's fixed pixel columns don't fit a
+// phone or portrait tablet; reuses the exact same badges/highlight as the
+// table row rather than inventing a second visual language for the same data) ──
+
+function VehicleCard({ v, query, selected, onToggle, onSelect }: {
+  v: VehicleDTO; query: string; selected: boolean
+  onToggle: (vin: string) => void
+  onSelect: (vin: string) => void
+}) {
+  return (
+    <div className={`flex items-start gap-3 px-4 py-3 border-b border-slate-100 transition-colors ${selected ? 'bg-blue-50' : 'active:bg-slate-50'}`}>
+      <input type="checkbox" checked={selected} onChange={() => onToggle(v.vin)}
+        className="mt-1 w-4 h-4 rounded border-slate-300 text-blue-600 cursor-pointer accent-blue-600 flex-shrink-0" />
+
+      <button onClick={() => onSelect(v.vin)} className="flex-1 min-w-0 text-left">
+        <div className="flex items-center gap-2 flex-wrap">
+          <span className="font-mono text-[12px] font-bold text-blue-600">
+            <Highlight text={v.stock_number ?? '—'} query={query} />
+          </span>
+          <TasksBadge count={v.open_task_count} />
+        </div>
+        <div className="text-[13px] font-semibold text-slate-900 mt-0.5 leading-snug">
+          <Highlight text={v.display_name || 'Unknown vehicle'} query={query} />
+        </div>
+        <div className="font-mono text-[11px] text-slate-400 tracking-wide mt-0.5">
+          <Highlight text={v.vin} query={query} />
+        </div>
+        {v.current_dealership_id && (
+          <div className="text-[11px] text-slate-500 mt-0.5">{v.current_dealership_id}</div>
+        )}
+        <div className="flex items-center gap-1.5 mt-2 flex-wrap">
+          <SysBadge label="RecovR" value={v.recovr_status} okValue="paired" />
+          <SysBadge label="MDD"    value={v.mdd_status}    okValue="paired" />
+          <SysBadge label="Keys"   value={v.keyper_status}  okValue="In" />
+        </div>
+      </button>
+    </div>
+  )
+}
+
 // ─── Bulk action toolbar ──────────────────────────────────────────────────────
 
 function BulkToolbar({ count, onClear }: { count: number; onClear: () => void }) {
@@ -278,15 +318,15 @@ export default function VehiclesList({ onVehicleSelect }: { onVehicleSelect: (vi
     <div className="flex-1 flex flex-col overflow-hidden min-h-0">
 
       {/* Toolbar */}
-      <div className="flex-shrink-0 flex items-center gap-3 px-5 py-2.5 bg-white border-b border-slate-200 flex-wrap">
-        <div className="relative">
+      <div className="flex-shrink-0 flex items-center gap-3 px-3 sm:px-5 py-2.5 bg-white border-b border-slate-200 flex-wrap">
+        <div className="relative w-full sm:w-auto">
           <svg className="absolute left-2.5 top-1/2 -translate-y-1/2 text-slate-400" width="13" height="13" fill="none" viewBox="0 0 24 24">
             <circle cx="11" cy="11" r="7" stroke="currentColor" strokeWidth="1.8"/>
             <path d="m16.5 16.5 4 4" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round"/>
           </svg>
           <input value={search} onChange={e => setSearch(e.target.value)}
             placeholder="Stock, VIN, make, model…"
-            className="h-8 w-64 pl-8 pr-7 text-[12px] bg-slate-50 border border-slate-200 rounded-lg text-slate-900 placeholder:text-slate-400 outline-none focus:border-blue-400 focus:ring-2 focus:ring-blue-100 transition-all" />
+            className="h-8 w-full sm:w-64 pl-8 pr-7 text-[12px] bg-slate-50 border border-slate-200 rounded-lg text-slate-900 placeholder:text-slate-400 outline-none focus:border-blue-400 focus:ring-2 focus:ring-blue-100 transition-all" />
           {search && (
             <button onClick={() => setSearch('')}
               className="absolute right-2.5 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600">
@@ -353,47 +393,66 @@ export default function VehiclesList({ onVehicleSelect }: { onVehicleSelect: (vi
         )}
 
         {state.status === 'success' && filtered.length > 0 && (
-          <table className="w-full border-collapse">
-            <thead className="sticky top-0 z-10 bg-slate-50 border-b border-slate-200">
-              <tr>
-                <th className="pl-4 pr-3 py-2.5 w-8">
-                  <input type="checkbox"
-                    checked={allSelected}
-                    ref={el => { if (el) el.indeterminate = someSelected && !allSelected }}
-                    onChange={toggleAll}
-                    className="w-3.5 h-3.5 rounded border-slate-300 cursor-pointer accent-blue-600" />
-                </th>
-                <th className="py-2.5 pr-5 text-left w-24">
-                  <ColHeader label="Stock #" sortKey="stock_number" current={sortKey} dir={sortDir} onSort={handleSort} />
-                </th>
-                <th className="py-2.5 pr-5 text-left" style={{ width: '220px' }}>
-                  <ColHeader label="Vehicle" sortKey="make" current={sortKey} dir={sortDir} onSort={handleSort} />
-                </th>
-                <th className="py-2.5 pr-5 text-left" style={{ width: '160px' }}>
-                  <span className="text-[10px] font-bold uppercase tracking-wider text-slate-400">VIN</span>
-                </th>
-                <th className="py-2.5 pr-5 text-left" style={{ width: '120px' }}>
-                  <ColHeader label="Dealership" sortKey="current_dealership_id" current={sortKey} dir={sortDir} onSort={handleSort} />
-                </th>
-                <th className="py-2.5 pr-5 w-20 text-center">
-                  <ColHeader label="Tasks" sortKey="open_task_count" current={sortKey} dir={sortDir} onSort={handleSort} />
-                </th>
-                <th className="py-2.5 px-5 text-center">
-                  <span className="text-[10px] font-bold uppercase tracking-wider text-slate-400">Systems</span>
-                </th>
-              </tr>
-            </thead>
-            <tbody className="bg-white divide-y divide-slate-100">
+          <>
+            {/* Below lg: card list -- the table's fixed pixel columns
+                (220/160/120px) can't fit a phone or portrait-tablet width
+                without either clipping or a horizontal scrollbar, so this
+                reuses the same VehicleRow data/badges in a stacked layout
+                instead. Desktop (lg+) is completely unaffected -- the table
+                below is unchanged, just conditionally hidden. */}
+            <div className="lg:hidden divide-y divide-slate-100 bg-white">
               {filtered.map(v => (
-                <VehicleRow
+                <VehicleCard
                   key={v.vin} v={v} query={q}
                   selected={selected.has(v.vin)}
                   onToggle={toggleOne}
                   onSelect={onVehicleSelect}
                 />
               ))}
-            </tbody>
-          </table>
+            </div>
+
+            <table className="hidden lg:table w-full border-collapse">
+              <thead className="sticky top-0 z-10 bg-slate-50 border-b border-slate-200">
+                <tr>
+                  <th className="pl-4 pr-3 py-2.5 w-8">
+                    <input type="checkbox"
+                      checked={allSelected}
+                      ref={el => { if (el) el.indeterminate = someSelected && !allSelected }}
+                      onChange={toggleAll}
+                      className="w-3.5 h-3.5 rounded border-slate-300 cursor-pointer accent-blue-600" />
+                  </th>
+                  <th className="py-2.5 pr-5 text-left w-24">
+                    <ColHeader label="Stock #" sortKey="stock_number" current={sortKey} dir={sortDir} onSort={handleSort} />
+                  </th>
+                  <th className="py-2.5 pr-5 text-left" style={{ width: '220px' }}>
+                    <ColHeader label="Vehicle" sortKey="make" current={sortKey} dir={sortDir} onSort={handleSort} />
+                  </th>
+                  <th className="py-2.5 pr-5 text-left" style={{ width: '160px' }}>
+                    <span className="text-[10px] font-bold uppercase tracking-wider text-slate-400">VIN</span>
+                  </th>
+                  <th className="py-2.5 pr-5 text-left" style={{ width: '120px' }}>
+                    <ColHeader label="Dealership" sortKey="current_dealership_id" current={sortKey} dir={sortDir} onSort={handleSort} />
+                  </th>
+                  <th className="py-2.5 pr-5 w-20 text-center">
+                    <ColHeader label="Tasks" sortKey="open_task_count" current={sortKey} dir={sortDir} onSort={handleSort} />
+                  </th>
+                  <th className="py-2.5 px-5 text-center">
+                    <span className="text-[10px] font-bold uppercase tracking-wider text-slate-400">Systems</span>
+                  </th>
+                </tr>
+              </thead>
+              <tbody className="bg-white divide-y divide-slate-100">
+                {filtered.map(v => (
+                  <VehicleRow
+                    key={v.vin} v={v} query={q}
+                    selected={selected.has(v.vin)}
+                    onToggle={toggleOne}
+                    onSelect={onVehicleSelect}
+                  />
+                ))}
+              </tbody>
+            </table>
+          </>
         )}
       </div>
     </div>

@@ -137,7 +137,7 @@ export default function Dashboard({ onVehicleSelect, onNavigate }: {
   return (
     <div className="h-full flex flex-col bg-slate-50 overflow-hidden">
       {/* Header */}
-      <div className="bg-white border-b border-slate-100 px-6 py-4 flex-shrink-0 flex items-center justify-between">
+      <div className="bg-white border-b border-slate-100 px-4 sm:px-6 py-4 flex-shrink-0 flex flex-wrap items-center justify-between gap-2">
         <div>
           <div className="text-[20px] font-bold text-slate-900 leading-tight">
             Good Morning
@@ -145,7 +145,7 @@ export default function Dashboard({ onVehicleSelect, onNavigate }: {
           <div className="text-[13px] text-slate-500 mt-0.5">Here's your work queue for today.</div>
         </div>
         <div className="flex items-center gap-3">
-          <div className="text-[12px] text-slate-400 font-medium">{todayLabel()}</div>
+          <div className="text-[12px] text-slate-400 font-medium hidden sm:block">{todayLabel()}</div>
           {systemEntries.length === 0 ? null : hasSyncIssue ? (
             <span className="inline-flex items-center gap-1.5 bg-amber-50 border border-amber-200 text-amber-700 text-[11px] font-semibold px-2.5 py-1 rounded-full">
               <span className="w-1.5 h-1.5 rounded-full bg-amber-400 inline-block"></span>
@@ -160,8 +160,10 @@ export default function Dashboard({ onVehicleSelect, onNavigate }: {
         </div>
       </div>
 
-      {/* Stat strip -- real reconciliation output, not typed-in numbers */}
-      <div className="grid grid-cols-4 gap-4 px-6 pt-5 flex-shrink-0">
+      {/* Stat strip -- real reconciliation output, not typed-in numbers.
+          2 cols below sm (phones), 4 from sm up -- unchanged on any real
+          desktop width. */}
+      <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 sm:gap-4 px-4 sm:px-6 pt-5 flex-shrink-0">
         {[
           { label: 'RecovR Installs Pending', value: tasksState.status === 'success' ? recovrCount : '—', color: 'text-blue-600' },
           { label: 'MDD Installs Pending', value: tasksState.status === 'success' ? mddCount : '—', color: 'text-blue-600' },
@@ -175,10 +177,20 @@ export default function Dashboard({ onVehicleSelect, onNavigate }: {
         ))}
       </div>
 
-      {/* Body */}
-      <div className="flex-1 flex gap-5 px-6 py-5 overflow-hidden min-h-0">
-        {/* Left column */}
-        <div className="flex-1 overflow-y-auto space-y-5 min-w-0 pr-1">
+      {/* Body -- single scrolling column below lg (Open Tasks first, matching
+          "Open Tasks remain the primary focus"), independently-scrolling
+          two-pane split from lg up, unchanged from the original desktop
+          layout. */}
+      <div className="flex-1 flex flex-col lg:flex-row gap-5 px-4 sm:px-6 py-5 overflow-y-auto lg:overflow-hidden min-h-0">
+        {/* Left column -- flex-shrink-0 below lg for the same reason as
+            VehicleDetail.tsx's panel row: this div's parent relies on ITS
+            OWN overflow-y-auto to grow past the viewport at that
+            breakpoint, so this child must not flex-shrink below its
+            content (that would misposition it under the right column
+            instead of stacking above it). lg:flex-1 restores the original
+            fill-available-width behavior once the parent is bounded and
+            non-scrolling again. */}
+        <div className="flex-shrink-0 lg:flex-1 lg:overflow-y-auto space-y-5 min-w-0 lg:pr-1">
           {/* Open Tasks */}
           <div className="bg-white rounded-2xl border border-slate-100 overflow-hidden">
             <div className="flex items-center justify-between px-4 py-3 border-b border-slate-50">
@@ -306,7 +318,7 @@ export default function Dashboard({ onVehicleSelect, onNavigate }: {
         </div>
 
         {/* Right column */}
-        <div className="w-72 flex-shrink-0 overflow-y-auto space-y-4 min-h-0">
+        <div className="w-full lg:w-72 flex-shrink-0 lg:overflow-y-auto space-y-4 min-h-0">
           {/* Recent Activity */}
           <div className="bg-white rounded-2xl border border-slate-100 p-4">
             <div className="flex items-center justify-between mb-3">

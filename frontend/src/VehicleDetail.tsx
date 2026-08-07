@@ -106,7 +106,7 @@ function LeftPanel({ vehicle }: { vehicle: VehicleDetailDTO }) {
     : { bg: 'bg-emerald-50', text: 'text-emerald-700', border: 'border-emerald-200', dot: 'bg-emerald-400', label: 'No Open Tasks' }
 
   return (
-    <div className="flex-shrink-0 overflow-y-auto space-y-4 pb-4" style={{ width: '268px', scrollbarWidth: 'none' }}>
+    <div className="w-full lg:flex-shrink-0 lg:overflow-y-auto space-y-4 pb-4 lg:w-[268px]" style={{ scrollbarWidth: 'none' }}>
       {/* Vehicle photo -- no backend source of truth yet (API_CONTRACTS.md
           Section 9); placeholder image kept so the layout stays intact,
           real signal (open task count) badged over it instead of an
@@ -224,7 +224,7 @@ function Timeline({ events }: { events: ActivityDTO[] }) {
   const sorted = useMemo(() => sortEventsByWhenTheyHappened(events), [events])
 
   return (
-    <div className="flex-1 flex flex-col overflow-hidden min-w-0">
+    <div className="w-full lg:flex-1 flex flex-col lg:overflow-hidden min-w-0">
       <div className="flex items-center justify-between mb-4 flex-shrink-0">
         <div>
           <h3 className="text-[15px] font-bold text-slate-900">Vehicle Timeline</h3>
@@ -236,7 +236,7 @@ function Timeline({ events }: { events: ActivityDTO[] }) {
         </button>
       </div>
 
-      <div className="flex-1 overflow-y-auto pr-1" style={{ scrollbarWidth: 'thin' }}>
+      <div className="lg:flex-1 lg:overflow-y-auto pr-1" style={{ scrollbarWidth: 'thin' }}>
         {events.length === 0 ? (
           <div className="flex flex-col items-center justify-center h-40 text-slate-400">
             <p className="text-[13px] font-medium">No activity recorded yet</p>
@@ -319,7 +319,7 @@ function SystemCards({ connectedSystems }: { connectedSystems: Record<string, Co
   const entries = Object.entries(connectedSystems)
 
   return (
-    <div className="flex-shrink-0 overflow-y-auto pb-4 space-y-3" style={{ width: '288px', scrollbarWidth: 'none' }}>
+    <div className="w-full lg:flex-shrink-0 lg:overflow-y-auto pb-4 space-y-3 lg:w-[288px]" style={{ scrollbarWidth: 'none' }}>
       <div className="flex items-center justify-between flex-shrink-0">
         <h3 className="text-[15px] font-bold text-slate-900">Connected Systems</h3>
         <span className="text-[10px] text-slate-400">{entries.length} integration{entries.length === 1 ? '' : 's'}</span>
@@ -366,8 +366,8 @@ function TasksPanel({ tasks }: { tasks: TaskDTO[] }) {
   const outstanding = tasks.filter(t => t.commitment_standing === 'outstanding')
 
   return (
-    <div className="flex-shrink-0 border-t border-slate-200 bg-white px-5 py-4">
-      <div className="flex items-center gap-2 mb-3">
+    <div className="flex-shrink-0 border-t border-slate-200 bg-white px-4 sm:px-5 py-4">
+      <div className="flex items-center gap-2 mb-3 flex-wrap">
         <span className="text-blue-500">{I.insights}</span>
         <span className="text-[12px] font-bold text-slate-700 uppercase tracking-wider">Tasks</span>
         <span className="text-[10px] font-bold text-amber-600 bg-amber-50 border border-amber-100 px-1.5 py-0.5 rounded-full">
@@ -380,7 +380,9 @@ function TasksPanel({ tasks }: { tasks: TaskDTO[] }) {
           <span className="text-emerald-500">{I.check}</span> No tasks generated for this vehicle.
         </div>
       ) : (
-        <div className="flex gap-3 overflow-x-auto pb-1" style={{ scrollbarWidth: 'none' }}>
+        // Below lg: cards stack full-width (no horizontal scroll). lg+:
+        // original horizontal-scrolling row, unchanged.
+        <div className="flex flex-col lg:flex-row gap-3 lg:overflow-x-auto pb-1" style={{ scrollbarWidth: 'none' }}>
           {tasks.map((task) => {
             // Demo Polish: no rule assigns Task.priority yet, so most tasks
             // have priority=None -- coercing that to 'low' rendered a
@@ -389,7 +391,7 @@ function TasksPanel({ tasks }: { tasks: TaskDTO[] }) {
             // treatment; the text label itself only shows when real.
             const uc = task.priority ? (urgencyConfig[task.priority.toLowerCase()] ?? urgencyConfig.low) : urgencyConfig.low
             return (
-              <div key={task.task_id} className={`flex-shrink-0 w-64 rounded-xl border p-3.5 ${uc.border} ${uc.bg}`}>
+              <div key={task.task_id} className={`w-full lg:w-64 lg:flex-shrink-0 rounded-xl border p-3.5 ${uc.border} ${uc.bg}`}>
                 <div className={`h-0.5 w-full rounded-full mb-3 ${uc.bar}`} />
                 <div className="flex items-center gap-1.5 mb-1.5 flex-wrap">
                   {task.priority && <span className={`text-[10px] font-bold px-1.5 py-0.5 rounded ${uc.badge}`}>{uc.label}</span>}
@@ -413,8 +415,8 @@ function OperationalInsights({ recommendations }: { recommendations: Recommendat
   const open = recommendations.filter(r => r.status === 'open' && !dismissedLocally.has(r.recommendation_id))
 
   return (
-    <div className="flex-shrink-0 border-t border-slate-200 bg-white px-5 py-4">
-      <div className="flex items-center gap-2 mb-3">
+    <div className="flex-shrink-0 border-t border-slate-200 bg-white px-4 sm:px-5 py-4">
+      <div className="flex items-center gap-2 mb-3 flex-wrap">
         <span className="text-blue-500">{I.insights}</span>
         <span className="text-[12px] font-bold text-slate-700 uppercase tracking-wider">Operational Insights</span>
         <span className="text-[10px] font-bold text-blue-600 bg-blue-50 border border-blue-100 px-1.5 py-0.5 rounded-full">
@@ -428,13 +430,15 @@ function OperationalInsights({ recommendations }: { recommendations: Recommendat
           <span className="text-emerald-500">{I.check}</span> No active insights — vehicle is operationally on track.
         </div>
       ) : (
-        <div className="flex gap-3 overflow-x-auto pb-1" style={{ scrollbarWidth: 'none' }}>
+        // Below lg: cards stack full-width (no horizontal scroll). lg+:
+        // original horizontal-scrolling row, unchanged.
+        <div className="flex flex-col lg:flex-row gap-3 lg:overflow-x-auto pb-1" style={{ scrollbarWidth: 'none' }}>
           {open.map((rec) => {
             // Demo Polish: same fix as TasksPanel above -- don't coerce a
             // missing severity into a confident "Low" label.
             const uc = rec.severity ? (urgencyConfig[rec.severity.toLowerCase()] ?? urgencyConfig.low) : urgencyConfig.low
             return (
-              <div key={rec.recommendation_id} className={`flex-shrink-0 w-64 rounded-xl border p-3.5 ${uc.border} ${uc.bg}`}>
+              <div key={rec.recommendation_id} className={`w-full lg:w-64 lg:flex-shrink-0 rounded-xl border p-3.5 ${uc.border} ${uc.bg}`}>
                 <div className={`h-0.5 w-full rounded-full mb-3 ${uc.bar}`} />
                 <div className="flex items-center gap-1.5 mb-1.5">
                   {rec.severity && <span className={`text-[10px] font-bold px-1.5 py-0.5 rounded ${uc.badge}`}>{uc.label}</span>}
@@ -479,9 +483,12 @@ export default function VehicleDetailPage({ vin, onBack, backLabel = 'Dashboard'
   const state = useApi(() => getVehicleDetail(vin), [vin])
 
   return (
-    <div className="flex-1 flex flex-col overflow-hidden min-h-0">
+    // Below lg the whole page scrolls as one column (breadcrumb + stacked
+    // panels + Tasks/Insights rows); lg+ is the original desktop shape --
+    // no page-level scroll, each panel scrolls its own bounded region.
+    <div className="flex-1 flex flex-col overflow-y-auto lg:overflow-hidden min-h-0">
       {/* Breadcrumb */}
-      <div className="flex-shrink-0 flex items-center justify-between px-5 py-2.5 border-b border-slate-200 bg-white">
+      <div className="flex-shrink-0 flex items-center justify-between px-4 sm:px-5 py-2.5 border-b border-slate-200 bg-white flex-wrap gap-2">
         <div className="flex items-center gap-2">
           <button onClick={onBack}
             className="flex items-center gap-1.5 text-[12px] font-semibold text-slate-500 hover:text-slate-800 transition-colors group">
@@ -532,7 +539,18 @@ export default function VehicleDetailPage({ vin, onBack, backLabel = 'Dashboard'
 
       {state.status === 'success' && (
         <>
-          <div className="flex-1 flex gap-5 px-5 pt-4 overflow-hidden min-h-0">
+          {/* flex-shrink-0 below lg is load-bearing: the root above is
+              overflow-y-auto expecting to grow to full content height, but
+              this row's ancestor chain still gives it a bounded height at
+              that breakpoint. Without shrink-0, flexbox squeezes this row
+              (and LeftPanel/Timeline/SystemCards inside it) below their
+              content height instead of letting overflow-y-auto do its job
+              -- content still paints at full size (nothing here clips it)
+              but at the WRONG position, visually overlapping TasksPanel/
+              OperationalInsights below. lg:flex-1 restores the original
+              fill-remaining-space behavior once the root is overflow-hidden
+              again and genuinely bounded. */}
+          <div className="flex-shrink-0 flex flex-col lg:flex-row lg:flex-1 gap-5 px-4 sm:px-5 pt-4 lg:overflow-hidden min-h-0">
             <LeftPanel vehicle={state.data} />
             <Timeline events={state.data.timeline} />
             <SystemCards connectedSystems={state.data.connected_systems} />

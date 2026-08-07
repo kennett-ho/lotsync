@@ -46,63 +46,91 @@ const NAV_ITEMS: NavItem[] = [
 
 // ─── Sidebar ──────────────────────────────────────────────────────────────────
 
-function Sidebar({ activeNav, onNav }: { activeNav: string; onNav: (id: string) => void; }) {
+// lg (1024px) is this app's one "does it feel like the desktop shell"
+// breakpoint -- used consistently for the sidebar/drawer switch here and
+// for every other major panel-split across the dashboards, so mobile and
+// tablet don't end up with several different cutover points (a second UI
+// language by accident). Below lg, the permanent sidebar becomes an
+// off-canvas drawer opened by Header's hamburger button; the drawer
+// closes itself on nav so a one-handed user doesn't have to dismiss it
+// separately.
+function Sidebar({ activeNav, onNav, mobileOpen, onCloseMobile }: {
+  activeNav: string; onNav: (id: string) => void; mobileOpen: boolean; onCloseMobile: () => void
+}) {
   const items = NAV_ITEMS
 
+  const handleNav = (id: string) => {
+    onNav(id)
+    onCloseMobile()
+  }
+
   return (
-    <aside className="w-52 flex-shrink-0 flex flex-col h-screen" style={{ backgroundColor: '#0B1629' }}>
-      {/* Logo */}
-      <div className="px-4 pt-5 pb-4 border-b border-white/10">
-        <div className="flex items-center gap-2.5">
-          <div className="w-7 h-7 rounded-md bg-blue-600 flex items-center justify-center flex-shrink-0">
-            <svg width="13" height="13" fill="none" viewBox="0 0 24 24">
-              <path d="M12 2L2 7l10 5 10-5-10-5zM2 17l10 5 10-5M2 12l10 5 10-5" stroke="white" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round"/>
-            </svg>
+    <>
+      {mobileOpen && (
+        <div className="fixed inset-0 bg-slate-900/50 z-30 lg:hidden" onClick={onCloseMobile} aria-hidden="true" />
+      )}
+      <aside
+        className={`fixed inset-y-0 left-0 z-40 w-64 flex-shrink-0 flex flex-col h-screen transform transition-transform duration-200 ease-out
+          lg:static lg:z-auto lg:w-52 lg:translate-x-0
+          ${mobileOpen ? 'translate-x-0' : '-translate-x-full'}`}
+        style={{ backgroundColor: '#0B1629' }}>
+        {/* Logo */}
+        <div className="px-4 pt-5 pb-4 border-b border-white/10 flex items-center justify-between">
+          <div className="flex items-center gap-2.5">
+            <div className="w-7 h-7 rounded-md bg-blue-600 flex items-center justify-center flex-shrink-0">
+              <svg width="13" height="13" fill="none" viewBox="0 0 24 24">
+                <path d="M12 2L2 7l10 5 10-5-10-5zM2 17l10 5 10-5M2 12l10 5 10-5" stroke="white" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round"/>
+              </svg>
+            </div>
+            <div>
+              <div className="text-white font-bold text-[14px] tracking-tight leading-none">LotSync</div>
+              <div className="text-white/30 text-[9px] font-bold tracking-widest uppercase mt-0.5">OMS</div>
+            </div>
           </div>
-          <div>
-            <div className="text-white font-bold text-[14px] tracking-tight leading-none">LotSync</div>
-            <div className="text-white/30 text-[9px] font-bold tracking-widest uppercase mt-0.5">OMS</div>
-          </div>
+          <button onClick={onCloseMobile} aria-label="Close menu"
+            className="lg:hidden w-8 h-8 flex items-center justify-center rounded-md text-white/50 hover:text-white hover:bg-white/10 transition-colors">
+            <svg width="16" height="16" fill="none" viewBox="0 0 24 24"><path d="M18 6 6 18M6 6l12 12" stroke="currentColor" strokeWidth="2" strokeLinecap="round"/></svg>
+          </button>
         </div>
-      </div>
 
-      {/* Nav */}
-      <nav className="flex-1 px-3 py-3 overflow-y-auto space-y-0.5" style={{ scrollbarWidth: 'none' }}>
-        {items.map(item => {
-          const active = activeNav === item.id
-          return (
-            <button key={item.id} onClick={() => onNav(item.id)}
-              className="w-full flex items-center gap-3 px-2.5 py-2 rounded-md text-left transition-all duration-150"
-              style={{ backgroundColor: active ? '#1D4ED8' : 'transparent', color: active ? '#fff' : 'rgba(255,255,255,0.55)' }}
-              onMouseEnter={e => { if (!active) (e.currentTarget as HTMLButtonElement).style.backgroundColor = '#162236' }}
-              onMouseLeave={e => { if (!active) (e.currentTarget as HTMLButtonElement).style.backgroundColor = 'transparent' }}>
-              <span style={{ color: active ? '#fff' : 'rgba(255,255,255,0.4)', flexShrink: 0 }}>{item.icon}</span>
-              <span className="text-[13px] font-medium truncate">{item.label}</span>
-            </button>
-          )
-        })}
-      </nav>
+        {/* Nav */}
+        <nav className="flex-1 px-3 py-3 overflow-y-auto space-y-0.5" style={{ scrollbarWidth: 'none' }}>
+          {items.map(item => {
+            const active = activeNav === item.id
+            return (
+              <button key={item.id} onClick={() => handleNav(item.id)}
+                className="w-full flex items-center gap-3 px-2.5 py-2.5 lg:py-2 rounded-md text-left transition-all duration-150"
+                style={{ backgroundColor: active ? '#1D4ED8' : 'transparent', color: active ? '#fff' : 'rgba(255,255,255,0.55)' }}
+                onMouseEnter={e => { if (!active) (e.currentTarget as HTMLButtonElement).style.backgroundColor = '#162236' }}
+                onMouseLeave={e => { if (!active) (e.currentTarget as HTMLButtonElement).style.backgroundColor = 'transparent' }}>
+                <span style={{ color: active ? '#fff' : 'rgba(255,255,255,0.4)', flexShrink: 0 }}>{item.icon}</span>
+                <span className="text-[13px] font-medium truncate">{item.label}</span>
+              </button>
+            )
+          })}
+        </nav>
 
-      {/* Profile & Settings entry point -- no user identity displayed here,
-          just a generic icon/label; see Profile.tsx for the page itself. */}
-      <div className="px-3 pb-4 pt-2 border-t border-white/10">
-        <button onClick={() => onNav('profile')}
-          className="w-full flex items-center gap-2.5 px-2.5 py-2 rounded-md transition-all text-left"
-          style={{ backgroundColor: activeNav === 'profile' ? '#1D4ED8' : 'transparent' }}
-          onMouseEnter={e => { if (activeNav !== 'profile') (e.currentTarget as HTMLButtonElement).style.backgroundColor = '#162236' }}
-          onMouseLeave={e => { if (activeNav !== 'profile') (e.currentTarget as HTMLButtonElement).style.backgroundColor = 'transparent' }}>
-          <div className="w-7 h-7 rounded-full flex items-center justify-center text-white/70 flex-shrink-0" style={{ backgroundColor: '#1E293B' }}>
-            <svg width="14" height="14" fill="none" viewBox="0 0 24 24"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2" stroke="currentColor" strokeWidth="1.75" strokeLinecap="round" strokeLinejoin="round"/><circle cx="12" cy="7" r="4" stroke="currentColor" strokeWidth="1.75"/></svg>
-          </div>
-          <div className="flex-1 min-w-0">
-            <div className="text-white text-[12px] font-semibold truncate">Profile &amp; Settings</div>
-          </div>
-          <svg width="10" height="10" fill="none" viewBox="0 0 24 24" className="flex-shrink-0 text-white/30">
-            <path d="M9 18l6-6-6-6" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
-          </svg>
-        </button>
-      </div>
-    </aside>
+        {/* Profile & Settings entry point -- no user identity displayed here,
+            just a generic icon/label; see Profile.tsx for the page itself. */}
+        <div className="px-3 pb-4 pt-2 border-t border-white/10">
+          <button onClick={() => handleNav('profile')}
+            className="w-full flex items-center gap-2.5 px-2.5 py-2 rounded-md transition-all text-left"
+            style={{ backgroundColor: activeNav === 'profile' ? '#1D4ED8' : 'transparent' }}
+            onMouseEnter={e => { if (activeNav !== 'profile') (e.currentTarget as HTMLButtonElement).style.backgroundColor = '#162236' }}
+            onMouseLeave={e => { if (activeNav !== 'profile') (e.currentTarget as HTMLButtonElement).style.backgroundColor = 'transparent' }}>
+            <div className="w-7 h-7 rounded-full flex items-center justify-center text-white/70 flex-shrink-0" style={{ backgroundColor: '#1E293B' }}>
+              <svg width="14" height="14" fill="none" viewBox="0 0 24 24"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2" stroke="currentColor" strokeWidth="1.75" strokeLinecap="round" strokeLinejoin="round"/><circle cx="12" cy="7" r="4" stroke="currentColor" strokeWidth="1.75"/></svg>
+            </div>
+            <div className="flex-1 min-w-0">
+              <div className="text-white text-[12px] font-semibold truncate">Profile &amp; Settings</div>
+            </div>
+            <svg width="10" height="10" fill="none" viewBox="0 0 24 24" className="flex-shrink-0 text-white/30">
+              <path d="M9 18l6-6-6-6" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
+            </svg>
+          </button>
+        </div>
+      </aside>
+    </>
   )
 }
 
@@ -123,7 +151,7 @@ const syncBadgeDot: Record<'green' | 'amber' | 'slate', string> = {
   green: 'bg-emerald-400', amber: 'bg-amber-400', slate: 'bg-slate-400',
 }
 
-function Header({ onVehicleSelect }: { onVehicleSelect: (s: string) => void }) {
+function Header({ onVehicleSelect, onOpenMobileNav }: { onVehicleSelect: (s: string) => void; onOpenMobileNav: () => void }) {
   const [search, setSearch] = useState('')
   const dashboardState = useApi(() => getDashboard(), [])
 
@@ -157,40 +185,52 @@ function Header({ onVehicleSelect }: { onVehicleSelect: (s: string) => void }) {
     : { tone: 'green', label: 'Systems Healthy' }
 
   return (
-    <header className="bg-white border-b border-slate-200 flex items-center px-5 gap-3 flex-shrink-0" style={{ height: '52px' }}>
-      {/* Search */}
-      <div className="relative w-72">
+    <header className="bg-white border-b border-slate-200 flex items-center px-3 sm:px-5 gap-2 sm:gap-3 flex-shrink-0" style={{ height: '52px' }}>
+      {/* Hamburger -- opens the off-canvas drawer below lg; the permanent
+          sidebar takes over at lg, so this button simply doesn't render there. */}
+      <button onClick={onOpenMobileNav} aria-label="Open menu"
+        className="lg:hidden flex-shrink-0 w-9 h-9 flex items-center justify-center rounded-lg text-slate-500 hover:bg-slate-100 transition-colors">
+        <svg width="18" height="18" fill="none" viewBox="0 0 24 24"><path d="M4 6h16M4 12h16M4 18h16" stroke="currentColor" strokeWidth="1.9" strokeLinecap="round"/></svg>
+      </button>
+
+      {/* Search -- fills available width on mobile, fixed 288px from lg up
+          (unchanged desktop sizing). ⌘K hint hidden below lg -- a keyboard
+          shortcut hint is meaningless on a touch device and just costs space. */}
+      <div className="relative flex-1 min-w-0 lg:flex-none lg:w-72">
         <span className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400">
           <svg width="14" height="14" fill="none" viewBox="0 0 24 24"><circle cx="11" cy="11" r="7" stroke="currentColor" strokeWidth="1.8"/><path d="m16.5 16.5 4 4" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round"/></svg>
         </span>
         <input value={search} onChange={e => setSearch(e.target.value)} onKeyDown={handleKey}
           type="text" placeholder="Search VIN, Stock #, Customer…"
-          className="w-full h-8 pl-8 pr-10 text-[13px] bg-slate-50 border border-slate-200 rounded-lg text-slate-900 placeholder:text-slate-400 outline-none focus:border-blue-400 focus:ring-2 focus:ring-blue-100 transition-all" />
-        <kbd className="absolute right-2.5 top-1/2 -translate-y-1/2 text-[10px] text-slate-400 bg-white border border-slate-200 rounded px-1 font-mono">⌘K</kbd>
+          className="w-full h-8 pl-8 pr-3 lg:pr-10 text-[13px] bg-slate-50 border border-slate-200 rounded-lg text-slate-900 placeholder:text-slate-400 outline-none focus:border-blue-400 focus:ring-2 focus:ring-blue-100 transition-all" />
+        <kbd className="hidden lg:block absolute right-2.5 top-1/2 -translate-y-1/2 text-[10px] text-slate-400 bg-white border border-slate-200 rounded px-1 font-mono">⌘K</kbd>
       </div>
 
-      <div className="flex-1" />
+      <div className="flex-1 hidden sm:block" />
 
-      {/* Systems status -- live, see syncBadge above */}
+      {/* Systems status -- live, see syncBadge above. Hidden below sm --
+          the notification bell already carries the "something needs
+          attention" signal at the narrowest widths. */}
       {syncBadge && (
-        <div className={`flex items-center gap-1.5 text-[12px] font-semibold border px-3 py-1 rounded-full ${syncBadgeTone[syncBadge.tone]}`}>
+        <div className={`hidden sm:flex items-center gap-1.5 text-[12px] font-semibold border px-3 py-1 rounded-full ${syncBadgeTone[syncBadge.tone]}`}>
           <span className={`w-1.5 h-1.5 rounded-full ${syncBadgeDot[syncBadge.tone]}`} />
           {syncBadge.label}
         </div>
       )}
 
-      {/* Sync timestamp -- live */}
+      {/* Sync timestamp -- live; hidden below lg, least essential item when space is tight */}
       {lastSyncAt && (
-        <div className="flex items-center gap-1.5 text-[11px] text-slate-500">
+        <div className="hidden lg:flex items-center gap-1.5 text-[11px] text-slate-500">
           <svg width="12" height="12" fill="none" viewBox="0 0 24 24"><path d="M23 4v6h-6M1 20v-6h6" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/><path d="M3.51 9a9 9 0 0 1 14.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0 0 20.49 15" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/></svg>
           Synced <span className="font-semibold text-slate-700 ml-1">{relativeTime(lastSyncAt)}</span>
         </div>
       )}
 
-      <div className="w-px h-5 bg-slate-200 mx-1" />
+      <div className="hidden sm:block w-px h-5 bg-slate-200 mx-1" />
 
-      {/* Notifications */}
-      <button className="relative w-8 h-8 flex items-center justify-center rounded-lg text-slate-500 hover:bg-slate-100 transition-colors">
+      {/* Notifications -- slightly larger tap target below lg (36px vs. the
+          desktop 32px), still under the same rounded-lg treatment */}
+      <button className="relative w-9 h-9 lg:w-8 lg:h-8 flex items-center justify-center rounded-lg text-slate-500 hover:bg-slate-100 transition-colors flex-shrink-0">
         <svg width="15" height="15" fill="none" viewBox="0 0 24 24"><path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9M13.73 21a2 2 0 0 1-3.46 0" stroke="currentColor" strokeWidth="1.75" strokeLinecap="round" strokeLinejoin="round"/></svg>
         <span className="absolute top-1.5 right-1.5 w-2 h-2 bg-red-500 rounded-full border-2 border-white" />
       </button>
@@ -217,9 +257,11 @@ function NavContent({ activeNav, onVehicleSelect, onNavigate }: {
 export default function App() {
   const [activeNav, setActiveNav] = useState('dashboard')
   const [selectedVehicle, setSelectedVehicle] = useState<string | null>(null)
+  const [mobileNavOpen, setMobileNavOpen] = useState(false)
 
   const handleVehicleSelect = useCallback((stock: string) => {
     setSelectedVehicle(stock)
+    setMobileNavOpen(false)
   }, [])
 
   const handleBack = useCallback(() => {
@@ -231,10 +273,10 @@ export default function App() {
 
   return (
     <div className="flex h-screen overflow-hidden" style={{ fontFamily: "'Plus Jakarta Sans', system-ui, sans-serif", backgroundColor: '#F8FAFC' }}>
-      <Sidebar activeNav={activeNav} onNav={setActiveNav} />
+      <Sidebar activeNav={activeNav} onNav={setActiveNav} mobileOpen={mobileNavOpen} onCloseMobile={() => setMobileNavOpen(false)} />
 
       <div className="flex-1 flex flex-col overflow-hidden min-w-0">
-        <Header onVehicleSelect={handleVehicleSelect} />
+        <Header onVehicleSelect={handleVehicleSelect} onOpenMobileNav={() => setMobileNavOpen(true)} />
 
         <div key={`${activeNav}-${selectedVehicle ?? 'dash'}`} className="flex-1 flex flex-col overflow-hidden min-h-0"
           style={{ animation: 'fadeSlideIn 0.18s ease-out' }}>

@@ -141,8 +141,12 @@ function Sidebar({ tasks, filter, onFilter }: { tasks: TaskDTO[]; filter: Sideba
     const c = cnt(f)
     const on = active(f)
     return (
+      // Below lg: compact wrapping pill (matches VehiclesList.tsx's filter-chip
+      // pattern) so the filter panel doesn't force a tall vertical block above
+      // the task list on a phone. lg: classes reproduce the original full-width
+      // row exactly, so desktop is pixel-unchanged.
       <button onClick={() => onFilter(f)}
-        className={`w-full flex items-center justify-between px-3 py-1.5 rounded-lg text-[12px] font-medium transition-all ${
+        className={`w-auto lg:w-full inline-flex lg:flex items-center justify-start lg:justify-between gap-2 whitespace-nowrap px-3 py-1.5 rounded-lg text-[12px] font-medium transition-all ${
           on ? 'bg-blue-600 text-white' : 'text-slate-600 hover:bg-slate-100 hover:text-slate-900'
         }`}>
         {label}
@@ -171,10 +175,13 @@ function Sidebar({ tasks, filter, onFilter }: { tasks: TaskDTO[]; filter: Sideba
   const availableDepartments = DEPARTMENTS.filter(d => cnt({ type: 'department', value: d }) > 0)
   const availablePriorities = PRIORITIES.filter(p => cnt({ type: 'priority', value: p }) > 0)
 
+  // Below lg: full-width block above the task list, its own button groups
+  // wrapping as pill rows (Btn handles that). From lg up this is unchanged
+  // -- fixed-width left rail, vertical button stacks, own scroll region.
   return (
-    <aside className="flex-shrink-0 w-48 bg-white border-r border-slate-200 flex flex-col py-3 overflow-y-auto" style={{ scrollbarWidth: 'none' }}>
+    <aside className="flex-shrink-0 w-full lg:w-48 bg-white border-b lg:border-b-0 lg:border-r border-slate-200 flex flex-col py-2 lg:py-3 lg:overflow-y-auto" style={{ scrollbarWidth: 'none' }}>
       {section('Queue')}
-      <div className="px-2 space-y-0.5">
+      <div className="flex flex-wrap gap-1.5 px-2 lg:block lg:space-y-0.5">
         <Btn label="Active Tasks"        f={{ type: 'queue', value: 'active' }} />
         <Btn label="My Tasks"            f={{ type: 'queue', value: 'my' }} />
         <Btn label="Standing Policy"     f={{ type: 'queue', value: 'standing-policy' }} />
@@ -183,7 +190,7 @@ function Sidebar({ tasks, filter, onFilter }: { tasks: TaskDTO[]; filter: Sideba
       </div>
 
       {section('History')}
-      <div className="px-2 space-y-0.5">
+      <div className="flex flex-wrap gap-1.5 px-2 lg:block lg:space-y-0.5">
         {/* "Closed" (not "Completed") -- this bucket holds every discharged
             task, and "Completed" is now the specific display label for
             honored tasks alone (see ../taskStatus.ts). Reusing it here for
@@ -196,7 +203,7 @@ function Sidebar({ tasks, filter, onFilter }: { tasks: TaskDTO[]; filter: Sideba
       {availableDepartments.length > 0 && (
         <>
           {section('Department')}
-          <div className="px-2 space-y-0.5">
+          <div className="flex flex-wrap gap-1.5 px-2 lg:block lg:space-y-0.5">
             {availableDepartments.map(d => (
               <Btn key={d} label={d} f={{ type: 'department', value: d }} />
             ))}
@@ -207,7 +214,7 @@ function Sidebar({ tasks, filter, onFilter }: { tasks: TaskDTO[]; filter: Sideba
       {availablePriorities.length > 0 && (
         <>
           {section('Priority')}
-          <div className="px-2 space-y-0.5">
+          <div className="flex flex-wrap gap-1.5 px-2 lg:block lg:space-y-0.5">
             {availablePriorities.map(p => (
               <Btn key={p} label={p} f={{ type: 'priority', value: p }} />
             ))}
@@ -349,7 +356,7 @@ function TaskDetail({ task, onBack, onVehicleSelect }: {
 
   return (
     <div className="flex-1 flex flex-col overflow-hidden min-h-0">
-      <div className="flex-shrink-0 bg-white border-b border-slate-200 px-5 py-3">
+      <div className="flex-shrink-0 bg-white border-b border-slate-200 px-4 sm:px-5 py-3">
         <div className="flex items-center gap-2 mb-2.5">
           <button onClick={onBack} className="flex items-center gap-1.5 text-[12px] font-semibold text-slate-400 hover:text-slate-700 transition-colors group">
             <svg width="13" height="13" fill="none" viewBox="0 0 24 24" className="group-hover:-translate-x-0.5 transition-transform">
@@ -360,8 +367,8 @@ function TaskDetail({ task, onBack, onVehicleSelect }: {
           <span className="text-slate-200">/</span>
           <span className="text-[12px] font-medium text-slate-600">{humanize(task.task_type)}</span>
         </div>
-        <div className="flex items-center justify-between gap-4">
-          <div className="flex items-center gap-3">
+        <div className="flex items-center justify-between gap-4 flex-wrap">
+          <div className="flex items-center gap-3 flex-wrap">
             <h1 className="text-[18px] font-bold text-slate-900">{humanize(task.task_type)}</h1>
             {pb && task.priority && (
               <span className={`text-[10px] font-bold px-2 py-0.5 rounded border uppercase tracking-wide ${pb.badge}`}>{task.priority}</span>
@@ -383,7 +390,7 @@ function TaskDetail({ task, onBack, onVehicleSelect }: {
       </div>
 
       <div className="flex-1 overflow-y-auto" style={{ scrollbarWidth: 'thin' }}>
-        <div className="flex gap-5 p-5">
+        <div className="flex flex-col lg:flex-row gap-5 p-4 sm:p-5">
           <div className="flex-1 space-y-4 min-w-0">
             <p className="text-[13px] text-slate-600 leading-relaxed">{task.reason ?? 'No reason recorded.'}</p>
 
@@ -415,7 +422,7 @@ function TaskDetail({ task, onBack, onVehicleSelect }: {
             </div>
           </div>
 
-          <div className="flex-shrink-0 space-y-3" style={{ width: '252px' }}>
+          <div className="w-full lg:flex-shrink-0 space-y-3 lg:w-[252px]">
             <div className="bg-white rounded-xl border border-slate-200 overflow-hidden">
               <div className="px-4 py-3 border-b border-slate-100">
                 <span className="text-[11px] font-bold text-slate-500 uppercase tracking-wider">Vehicle</span>
@@ -513,7 +520,11 @@ export default function Tasks({ onVehicleSelect }: { onVehicleSelect: (s: string
 
   if (selectedTask) {
     return (
-      <div className="flex-1 flex overflow-hidden min-h-0">
+      // Sidebar is non-scrolling pinned content below lg (no overflow-y-auto
+      // at that breakpoint -- see Sidebar); TaskDetail provides its own
+      // flex-1/overflow-y-auto scroll region, so the outer row stays
+      // overflow-hidden exactly like desktop -- no nested double-scroll.
+      <div className="flex-1 flex flex-col lg:flex-row overflow-hidden min-h-0">
         <Sidebar tasks={tasks} filter={filter} onFilter={setFilter} />
         <TaskDetail task={selectedTask} onBack={() => setSelectedId(null)} onVehicleSelect={onVehicleSelect} />
       </div>
@@ -521,11 +532,11 @@ export default function Tasks({ onVehicleSelect }: { onVehicleSelect: (s: string
   }
 
   return (
-    <div className="flex-1 flex overflow-hidden min-h-0">
+    <div className="flex-1 flex flex-col lg:flex-row overflow-hidden min-h-0">
       <Sidebar tasks={tasks} filter={filter} onFilter={setFilter} />
 
       <div className="flex-1 flex flex-col overflow-hidden min-h-0">
-        <div className="flex-shrink-0 flex items-center justify-between px-5 py-2.5 bg-white border-b border-slate-200">
+        <div className="flex-shrink-0 flex items-center justify-between px-4 sm:px-5 py-2.5 bg-white border-b border-slate-200 flex-wrap gap-2">
           <div className="flex items-center gap-3">
             <h2 className="text-[14px] font-bold text-slate-900">Dispatch Queue</h2>
             {outstanding > 0 && <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-slate-100 text-slate-500">{outstanding} open</span>}

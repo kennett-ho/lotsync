@@ -84,6 +84,20 @@ class VehiclesEndpointTest(ApiTestCase):
         self.assertEqual(body[0]["stock_number"], "A48291")
         self.assertEqual(body[0]["open_task_count"], 0)
 
+    def test_default_excludes_sold_vehicles(self):
+        upsert_vehicle(self.conn, "VIN1", tekion_status="Stocked In")
+        upsert_vehicle(self.conn, "VIN2", tekion_status="Sold")
+        self.conn.commit()
+        body = self.client.get("/vehicles").json()
+        self.assertEqual([v["vin"] for v in body], ["VIN1"])
+
+    def test_include_sold_query_param_returns_full_roster(self):
+        upsert_vehicle(self.conn, "VIN1", tekion_status="Stocked In")
+        upsert_vehicle(self.conn, "VIN2", tekion_status="Sold")
+        self.conn.commit()
+        body = self.client.get("/vehicles?include_sold=true").json()
+        self.assertEqual(sorted(v["vin"] for v in body), ["VIN1", "VIN2"])
+
 
 class VehicleDetailEndpointTest(ApiTestCase):
     def test_missing_vehicle_returns_404(self):

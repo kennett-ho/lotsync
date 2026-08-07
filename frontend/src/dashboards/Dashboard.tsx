@@ -25,27 +25,6 @@ import { useApi } from '../api/useApi'
 import { isBackendUnavailable } from '../api/client'
 import type { TaskDTO, RecommendationDTO } from '../api/types'
 
-type AppRole =
-  | 'Lot Staff'
-  | 'Lot Manager'
-  | 'Tower Manager'
-  | 'Controller'
-  | 'Sales Manager'
-  | 'Recon Manager'
-  | 'Service Advisor'
-  | 'Detail Team'
-
-const roleMeta: Record<AppRole, { name: string; greeting: string }> = {
-  'Lot Staff':       { name: 'Marcus',  greeting: 'Here\'s your work queue for today.' },
-  'Lot Manager':     { name: 'Jordan',  greeting: 'Here\'s an overview of today\'s operations.' },
-  'Tower Manager':   { name: 'Rosa',    greeting: 'Here\'s the operational summary for today.' },
-  'Controller':      { name: 'Sarah',   greeting: 'Here\'s the inventory status for today.' },
-  'Sales Manager':   { name: 'Ben',     greeting: 'Here\'s today\'s vehicle and task summary.' },
-  'Recon Manager':   { name: 'Alex',    greeting: 'Here\'s today\'s recon pipeline.' },
-  'Service Advisor': { name: 'Lisa',    greeting: 'Here\'s your service-related vehicle activity.' },
-  'Detail Team':     { name: 'Team',    greeting: 'Here\'s today\'s detail assignments.' },
-}
-
 // Same PRIORITY_RANK / priorityBadge palette as Tasks.tsx -- kept in
 // sync deliberately so a task looks the same wherever it appears.
 const PRIORITY_RANK: Record<string, number> = { Critical: 0, High: 1, Medium: 2, Low: 3 }
@@ -120,13 +99,10 @@ function WarnIcon({ className }: { className?: string }) {
   )
 }
 
-export default function Dashboard({ role, onVehicleSelect, onNavigate }: {
-  role: AppRole
+export default function Dashboard({ onVehicleSelect, onNavigate }: {
   onVehicleSelect: (vin: string) => void
   onNavigate: (tab: 'tasks' | 'inventory-sync') => void
 }) {
-  const meta = roleMeta[role]
-
   const dashboardState = useApi(() => getDashboard(), [])
   const tasksState = useApi(() => getTasks({ commitment_standing: 'outstanding' }), [])
   const recsState = useApi(() => getRecommendations({ status: 'open' }), [])
@@ -164,9 +140,9 @@ export default function Dashboard({ role, onVehicleSelect, onNavigate }: {
       <div className="bg-white border-b border-slate-100 px-6 py-4 flex-shrink-0 flex items-center justify-between">
         <div>
           <div className="text-[20px] font-bold text-slate-900 leading-tight">
-            Good morning, {meta.name}.
+            Good Morning
           </div>
-          <div className="text-[13px] text-slate-500 mt-0.5">{meta.greeting}</div>
+          <div className="text-[13px] text-slate-500 mt-0.5">Here's your work queue for today.</div>
         </div>
         <div className="flex items-center gap-3">
           <div className="text-[12px] text-slate-400 font-medium">{todayLabel()}</div>

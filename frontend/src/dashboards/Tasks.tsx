@@ -34,12 +34,10 @@
 // - Start/Pause/Mark Complete/Cancel are disabled ("Coming soon") --
 //   this sprint explicitly excludes write APIs, so no button silently
 //   mutates local state that doesn't reflect the backend.
-// - "My Tasks" filters against a placeholder employee id (matching
-//   the rest of this prototype's hardcoded "logged in as Marcus
-//   Torres" convention, e.g. App.tsx's RoleSwitcher) -- there is no
-//   real authentication yet (Phase 3's own named gate, still
-//   unstarted), so this is not a new invented concept, just reuse of
-//   the same placeholder identity already used elsewhere.
+// - "My Tasks" filters against a placeholder employee id (CURRENT_EMPLOYEE_ID
+//   below) -- there is no real authentication yet (Phase 3's own named
+//   gate, still unstarted), so this stands in until a logged-in user's
+//   employee id is available from somewhere real.
 // - "Automated" vs. "Management Requests" is now driven by the real
 //   `ratification_type` field (`standing_policy`/null vs. `human`)
 //   rather than a fabricated `TaskSource` union with no backend

@@ -1,4 +1,4 @@
-import { useState, useCallback, useEffect, useRef } from 'react'
+import { useState, useCallback } from 'react'
 import VehicleDetailPage from './VehicleDetail'
 import Dashboard from './dashboards/Dashboard'
 import VehiclesList from './dashboards/VehiclesList'
@@ -9,33 +9,6 @@ import { getDashboard } from './api/dashboard'
 import { useApi } from './api/useApi'
 
 // ─── Types ────────────────────────────────────────────────────────────────────
-
-type Role = 'Lot Staff' | 'Lot Manager' | 'Tower Manager' | 'Controller' | 'Sales Manager' | 'Recon Manager' | 'Service Advisor' | 'Detail Team'
-
-interface RoleConfig {
-  initials: string
-  color: string
-  name: string
-  title: string
-  navGroup: string
-}
-
-// ─── Role config ──────────────────────────────────────────────────────────────
-
-const roleConfig: Record<Role, RoleConfig> = {
-  'Lot Staff': { initials: 'MT', color: '#2563EB', name: 'Marcus Torres', title: 'Lot Attendant', navGroup: 'core' },
-  'Lot Manager': { initials: 'JD', color: '#0891B2', name: 'Jordan Davis', title: 'Lot Manager', navGroup: 'core' },
-  'Tower Manager': { initials: 'RP', color: '#7C3AED', name: 'Rosa Pereira', title: 'Tower Manager', navGroup: 'core' },
-  'Controller': { initials: 'SK', color: '#DC2626', name: 'Sarah Kim', title: 'Controller', navGroup: 'core' },
-  'Sales Manager': { initials: 'BW', color: '#059669', name: 'Ben Wheeler', title: 'Sales Manager', navGroup: 'core' },
-  'Recon Manager': { initials: 'AH', color: '#D97706', name: 'Alex Huang', title: 'Recon Manager', navGroup: 'core' },
-  'Service Advisor': { initials: 'LM', color: '#0891B2', name: 'Lisa Martinez', title: 'Service Advisor', navGroup: 'core' },
-  'Detail Team': { initials: 'DT', color: '#64748B', name: 'Detail Team', title: 'Detail Attendant', navGroup: 'core' },
-}
-
-const roleOrder: Role[] = ['Lot Staff', 'Lot Manager', 'Tower Manager', 'Controller', 'Sales Manager', 'Recon Manager', 'Service Advisor', 'Detail Team']
-
-// ─── Nav items per role group ─────────────────────────────────────────────────
 
 interface NavItem { id: string; label: string; icon: JSX.Element }
 
@@ -60,24 +33,21 @@ function relativeTime(iso: string): string {
   return `${days} day${days === 1 ? '' : 's'} ago`
 }
 
-// Sprint 3.8 alignment: one nav for every role. Lot Staff is the only
-// primary user; Tower/Sales/Service/Controller are contributors who
-// feed information to lot staff rather than getting a dedicated
-// workspace, so navigation no longer branches per role.
-const NAV: Record<string, NavItem[]> = {
-  core: [
-    { id: 'dashboard',     label: 'Dashboard',      icon: svgIcon('M3 3h7v7H3zM14 3h7v7h-7zM3 14h7v7H3zM14 14h7v7h-7z') },
-    { id: 'vehicles',      label: 'Vehicles',        icon: svgIcon('M5 17H3a2 2 0 0 1-2-2V9a2 2 0 0 1 2-2h13l4 4v4a2 2 0 0 1-2 2h-2', 'M5 17a2 2 0 1 0 4 0 2 2 0 0 0-4 0zM15 17a2 2 0 1 0 4 0 2 2 0 0 0-4 0z') },
-    { id: 'tasks',         label: 'Tasks',           icon: svgIcon('M9 11l3 3L22 4', 'M21 12v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11') },
-    { id: 'inventory-sync',label: 'Inventory Sync',  icon: svgIcon('M23 4v6h-6M1 20v-6h6', 'M3.51 9a9 9 0 0 1 14.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0 0 20.49 15') },
-  ],
-}
+// Friday MVP: one nav, one workflow. Lot staff are the primary users;
+// other departments contribute through this same operational workflow
+// rather than a separate per-role workspace, so there's no branching
+// here -- just the fixed set of screens every user sees.
+const NAV_ITEMS: NavItem[] = [
+  { id: 'dashboard',     label: 'Dashboard',      icon: svgIcon('M3 3h7v7H3zM14 3h7v7h-7zM3 14h7v7H3zM14 14h7v7h-7z') },
+  { id: 'vehicles',      label: 'Vehicles',        icon: svgIcon('M5 17H3a2 2 0 0 1-2-2V9a2 2 0 0 1 2-2h13l4 4v4a2 2 0 0 1-2 2h-2', 'M5 17a2 2 0 1 0 4 0 2 2 0 0 0-4 0zM15 17a2 2 0 1 0 4 0 2 2 0 0 0-4 0z') },
+  { id: 'tasks',         label: 'Tasks',           icon: svgIcon('M9 11l3 3L22 4', 'M21 12v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11') },
+  { id: 'inventory-sync',label: 'Inventory Sync',  icon: svgIcon('M23 4v6h-6M1 20v-6h6', 'M3.51 9a9 9 0 0 1 14.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0 0 20.49 15') },
+]
 
 // ─── Sidebar ──────────────────────────────────────────────────────────────────
 
-function Sidebar({ role, activeNav, onNav }: { role: Role; activeNav: string; onNav: (id: string) => void; }) {
-  const cfg = roleConfig[role]
-  const items = NAV[cfg.navGroup]
+function Sidebar({ activeNav, onNav }: { activeNav: string; onNav: (id: string) => void; }) {
+  const items = NAV_ITEMS
 
   return (
     <aside className="w-52 flex-shrink-0 flex flex-col h-screen" style={{ backgroundColor: '#0B1629' }}>
@@ -113,19 +83,19 @@ function Sidebar({ role, activeNav, onNav }: { role: Role; activeNav: string; on
         })}
       </nav>
 
-      {/* User */}
+      {/* Profile & Settings entry point -- no user identity displayed here,
+          just a generic icon/label; see Profile.tsx for the page itself. */}
       <div className="px-3 pb-4 pt-2 border-t border-white/10">
         <button onClick={() => onNav('profile')}
           className="w-full flex items-center gap-2.5 px-2.5 py-2 rounded-md transition-all text-left"
           style={{ backgroundColor: activeNav === 'profile' ? '#1D4ED8' : 'transparent' }}
           onMouseEnter={e => { if (activeNav !== 'profile') (e.currentTarget as HTMLButtonElement).style.backgroundColor = '#162236' }}
           onMouseLeave={e => { if (activeNav !== 'profile') (e.currentTarget as HTMLButtonElement).style.backgroundColor = 'transparent' }}>
-          <div className="w-7 h-7 rounded-full flex items-center justify-center text-white text-[11px] font-bold flex-shrink-0" style={{ backgroundColor: cfg.color }}>
-            {cfg.initials}
+          <div className="w-7 h-7 rounded-full flex items-center justify-center text-white/70 flex-shrink-0" style={{ backgroundColor: '#1E293B' }}>
+            <svg width="14" height="14" fill="none" viewBox="0 0 24 24"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2" stroke="currentColor" strokeWidth="1.75" strokeLinecap="round" strokeLinejoin="round"/><circle cx="12" cy="7" r="4" stroke="currentColor" strokeWidth="1.75"/></svg>
           </div>
           <div className="flex-1 min-w-0">
-            <div className="text-white text-[12px] font-semibold truncate">{cfg.name}</div>
-            <div className="text-white/35 text-[10px] truncate">{cfg.title}</div>
+            <div className="text-white text-[12px] font-semibold truncate">Profile &amp; Settings</div>
           </div>
           <svg width="10" height="10" fill="none" viewBox="0 0 24 24" className="flex-shrink-0 text-white/30">
             <path d="M9 18l6-6-6-6" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
@@ -133,70 +103,6 @@ function Sidebar({ role, activeNav, onNav }: { role: Role; activeNav: string; on
         </button>
       </div>
     </aside>
-  )
-}
-
-// ─── Role Switcher Dropdown ───────────────────────────────────────────────────
-
-function RoleSwitcher({ currentRole, onSwitch }: { currentRole: Role; onSwitch: (r: Role) => void }) {
-  const [open, setOpen] = useState(false)
-  const ref = useRef<HTMLDivElement>(null)
-  const cfg = roleConfig[currentRole]
-
-  useEffect(() => {
-    const handler = (e: MouseEvent) => {
-      if (ref.current && !ref.current.contains(e.target as Node)) setOpen(false)
-    }
-    document.addEventListener('mousedown', handler)
-    return () => document.removeEventListener('mousedown', handler)
-  }, [])
-
-  return (
-    <div className="relative" ref={ref}>
-      <button onClick={() => setOpen(o => !o)}
-        className="flex items-center gap-2 cursor-pointer group pl-2 py-1 rounded-lg hover:bg-slate-100 transition-colors">
-        <div className="w-7 h-7 rounded-full flex items-center justify-center flex-shrink-0 text-white text-[10px] font-bold" style={{ backgroundColor: cfg.color }}>
-          {cfg.initials}
-        </div>
-        <div className="text-left">
-          <div className="text-[12px] font-bold text-slate-900 leading-none">{cfg.name}</div>
-          <div className="text-[10px] text-slate-400">{cfg.title}</div>
-        </div>
-        <svg width="12" height="12" fill="none" viewBox="0 0 24 24" className="text-slate-400 ml-0.5">
-          <path d="m6 9 6 6 6-6" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
-        </svg>
-      </button>
-
-      {open && (
-        <div className="absolute right-0 top-full mt-2 w-72 bg-white rounded-2xl border border-slate-200 shadow-xl shadow-slate-900/10 z-50 py-2 overflow-hidden">
-          <div className="px-4 py-2 border-b border-slate-100 mb-1">
-            <div className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">Switch Role — Prototype</div>
-          </div>
-          {roleOrder.map(role => {
-            const rc = roleConfig[role]
-            const isActive = role === currentRole
-            return (
-              <button key={role} onClick={() => { onSwitch(role); setOpen(false) }}
-                className={`w-full flex items-center gap-3 px-4 py-2.5 hover:bg-slate-50 transition-colors ${isActive ? 'bg-blue-50/60' : ''}`}>
-                <div className="w-8 h-8 rounded-full flex items-center justify-center text-white text-[11px] font-bold flex-shrink-0"
-                  style={{ backgroundColor: rc.color }}>
-                  {rc.initials}
-                </div>
-                <div className="flex-1 text-left min-w-0">
-                  <div className={`text-[13px] font-bold ${isActive ? 'text-blue-700' : 'text-slate-900'}`}>{role}</div>
-                  <div className="text-[11px] text-slate-400 truncate">{rc.name}</div>
-                </div>
-                {isActive && (
-                  <svg width="14" height="14" fill="none" viewBox="0 0 24 24">
-                    <path d="M20 6 9 17l-5-5" stroke="#2563EB" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"/>
-                  </svg>
-                )}
-              </button>
-            )
-          })}
-        </div>
-      )}
-    </div>
   )
 }
 
@@ -217,7 +123,7 @@ const syncBadgeDot: Record<'green' | 'amber' | 'slate', string> = {
   green: 'bg-emerald-400', amber: 'bg-amber-400', slate: 'bg-slate-400',
 }
 
-function Header({ role, onSwitch, onVehicleSelect }: { role: Role; onSwitch: (r: Role) => void; onVehicleSelect: (s: string) => void }) {
+function Header({ onVehicleSelect }: { onVehicleSelect: (s: string) => void }) {
   const [search, setSearch] = useState('')
   const dashboardState = useApi(() => getDashboard(), [])
 
@@ -288,17 +194,13 @@ function Header({ role, onSwitch, onVehicleSelect }: { role: Role; onSwitch: (r:
         <svg width="15" height="15" fill="none" viewBox="0 0 24 24"><path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9M13.73 21a2 2 0 0 1-3.46 0" stroke="currentColor" strokeWidth="1.75" strokeLinecap="round" strokeLinejoin="round"/></svg>
         <span className="absolute top-1.5 right-1.5 w-2 h-2 bg-red-500 rounded-full border-2 border-white" />
       </button>
-
-      {/* Role switcher */}
-      <RoleSwitcher currentRole={role} onSwitch={onSwitch} />
     </header>
   )
 }
 
 // ─── Nav content ─────────────────────────────────────────────────────────────
 
-function NavContent({ role, activeNav, onVehicleSelect, onNavigate }: {
-  role: Role
+function NavContent({ activeNav, onVehicleSelect, onNavigate }: {
   activeNav: string
   onVehicleSelect: (s: string) => void
   onNavigate: (tab: 'tasks' | 'inventory-sync') => void
@@ -307,22 +209,14 @@ function NavContent({ role, activeNav, onVehicleSelect, onNavigate }: {
   if (activeNav === 'tasks')           return <Tasks onVehicleSelect={onVehicleSelect} />
   if (activeNav === 'inventory-sync')  return <InventorySync />
   if (activeNav === 'profile')         return <Profile />
-  return <Dashboard role={role} onVehicleSelect={onVehicleSelect} onNavigate={onNavigate} />
+  return <Dashboard onVehicleSelect={onVehicleSelect} onNavigate={onNavigate} />
 }
 
 // ─── App ──────────────────────────────────────────────────────────────────────
 
 export default function App() {
-  const [role, setRole] = useState<Role>('Lot Staff')
   const [activeNav, setActiveNav] = useState('dashboard')
   const [selectedVehicle, setSelectedVehicle] = useState<string | null>(null)
-
-  const handleRoleSwitch = useCallback((r: Role) => {
-    setRole(r)
-    const firstNav = NAV[roleConfig[r].navGroup]?.[0]?.id ?? 'dashboard'
-    setActiveNav(firstNav)
-    setSelectedVehicle(null)
-  }, [])
 
   const handleVehicleSelect = useCallback((stock: string) => {
     setSelectedVehicle(stock)
@@ -337,12 +231,12 @@ export default function App() {
 
   return (
     <div className="flex h-screen overflow-hidden" style={{ fontFamily: "'Plus Jakarta Sans', system-ui, sans-serif", backgroundColor: '#F8FAFC' }}>
-      <Sidebar role={role} activeNav={activeNav} onNav={setActiveNav} />
+      <Sidebar activeNav={activeNav} onNav={setActiveNav} />
 
       <div className="flex-1 flex flex-col overflow-hidden min-w-0">
-        <Header role={role} onSwitch={handleRoleSwitch} onVehicleSelect={handleVehicleSelect} />
+        <Header onVehicleSelect={handleVehicleSelect} />
 
-        <div key={`${role}-${activeNav}-${selectedVehicle ?? 'dash'}`} className="flex-1 flex flex-col overflow-hidden min-h-0"
+        <div key={`${activeNav}-${selectedVehicle ?? 'dash'}`} className="flex-1 flex flex-col overflow-hidden min-h-0"
           style={{ animation: 'fadeSlideIn 0.18s ease-out' }}>
           {selectedVehicle
             // Sprint 3: Vehicle Detail is wired to GET /vehicles/{vin} --
@@ -352,7 +246,7 @@ export default function App() {
             // "not found" state rather than a crash -- see
             // PHASE_3_SPRINT_3_REVIEW.md for which callers were updated.
             ? <VehicleDetailPage vin={selectedVehicle} onBack={handleBack} backLabel={backLabel} />
-            : <NavContent role={role} activeNav={activeNav} onVehicleSelect={handleVehicleSelect} onNavigate={setActiveNav} />
+            : <NavContent activeNav={activeNav} onVehicleSelect={handleVehicleSelect} onNavigate={setActiveNav} />
           }
         </div>
       </div>

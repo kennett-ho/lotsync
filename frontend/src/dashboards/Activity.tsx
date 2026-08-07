@@ -6,7 +6,7 @@
 //
 // Several mockup fields have no backend equivalent and are not
 // fabricated here:
-// - `actor` (a resolved human name like "Marcus Torres") -- the backend
+// - `actor` (a resolved, human-readable employee name) -- the backend
 //   only carries `actor_employee_id` (an id string, e.g. "emp-0142"),
 //   and no employee-lookup endpoint exists yet to resolve it to a
 //   display name (API_CONTRACTS.md Section 9 already names this gap).

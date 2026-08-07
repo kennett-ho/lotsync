@@ -30,25 +30,27 @@ function Toggle({ on, onChange }: { on: boolean; onChange: () => void }) {
 // ─── Section: Profile ────────────────────────────────────────────────────────
 
 function ProfileSection() {
-  const [displayName, setDisplayName] = useState("Marcus Torres");
-  const [phone, setPhone] = useState("(714) 555-0182");
-  const [zone, setZone] = useState("Kia Front Lot");
+  const [displayName, setDisplayName] = useState("");
+  const [phone, setPhone] = useState("");
+  const [zone, setZone] = useState("");
 
   return (
     <div className="flex flex-col gap-5">
-      {/* Avatar card */}
+      {/* Avatar card -- generic icon, no demo identity. Populated from the
+          fields below once entered; blank fields show a neutral placeholder
+          instead of fabricated demo data. */}
       <div className="bg-white rounded-xl border border-slate-100 p-5">
         <div className="flex items-center gap-4 mb-4">
           <div
-            className="w-14 h-14 rounded-full flex items-center justify-center text-white font-bold text-[20px] flex-shrink-0"
-            style={{ backgroundColor: "#2563EB" }}
+            className="w-14 h-14 rounded-full flex items-center justify-center text-white flex-shrink-0"
+            style={{ backgroundColor: "#64748B" }}
           >
-            MT
+            <svg width="24" height="24" fill="none" viewBox="0 0 24 24"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2" stroke="currentColor" strokeWidth="1.75" strokeLinecap="round" strokeLinejoin="round"/><circle cx="12" cy="7" r="4" stroke="currentColor" strokeWidth="1.75"/></svg>
           </div>
           <div>
-            <p className="text-[15px] font-bold text-slate-800">Marcus Torres</p>
-            <p className="text-[12px] text-slate-500">Lot Attendant · Lot Operations</p>
-            <p className="text-[11px] text-slate-400 mt-0.5">LotSync Auto Group — Anaheim, CA</p>
+            <p className="text-[15px] font-bold text-slate-800">{displayName || "Name not set"}</p>
+            <p className="text-[12px] text-slate-500">Lot Operations</p>
+            <p className="text-[11px] text-slate-400 mt-0.5">LotSync</p>
           </div>
         </div>
       </div>
@@ -63,7 +65,8 @@ function ProfileSection() {
               type="text"
               value={displayName}
               onChange={(e) => setDisplayName(e.target.value)}
-              className="w-full px-3 py-2 text-[13px] border border-slate-200 rounded-lg bg-white text-slate-800 focus:outline-none focus:border-blue-400 focus:ring-2 focus:ring-blue-100 transition-all"
+              placeholder="Your name"
+              className="w-full px-3 py-2 text-[13px] border border-slate-200 rounded-lg bg-white text-slate-800 placeholder:text-slate-300 focus:outline-none focus:border-blue-400 focus:ring-2 focus:ring-blue-100 transition-all"
             />
           </div>
           <div>
@@ -72,14 +75,15 @@ function ProfileSection() {
               type="tel"
               value={phone}
               onChange={(e) => setPhone(e.target.value)}
-              className="w-full px-3 py-2 text-[13px] border border-slate-200 rounded-lg bg-white text-slate-800 focus:outline-none focus:border-blue-400 focus:ring-2 focus:ring-blue-100 transition-all"
+              placeholder="(555) 555-5555"
+              className="w-full px-3 py-2 text-[13px] border border-slate-200 rounded-lg bg-white text-slate-800 placeholder:text-slate-300 focus:outline-none focus:border-blue-400 focus:ring-2 focus:ring-blue-100 transition-all"
             />
           </div>
           <div>
             <label className="block text-[11px] font-semibold text-slate-500 mb-1.5">Employee ID</label>
             <input
               type="text"
-              value="EMP-2847"
+              value="—"
               readOnly
               className="w-full px-3 py-2 text-[13px] border border-slate-100 rounded-lg bg-slate-50 text-slate-400 cursor-not-allowed"
             />
@@ -90,7 +94,8 @@ function ProfileSection() {
               type="text"
               value={zone}
               onChange={(e) => setZone(e.target.value)}
-              className="w-full px-3 py-2 text-[13px] border border-slate-200 rounded-lg bg-white text-slate-800 focus:outline-none focus:border-blue-400 focus:ring-2 focus:ring-blue-100 transition-all"
+              placeholder="e.g. Front Lot"
+              className="w-full px-3 py-2 text-[13px] border border-slate-200 rounded-lg bg-white text-slate-800 placeholder:text-slate-300 focus:outline-none focus:border-blue-400 focus:ring-2 focus:ring-blue-100 transition-all"
             />
           </div>
           <button className="mt-1 self-start px-5 py-2 bg-blue-600 text-white text-[13px] font-semibold rounded-lg hover:bg-blue-700 transition-colors">
@@ -249,7 +254,7 @@ function CurrentSessionSection() {
             { label: "Device", value: "MacBook Pro 16″" },
             { label: "Browser", value: "Chrome 123" },
             { label: "IP Address", value: "192.168.1.42" },
-            { label: "Location", value: "Anaheim, CA" },
+            { label: "Location", value: "—" },
             { label: "Started", value: "Today 7:02 AM" },
             { label: "Duration", value: "3h 28m" },
           ].map(({ label, value }) => (
@@ -272,7 +277,7 @@ function CurrentSessionSection() {
 const RECENT_ACTIVITY = [
   { time: "Today 10:28 AM", text: "Installed RecovR tracker — Honda Accord A48291" },
   { time: "Today 10:14 AM", text: "Moved BMW 5 Series E51388 to Service Bay" },
-  { time: "Today 9:41 AM", text: "Accepted showroom request from Ben Wheeler" },
+  { time: "Today 9:41 AM", text: "Accepted showroom request from Sales" },
   { time: "Today 8:47 AM", text: "Replaced stock tag — Ford F-150 C84711" },
   { time: "Today 7:02 AM", text: "Logged in — Session started" },
   { time: "Yesterday 5:30 PM", text: "Logged out" },

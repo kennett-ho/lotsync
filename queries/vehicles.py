@@ -39,7 +39,7 @@ _VEHICLE_COLUMNS = [
 _VEHICLE_DETAIL_TIMELINE_LIMIT = 10000
 
 
-def list_vehicles(conn: sqlite3.Connection) -> list:
+def list_vehicles(conn: sqlite3.Connection, include_sold: bool = False) -> list:
     """
     Returns every known Vehicle, each with a computed `open_task_count`
     (the count of its outstanding Tasks) -- the same
@@ -47,15 +47,34 @@ def list_vehicles(conn: sqlite3.Connection) -> list:
     queries/dashboard.py's inventory_health_percentage() already uses,
     exposed here per-vehicle instead of aggregated across all vehicles.
 
-    No search/status filtering is implemented here. Per
-    API_CONTRACTS.md's Section 9 (Open Question #10), there is no
+    No search/status filtering beyond include_sold is implemented here.
+    Per API_CONTRACTS.md's Section 9 (Open Question #10), there is no
     canonical, backend-computed Vehicle operational-status enum yet --
     only the four flat per-source status fields plus the unpopulated
     `inventory_state` placeholder -- so there is nothing honest to
     filter server-side by "status" today. Search/filtering the frontend
     currently does client-side stays a client-side concern until that
     enum is actually designed.
+
+    include_sold (default False): the default Vehicles List is the
+    lot's active/scrolling inventory, not the full historical roster --
+    a sold vehicle isn't gone, but it isn't something a lot attendant
+    scrolls past every day either. Sold is identified by
+    `tekion_status = 'Sold'`, the exact value
+    persist_tekion_observations writes for a VIN present in Tekion's
+    sold export (see sync/reconciler.py) -- the same field this
+    codebase already treats as the authoritative current-state cache
+    elsewhere, not a new status concept invented here. Filtered with
+    `IS NOT 'Sold'` rather than `!= 'Sold'` so a vehicle with no Tekion
+    record at all (`tekion_status IS NULL` -- e.g. RecovR/Keyper-only
+    matches) is correctly treated as not-known-sold and still shown by
+    default, instead of `!=`'s NULL-comparison silently dropping it.
+    A sold vehicle is never deleted and stays fully reachable -- by
+    direct VIN via get_vehicle_detail (unaffected by this filter), and
+    in this same list whenever a caller passes include_sold=True -- see
+    api/routers/vehicles.py's `include_sold` query param.
     """
+    sold_filter = "" if include_sold else "WHERE v.tekion_status IS NOT 'Sold'"
     rows = conn.execute(
         f"""
         SELECT v.vin, v.stock_number, v.display_name, v.year, v.make, v.model, v.new_or_used,
@@ -64,6 +83,7 @@ def list_vehicles(conn: sqlite3.Connection) -> list:
                (SELECT COUNT(*) FROM task t
                 WHERE t.vin = v.vin AND t.commitment_standing = 'outstanding') AS open_task_count
         FROM vehicle v
+        {sold_filter}
         ORDER BY v.vin
         """
     ).fetchall()

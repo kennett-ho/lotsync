@@ -67,6 +67,29 @@ class ListVehiclesTest(unittest.TestCase):
         vehicles = list_vehicles(self.conn)
         self.assertEqual([v["vin"] for v in vehicles], ["VIN1", "VIN2"])
 
+    def test_sold_vehicle_excluded_by_default(self):
+        upsert_vehicle(self.conn, "VIN1", tekion_status="Stocked In")
+        upsert_vehicle(self.conn, "VIN2", tekion_status="Sold")
+        self.conn.commit()
+        vehicles = list_vehicles(self.conn)
+        self.assertEqual([v["vin"] for v in vehicles], ["VIN1"])
+
+    def test_sold_vehicle_included_with_include_sold_true(self):
+        upsert_vehicle(self.conn, "VIN1", tekion_status="Stocked In")
+        upsert_vehicle(self.conn, "VIN2", tekion_status="Sold")
+        self.conn.commit()
+        vehicles = list_vehicles(self.conn, include_sold=True)
+        self.assertEqual([v["vin"] for v in vehicles], ["VIN1", "VIN2"])
+
+    def test_vehicle_with_no_tekion_status_still_shown_by_default(self):
+        # A RecovR/Keyper-only match (no Tekion record at all) is
+        # NULL, not 'Sold' -- must not be caught by the sold exclusion.
+        # See list_vehicles' docstring on why this is IS NOT, not !=.
+        upsert_vehicle(self.conn, "VIN1")
+        self.conn.commit()
+        vehicles = list_vehicles(self.conn)
+        self.assertEqual([v["vin"] for v in vehicles], ["VIN1"])
+
 
 class GetVehicleDetailTest(unittest.TestCase):
     def setUp(self):
@@ -127,6 +150,16 @@ class GetVehicleDetailTest(unittest.TestCase):
         upsert_vehicle(self.conn, "VIN1", display_name="2023 Honda Accord")
         self.conn.commit()
         self.assertEqual(get_vehicle_detail(self.conn, "VIN1")["display_name"], "2023 Honda Accord")
+
+    def test_sold_vehicle_still_reachable_by_vin(self):
+        # get_vehicle_detail is a direct-VIN lookup, not routed through
+        # list_vehicles -- a sold vehicle dropping out of the default
+        # list must not make it unreachable here.
+        upsert_vehicle(self.conn, "VIN1", stock_number="A48291", tekion_status="Sold")
+        self.conn.commit()
+        detail = get_vehicle_detail(self.conn, "VIN1")
+        self.assertEqual(detail["vin"], "VIN1")
+        self.assertEqual(detail["tekion_status"], "Sold")
 
     def test_nested_task_and_recommendation_still_carry_their_own_vehicle_summary(self):
         # get_vehicle_detail returns the complete, undecorated data --

@@ -1,4 +1,4 @@
-import { apiGet } from './client'
+import { apiGet, apiGetBlob } from './client'
 import type { TaskDTO } from './types'
 
 export interface TaskFilters {
@@ -11,4 +11,9 @@ export interface TaskFilters {
 
 export function getTasks(filters?: TaskFilters): Promise<TaskDTO[]> {
   return apiGet<TaskDTO[]>('/tasks', filters)
+}
+
+/** GET /tasks/work-order -- the printable Daily Work Order PDF. */
+export function getWorkOrderPdf(): Promise<{ blob: Blob; filename: string }> {
+  return apiGetBlob('/tasks/work-order')
 }

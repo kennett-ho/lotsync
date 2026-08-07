@@ -19,3 +19,18 @@ openpyxl
 
 # Used by tests/test_api_*.py via FastAPI's TestClient (see api/README.md).
 httpx
+
+# Used by reports/work_order.py (GET /tasks/work-order) to render the
+# printable daily work order as a PDF. Pulls in pillow as its own
+# transitive dependency (image handling reportlab's core doesn't need
+# for this project's plain-text/vector-only document, but the package
+# always requires it).
+reportlab
+
+# Test-only -- tests/test_work_order.py reads the PDFs
+# reports/work_order.py generates back apart (page count, extracted
+# text) to assert on real content instead of just "it returned bytes."
+# Same "a real, narrow exception to tests/README.md's no-external-
+# dependencies note" category as httpx above, not a runtime dependency
+# of the app itself.
+pypdf

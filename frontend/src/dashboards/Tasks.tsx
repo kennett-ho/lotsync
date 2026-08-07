@@ -44,7 +44,7 @@
 //   equivalent.
 
 import { useMemo, useState } from 'react'
-import { getTasks } from '../api/tasks'
+import { getTasks, getWorkOrderPdf } from '../api/tasks'
 import { useApi } from '../api/useApi'
 import { isBackendUnavailable } from '../api/client'
 import type { TaskDTO } from '../api/types'
@@ -493,12 +493,42 @@ const spinner = (
   </svg>
 )
 
+const printerIcon = (
+  <svg width="14" height="14" fill="none" viewBox="0 0 24 24">
+    <path d="M6 9V3h12v6M6 18H4a1 1 0 0 1-1-1v-6a1 1 0 0 1 1-1h16a1 1 0 0 1 1 1v6a1 1 0 0 1-1 1h-2M6 14h12v7H6z" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" />
+  </svg>
+)
+
+/** Triggers a browser download for the PDF a work-order fetch resolved to. */
+function downloadBlob(blob: Blob, filename: string): void {
+  const url = URL.createObjectURL(blob)
+  const link = document.createElement('a')
+  link.href = url
+  link.download = filename
+  document.body.appendChild(link)
+  link.click()
+  link.remove()
+  URL.revokeObjectURL(url)
+}
+
 // ─── Main ─────────────────────────────────────────────────────────────────────
 
 export default function Tasks({ onVehicleSelect }: { onVehicleSelect: (s: string) => void }) {
   const state = useApi(() => getTasks(), [])
   const [filter, setFilter] = useState<SidebarFilter>({ type: 'queue', value: 'active' })
   const [selectedId, setSelectedId] = useState<number | null>(null)
+  const [workOrderStatus, setWorkOrderStatus] = useState<'idle' | 'generating' | 'error'>('idle')
+
+  const handleGenerateWorkOrder = async () => {
+    setWorkOrderStatus('generating')
+    try {
+      const { blob, filename } = await getWorkOrderPdf()
+      downloadBlob(blob, filename)
+      setWorkOrderStatus('idle')
+    } catch {
+      setWorkOrderStatus('error')
+    }
+  }
 
   const tasks = state.status === 'success' ? state.data : []
   const selectedTask = tasks.find(t => t.task_id === selectedId) ?? null
@@ -542,7 +572,20 @@ export default function Tasks({ onVehicleSelect }: { onVehicleSelect: (s: string
             {outstanding > 0 && <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-slate-100 text-slate-500">{outstanding} open</span>}
             {inProgress  > 0 && <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-blue-100 text-blue-700">{inProgress} in progress</span>}
           </div>
-          {state.status === 'success' && <span className="text-[11px] text-slate-400">{visible.length} tasks</span>}
+          <div className="flex items-center gap-3">
+            {workOrderStatus === 'error' && (
+              <span className="text-[11px] text-red-500">Couldn't generate the work order.</span>
+            )}
+            <button
+              onClick={handleGenerateWorkOrder}
+              disabled={workOrderStatus === 'generating'}
+              className="flex items-center gap-1.5 bg-white hover:bg-slate-50 disabled:text-slate-400 border border-slate-200 text-slate-700 text-[12px] font-medium px-3 py-1.5 rounded-lg transition-colors"
+            >
+              {workOrderStatus === 'generating' ? spinner : printerIcon}
+              {workOrderStatus === 'generating' ? 'Generating…' : 'Generate Work Order'}
+            </button>
+            {state.status === 'success' && <span className="text-[11px] text-slate-400">{visible.length} tasks</span>}
+          </div>
         </div>
 
         <div className="flex-1 overflow-y-auto px-5 py-3 space-y-2" style={{ scrollbarWidth: 'thin' }}>

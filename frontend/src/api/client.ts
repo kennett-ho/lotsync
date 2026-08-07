@@ -67,6 +67,36 @@ export async function apiGet<T>(
 }
 
 /**
+ * For endpoints that hand back a file rather than JSON -- currently
+ * only GET /tasks/work-order's PDF. Same reachability/status handling
+ * as apiGet, but resolves the raw Blob plus whatever filename the
+ * server's Content-Disposition suggests, since the caller needs both
+ * to trigger a browser download.
+ */
+export async function apiGetBlob(path: string): Promise<{ blob: Blob; filename: string }> {
+  const url = new URL(path, API_BASE_URL)
+
+  let response: Response
+  try {
+    response = await fetch(url.toString())
+  } catch {
+    throw new ApiError(
+      `Could not reach the LotSync API at ${API_BASE_URL}. Is the backend running?`,
+      0,
+    )
+  }
+
+  if (!response.ok) {
+    throw new ApiError(`LotSync API returned ${response.status} for ${path}`, response.status)
+  }
+
+  const disposition = response.headers.get('Content-Disposition') ?? ''
+  const filename = disposition.match(/filename="?([^"]+)"?/)?.[1] ?? 'download'
+
+  return { blob: await response.blob(), filename }
+}
+
+/**
  * POST /inventory-sync/run's shape -- multipart form data in, JSON out.
  * This project's first write call, so its error handling goes slightly
  * further than apiGet's: FastAPI's HTTPException(detail=...) returns

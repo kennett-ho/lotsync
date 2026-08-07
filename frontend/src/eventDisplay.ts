@@ -25,12 +25,13 @@ export interface EventDisplay {
 // project (WHOLESALE/AT AUCTION exclusion logic, the Archive-step
 // "needs review" case). Matched case-insensitively since the raw
 // export's casing isn't guaranteed. Anything not listed here still
-// gets a natural sentence via the fallback below, just without the
-// hand-picked verb phrase.
+// gets a natural sentence via the fallback below (no quotation marks
+// around the raw step -- a workflow state reads as a state, not a
+// literal string), just without the hand-picked verb phrase.
 const RAPIDRECON_STEP_PHRASES: Record<string, string> = {
-  'wholesale': 'Marked for wholesale',
-  'at auction': 'Sent to auction',
-  'archive': 'Archived in RapidRecon',
+  'wholesale': 'Marked for Wholesale',
+  'at auction': 'Sent to Auction',
+  'archive': 'Archived',
   'out for sublet': 'Sent for sublet work',
   'inspection': 'In inspection',
 }
@@ -39,7 +40,7 @@ function describeRapidReconStep(step: unknown): string {
   const raw = typeof step === 'string' ? step.trim() : ''
   if (!raw) return 'Recon status updated'
   const phrase = RAPIDRECON_STEP_PHRASES[raw.toLowerCase()]
-  return phrase ?? `Moved to "${raw}"`
+  return phrase ?? `Moved to ${raw}`
 }
 
 // pending_identity_resolved's previous_identifier_type is one of the
@@ -64,7 +65,7 @@ export function describeEvent(ev: ActivityDTO): EventDisplay {
     case 'tekion_observed': {
       const status = typeof d.tekion_status === 'string' ? d.tekion_status : ''
       if (/stock/i.test(status)) return { title: 'Vehicle stocked in' }
-      return { title: status ? `Status updated to "${status}"` : 'Vehicle status updated' }
+      return { title: status ? `Status updated to ${status}` : 'Vehicle status updated' }
     }
     case 'tekion_sold':
       return { title: 'Vehicle sold' }

@@ -75,6 +75,25 @@ def _key_out_aging_df(vin, stock, days_out):
     }])
 
 
+def _multi_key_out_aging_df(*rows):
+    """
+    rows: (vin, stock, days_out) tuples; days_out may be None to
+    simulate a bad/missing checkout date. Built as ONE DataFrame from
+    several dict rows -- unlike _key_out_aging_df's single-row shape,
+    this reproduces reconcile_keyper_tekion's actual construction
+    (pd.DataFrame(key_out_aging) from a list of per-Keyper-record
+    dicts), which is what silently upcasts a None-containing "days_out"
+    column to float64 (None -> NaN) in production. A single-row frame
+    never triggers that promotion, which is why this file's other
+    tests never caught the bug KeyOutDaysNanRegressionTest below
+    covers.
+    """
+    return pd.DataFrame([
+        {"tekion_vin": vin, "days_out": days_out, "tekion_stock": stock, "tekion_vehicle": "2024 Test Sedan"}
+        for vin, stock, days_out in rows
+    ])
+
+
 def _rapidrecon_df(vin, step):
     return pd.DataFrame([{"VIN": vin, "Step": step}])
 
@@ -282,6 +301,70 @@ class InvestigateCheckedOutKeyTest(unittest.TestCase):
             key_out_aging_df=_key_out_aging_df(VIN, STOCK, days_out=10),
         )
         self.assertTrue(tasks.empty)
+
+
+class KeyOutDaysNanRegressionTest(unittest.TestCase):
+    """
+    Regression coverage for a real production bug: reconcile_keyper_tekion
+    builds key_out_aging_df via pd.DataFrame(key_out_aging), a list of
+    per-Keyper-record dicts where days_out is a genuine Python None for
+    a bad/missing checkout date. Mixing None with real int values in the
+    same "days_out" column silently upcasts the whole column to
+    float64 -- None becomes NaN, and every OTHER valid day count
+    becomes a float too (4 -> 4.0). `is None`/`is not None` checks never
+    catch NaN (NaN is not None, and any comparison against NaN is
+    False), so a vehicle with an unknown checkout date used to still
+    generate an investigate_checked_out_key task -- despite this
+    module's own "don't guess" restraint saying it shouldn't -- with
+    literal "nan days" in its reason text. Fixed in
+    build_tracker_install_tasks by normalizing days_out back to a real
+    Python None/int immediately when reading key_out_aging_df.
+    """
+
+    UNKNOWN_VIN = "1TESTVIN000000098"
+    UNKNOWN_STOCK = "K30098"
+    KNOWN_VIN = "1TESTVIN000000099"
+    KNOWN_STOCK = "K30099"
+
+    def _tasks(self):
+        tekion_df = pd.concat(
+            [_tekion_df(self.UNKNOWN_VIN, self.UNKNOWN_STOCK), _tekion_df(self.KNOWN_VIN, self.KNOWN_STOCK)],
+            ignore_index=True,
+        )
+        key_out_aging_df = _multi_key_out_aging_df(
+            (self.UNKNOWN_VIN, self.UNKNOWN_STOCK, None),
+            (self.KNOWN_VIN, self.KNOWN_STOCK, KEY_OUT_INVESTIGATE_THRESHOLD_DAYS + 1),
+        )
+        self.assertEqual(
+            key_out_aging_df["days_out"].dtype.kind, "f",
+            "sanity check: this fixture must actually reproduce the float64/NaN upcast, "
+            "or this test isn't exercising the bug at all",
+        )
+        return build_tracker_install_tasks(
+            tekion_df, _EMPTY_SOLD, _EMPTY_MDD,
+            pd.DataFrame(columns=["VIN", "Stock Number", "Paired", "Year", "Make", "Model"]),
+            "TestStore",
+            fully_verified_df=_fully_verified_df(),
+            key_out_aging_df=key_out_aging_df,
+        )
+
+    def test_unknown_checkout_date_generates_no_task_rather_than_guessing(self):
+        tasks = self._tasks()
+        matches = tasks[tasks["vin"] == self.UNKNOWN_VIN]
+        self.assertTrue(matches.empty, "an unconfirmed checkout date must not be treated as over-threshold")
+
+    def test_known_checkout_date_generates_a_clean_task(self):
+        tasks = self._tasks()
+        matches = tasks[(tasks["vin"] == self.KNOWN_VIN) & (tasks["task"] == "investigate_checked_out_key")]
+        self.assertEqual(len(matches), 1)
+        reason = matches.iloc[0]["reason"]
+        self.assertIn(f"{KEY_OUT_INVESTIGATE_THRESHOLD_DAYS + 1} days", reason)
+        self.assertNotIn(".0", reason, "days_out must render as an int, not a float (4.0)")
+
+    def test_no_reason_text_ever_contains_nan(self):
+        tasks = self._tasks()
+        for reason in tasks["reason"]:
+            self.assertNotIn("nan", reason.lower())
 
 
 class NoDuplicateTasksTest(unittest.TestCase):

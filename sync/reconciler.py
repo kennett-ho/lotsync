@@ -1199,8 +1199,26 @@ def build_tracker_install_tasks(tekion_df: pd.DataFrame, sold_df: pd.DataFrame,
     keyper_out_days_by_vin = {}
     for _, krow in key_out_aging_df.iterrows():
         kvin = str(krow["tekion_vin"]).strip()
+        # Root cause of the "nan days" text that used to reach task/
+        # recommendation copy: key_out_aging_df is built via
+        # pd.DataFrame(key_out_aging) in reconcile_keyper_tekion, where
+        # each row's "days_out" is a genuine Python None for a bad/
+        # missing checkout date (see that function's own days_out
+        # construction). A column that mixes None with int values gets
+        # silently upcast to float64 on DataFrame construction --
+        # None becomes NaN (and, as a side effect, every OTHER valid
+        # day count becomes a float too, e.g. 4 -> 4.0). `is None`
+        # checks downstream never catch NaN (NaN is not None, and any
+        # comparison against NaN is False), so a missing checkout date
+        # silently produced literal "nan days" in generated text instead
+        # of being treated as "no data." Normalizing back to a real
+        # Python None (or int) here, once, at the DataFrame boundary,
+        # means every existing `is None`/`is not None` check downstream
+        # is correct again without needing to special-case pandas'
+        # float promotion at each call site.
+        raw_days_out = krow["days_out"]
         keyper_out_days_by_vin[kvin] = {
-            "days_out": krow["days_out"],
+            "days_out": None if pd.isna(raw_days_out) else int(raw_days_out),
             "stock": krow["tekion_stock"],
             "vehicle": krow["tekion_vehicle"],
         }

@@ -17,13 +17,14 @@
 // empty Recommendations/Tasks list renders as an empty state, not
 // mock rows.
 
-import { useMemo } from 'react'
+import { useMemo, useState } from 'react'
 import { getDashboard } from '../api/dashboard'
 import { getTasks } from '../api/tasks'
 import { getRecommendations } from '../api/recommendations'
 import { useApi } from '../api/useApi'
 import { isBackendUnavailable } from '../api/client'
 import type { TaskDTO, RecommendationDTO } from '../api/types'
+import { describeTask } from '../taskDisplay'
 
 // Same PRIORITY_RANK / priorityBadge palette as Tasks.tsx -- kept in
 // sync deliberately so a task looks the same wherever it appears.
@@ -40,14 +41,6 @@ const severityBadge: Record<string, string> = {
   High: 'bg-orange-50 text-orange-700 border border-orange-200',
   Medium: 'bg-amber-50 text-amber-700 border border-amber-200',
   Low: 'bg-slate-100 text-slate-600 border border-slate-200',
-}
-
-// Same brand-name issue as sourceLabel() above, applied to task_type
-// (e.g. "install_recovr_device" -> "Install RecovR Device", not
-// "Install Recovr Device"). Tasks.tsx's own humanize() got the same fix.
-function humanize(taskType: string): string {
-  const words = taskType.replace(/_/g, ' ').replace(/\b\w/g, c => c.toUpperCase())
-  return words.replace(/\bRecovr\b/, 'RecovR').replace(/\bMdd\b/, 'MDD')
 }
 
 function formatTimestamp(iso: string): string {
@@ -80,6 +73,17 @@ function ChevronRight() {
   )
 }
 
+// Accordion expand indicator -- rotates in place rather than swapping
+// icons, so the group header's layout never shifts on toggle.
+function ChevronExpand({ expanded }: { expanded: boolean }) {
+  return (
+    <svg width="10" height="10" viewBox="0 0 24 24" fill="none"
+      className={`flex-shrink-0 text-slate-400 transition-transform duration-150 ${expanded ? 'rotate-90' : ''}`}>
+      <path d="M9 6l6 6-6 6" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"/>
+    </svg>
+  )
+}
+
 function CheckCircle({ className }: { className?: string }) {
   return (
     <svg width="14" height="14" viewBox="0 0 14 14" fill="none" className={className}>
@@ -96,6 +100,69 @@ function WarnIcon({ className }: { className?: string }) {
       <path d="M7 6v3" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round"/>
       <circle cx="7" cy="10.5" r="0.5" fill="currentColor"/>
     </svg>
+  )
+}
+
+// ─── Open Tasks: grouped accordion ─────────────────────────────────────────────
+//
+// A dealership running hundreds of open tasks made the old flat list
+// (one row per vehicle) unscannable -- a dispatcher had to read past
+// dozens of rows before understanding what KINDS of work exist at all.
+// Grouped by task_type instead (a stable, small backend enum -- see
+// sync/reconciler.py's "Task-generation philosophy" block), collapsed
+// by default: the group header alone answers "what work do we have
+// today," and expanding one reveals the same per-vehicle rows the flat
+// list already rendered, just scoped to that task type instead of
+// interleaved with every other kind.
+
+interface TaskGroup { taskType: string; tasks: TaskDTO[] }
+
+function TaskGroupRow({ group, expanded, onToggle, onVehicleSelect }: {
+  group: TaskGroup; expanded: boolean; onToggle: () => void; onVehicleSelect: (vin: string) => void
+}) {
+  const display = describeTask(group.tasks[0])
+  const topPriority = group.tasks
+    .map(t => t.priority)
+    .filter((p): p is string => p !== null)
+    .sort((a, b) => (PRIORITY_RANK[a] ?? 99) - (PRIORITY_RANK[b] ?? 99))[0]
+  const p = priorityBadge[topPriority ?? ''] ?? priorityBadge.Low
+
+  return (
+    <div className="border-b border-slate-50 last:border-0">
+      <button onClick={onToggle}
+        className="relative w-full flex items-center gap-3 px-4 py-3 text-left hover:bg-slate-50/60 transition-colors">
+        <div className={`absolute left-0 top-0 bottom-0 w-[3px] ${p.bar}`} />
+        <ChevronExpand expanded={expanded} />
+        <div className="flex-1 min-w-0">
+          <span className="text-[13px] font-semibold text-slate-900">{display.groupTitle}</span>
+          <p className="text-[11px] text-slate-400 mt-0.5 leading-snug">{display.description}</p>
+        </div>
+        <span className="flex-shrink-0 text-[11px] font-semibold text-slate-500 bg-slate-100 px-2 py-0.5 rounded-full">
+          {group.tasks.length} vehicle{group.tasks.length === 1 ? '' : 's'}
+        </span>
+      </button>
+
+      {expanded && (
+        <div className="bg-slate-50/50 divide-y divide-slate-100">
+          {group.tasks.map(task => {
+            const tp = priorityBadge[task.priority ?? ''] ?? priorityBadge.Low
+            return (
+              <div key={task.task_id} onClick={() => onVehicleSelect(task.vin)}
+                className="flex items-center gap-3 pl-9 pr-4 py-2.5 hover:bg-white cursor-pointer transition-colors">
+                <span className="text-[10px] font-mono text-blue-600 bg-blue-50 px-1.5 py-0.5 rounded font-medium flex-shrink-0">
+                  {task.vehicle?.stock_number ?? task.vin}
+                </span>
+                {task.vehicle?.display_name && (
+                  <span className="text-[12px] text-slate-600 truncate flex-1 min-w-0">{task.vehicle.display_name}</span>
+                )}
+                {task.priority && <span className={`text-[10px] font-semibold flex-shrink-0 ${tp.text}`}>{task.priority}</span>}
+                <ChevronRight />
+              </div>
+            )
+          })}
+        </div>
+      )}
+    </div>
   )
 }
 
@@ -121,6 +188,31 @@ export default function Dashboard({ onVehicleSelect, onNavigate }: {
       }),
     [tasks],
   )
+
+  // Grouped by task_type, preserving each group's first-appearance order
+  // in the already priority-sorted list -- a group containing a Critical
+  // task still surfaces above one that's entirely Low, same ordering
+  // principle the old flat list already had, just applied per-group
+  // instead of per-row.
+  const taskGroups = useMemo<TaskGroup[]>(() => {
+    const order: string[] = []
+    const byType = new Map<string, TaskDTO[]>()
+    for (const t of sortedTasks) {
+      if (!byType.has(t.task_type)) { byType.set(t.task_type, []); order.push(t.task_type) }
+      byType.get(t.task_type)!.push(t)
+    }
+    return order.map(taskType => ({ taskType, tasks: byType.get(taskType)! }))
+  }, [sortedTasks])
+
+  const [expandedGroups, setExpandedGroups] = useState<Set<string>>(new Set())
+  const toggleGroup = (taskType: string) => {
+    setExpandedGroups(prev => {
+      const next = new Set(prev)
+      if (next.has(taskType)) next.delete(taskType)
+      else next.add(taskType)
+      return next
+    })
+  }
 
   const recovrCount = tasks.filter(t => t.task_type === 'install_recovr_device').length
   const mddCount = tasks.filter(t => t.task_type === 'install_mdd_beacon').length
@@ -191,9 +283,17 @@ export default function Dashboard({ onVehicleSelect, onNavigate }: {
             fill-available-width behavior once the parent is bounded and
             non-scrolling again. */}
         <div className="flex-shrink-0 lg:flex-1 lg:overflow-y-auto space-y-5 min-w-0 lg:pr-1">
-          {/* Open Tasks */}
-          <div className="bg-white rounded-2xl border border-slate-100 overflow-hidden">
-            <div className="flex items-center justify-between px-4 py-3 border-b border-slate-50">
+          {/* Open Tasks -- grouped accordion by task_type (see TaskGroupRow
+              above). max-h + overflow-y-auto is unconditional (not just
+              lg+): with hundreds of vehicles inside one expanded group,
+              letting this card grow the whole page unboundedly would be
+              exactly the "thousands of pixels tall" problem this exists
+              to prevent, on mobile as much as desktop. A fixed max-height
+              is plain CSS, not flex-basis math, so it doesn't interact
+              with the page-level stacking/scroll logic elsewhere on this
+              screen the way a flex-shrink change would. */}
+          <div className="bg-white rounded-2xl border border-slate-100 overflow-hidden flex flex-col">
+            <div className="flex items-center justify-between px-4 py-3 border-b border-slate-50 flex-shrink-0">
               <div className="flex items-center gap-2">
                 <span className="text-[13px] font-semibold text-slate-900">Open Tasks</span>
                 <span className="bg-slate-100 text-slate-500 text-[11px] font-semibold px-2 py-0.5 rounded-full">
@@ -220,48 +320,19 @@ export default function Dashboard({ onVehicleSelect, onNavigate }: {
               <div className="px-4 py-8 text-center text-[13px] text-slate-400">No open tasks.</div>
             )}
 
-            <div>
-              {sortedTasks.slice(0, 8).map((task) => {
-                const p = priorityBadge[task.priority ?? ''] ?? priorityBadge.Low
-                return (
-                  <div
-                    key={task.task_id}
-                    className="relative flex items-center gap-3 px-4 py-3 border-b border-slate-50 last:border-0 hover:bg-slate-50/60 cursor-pointer transition-colors"
-                    onClick={() => onVehicleSelect(task.vin)}
-                  >
-                    <div className={`absolute left-0 top-0 bottom-0 w-[3px] ${p.bar}`} />
-                    <div className={`w-2 h-2 rounded-full flex-shrink-0 ${p.bar} ml-1`} />
-
-                    <div className="flex-1 min-w-0">
-                      <div className="flex items-center gap-2 flex-wrap">
-                        <span className="text-[13px] font-semibold text-slate-900 leading-snug">{humanize(task.task_type)}</span>
-                        <span className="text-[10px] font-mono text-blue-600 bg-blue-50 px-1.5 py-0.5 rounded font-medium">
-                          {task.vehicle?.stock_number ?? task.vin}
-                        </span>
-                      </div>
-                      <div className="flex items-center gap-2 mt-0.5 flex-wrap">
-                        {/* Demo Polish: don't claim "Vehicle details unavailable" when
-                            the reason line right next to it already names the vehicle
-                            (e.g. "...(2024 Chevrolet Colorado)") -- just omit this line
-                            when there's genuinely nothing else on file. */}
-                        {task.vehicle?.display_name && (
-                          <span className="text-[11px] text-slate-400">{task.vehicle.display_name}</span>
-                        )}
-                        {task.reason && <span className="text-[10px] text-slate-400">{task.reason}</span>}
-                      </div>
-                    </div>
-
-                    <div className="flex items-center gap-2 flex-shrink-0">
-                      {/* Demo Polish: priority is unset for most tasks today (no rule
-                          assigns it yet) -- showing "Low" implied a real classification
-                          that never happened. Omit the label rather than fabricate one. */}
-                      {task.priority && <span className={`text-[10px] font-semibold ${p.text}`}>{task.priority}</span>}
-                      <ChevronRight />
-                    </div>
-                  </div>
-                )
-              })}
-            </div>
+            {taskGroups.length > 0 && (
+              <div className="overflow-y-auto" style={{ maxHeight: '480px', scrollbarWidth: 'thin' }}>
+                {taskGroups.map(group => (
+                  <TaskGroupRow
+                    key={group.taskType}
+                    group={group}
+                    expanded={expandedGroups.has(group.taskType)}
+                    onToggle={() => toggleGroup(group.taskType)}
+                    onVehicleSelect={onVehicleSelect}
+                  />
+                ))}
+              </div>
+            )}
           </div>
 
           {/* Recommendations */}

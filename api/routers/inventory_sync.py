@@ -68,7 +68,17 @@ async def run_sync(
 
     file_paths = {}
     for source, upload in provided.items():
-        dest = os.path.join(batch_dir, upload.filename or f"{source}.csv")
+        # Never use the client-supplied filename as (or in) a filesystem
+        # path -- `source` is one of this router's own fixed dict keys
+        # above, not client input, so it's already a safe, unique
+        # destination name within batch_dir on its own. (Previously this
+        # was `upload.filename or f"{source}.csv"`, which let a crafted
+        # filename -- an absolute path, or "../.." traversal -- write
+        # outside batch_dir entirely; see PRE_DEPLOYMENT_REVIEW.md's
+        # Critical finding.) The original filename isn't needed as
+        # metadata anywhere downstream (SyncSummaryDTO carries none), so
+        # it's simply not used, rather than stored and left unused.
+        dest = os.path.join(batch_dir, f"{source}.csv")
         with open(dest, "wb") as f:
             f.write(await upload.read())
         file_paths[source] = dest

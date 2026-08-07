@@ -89,6 +89,30 @@ class RunSyncEndpointTest(ApiTestCase):
         vehicles = self.client.get("/vehicles").json()
         self.assertTrue(any(v["vin"] == "1TESTVIN000000001" for v in vehicles))
 
+    def test_malicious_filename_cannot_escape_the_upload_directory(self):
+        """Regression test for PRE_DEPLOYMENT_REVIEW.md's Critical finding:
+        a crafted client-supplied filename (path traversal) must never
+        influence where the uploaded file is written on disk."""
+        handle = open(TEKION_PATH, "rb")
+        self._open_files.append(handle)
+        files = {"tekion_unsold": ("../../../../evil.csv", handle, "text/csv")}
+        resp = self.client.post("/inventory-sync/run", files=files)
+        self.assertEqual(resp.status_code, 200)
+
+        written = [
+            os.path.join(root, name)
+            for root, _dirs, names in os.walk(inventory_sync.UPLOADS_DIR)
+            for name in names
+        ]
+        self.assertTrue(written, "expected at least one file written under UPLOADS_DIR")
+        for path in written:
+            self.assertEqual(
+                os.path.commonpath([inventory_sync.UPLOADS_DIR, path]),
+                os.path.normpath(inventory_sync.UPLOADS_DIR),
+            )
+        self.assertTrue(any(os.path.basename(p) == "tekion.csv" for p in written))
+        self.assertFalse(any("evil.csv" in p for p in written))
+
     def test_wrong_file_in_a_slot_fails_validation_before_persisting(self):
         # Keyper's own export dropped into the Tekion Unsold slot --
         # missing "Stock #"/"VIN #"/"Stocked In Date"/"Year Make Model".

@@ -5,10 +5,16 @@ alternate renderer (JSON over HTTP, a database write, etc.) without
 touching anything upstream in sync/ or rules/.
 """
 
+import os
+
 import pandas as pd
 
 
 def write_reports(outputs: dict, out_dir: str):
+    # out_dir isn't guaranteed to exist yet -- e.g. a fresh deployment's
+    # persistent disk has nothing on it until something creates it. Same
+    # convention as database/repository.py's connect() for LOTSYNC_DB_PATH.
+    os.makedirs(out_dir, exist_ok=True)
     for filename, df in outputs.items():
         df.to_csv(f"{out_dir}/{filename}", index=False)
 

@@ -18,10 +18,12 @@ reasoning.
 """
 
 import os
+import sqlite3
 
-from fastapi import FastAPI
+from fastapi import Depends, FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
+from lotsync.api.dependencies import get_db
 from lotsync.api.routers import activity, dashboard, inventory_sync, recommendations, reports, tasks, vehicles
 
 app = FastAPI(
@@ -29,6 +31,17 @@ app = FastAPI(
     description="See API_CONTRACTS.md for the DTOs this serves.",
     version="0.2.0",
 )
+
+
+# Deployment health check (Render's health check path, and a quick
+# post-deploy sanity check -- see DEPLOYMENT.md). Goes through the same
+# get_db()/connect() path every real route uses, so a DB the app can't
+# reach or write to (e.g. a misconfigured/unmounted persistent disk)
+# fails this too, not just a bare "process is running" check.
+@app.get("/health")
+def health(conn: sqlite3.Connection = Depends(get_db)) -> dict:
+    conn.execute("SELECT 1")
+    return {"status": "ok"}
 
 # Phase 3, Sprint 3 -- the frontend (Vite dev server, a different origin)
 # calls this API directly from the browser for the first time. Not a

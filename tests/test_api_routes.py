@@ -39,6 +39,13 @@ class ApiTestCase(unittest.TestCase):
         self.conn.close()
 
 
+class HealthEndpointTest(ApiTestCase):
+    def test_health_returns_ok(self):
+        resp = self.client.get("/health")
+        self.assertEqual(resp.status_code, 200)
+        self.assertEqual(resp.json(), {"status": "ok"})
+
+
 class DashboardEndpointTest(ApiTestCase):
     def test_empty_dataset_returns_valid_zeroed_shape(self):
         resp = self.client.get("/dashboard")

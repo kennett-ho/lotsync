@@ -1,0 +1,63 @@
+# Render Blueprint for the LotSync backend (FastAPI). Optional
+# convenience for a one-shot "New Blueprint Instance" deploy -- every
+# setting here can equally be entered by hand in Render's "New Web
+# Service" wizard if Render's current Blueprint schema ever drifts from
+# what's written here; see DEPLOYMENT.md for the manual step-by-step,
+# which is kept as the primary, guaranteed-current instructions.
+#
+# Frontend (Vercel) is not part of this file -- Vercel doesn't consume
+# render.yaml, and is configured separately (see frontend/vercel.json
+# and DEPLOYMENT.md).
+#
+# Why the start command looks unusual: every backend module in this
+# repo imports as `from lotsync.x import y` (see api/app.py,
+# main.py, etc.), which only resolves because local development runs
+# with PYTHONPATH set to the repo's *parent* directory, and the repo
+# checkout itself happens to be a folder literally named `lotsync` --
+# see README.md's PYTHONPATH=.. convention. Render's checkout directory
+# is not named `lotsync`, so the same import convention would fail
+# there without help. Rather than rewrite every `from lotsync...` import
+# in the codebase (a large, unnecessary refactor for a deploy-only
+# problem), the start command recreates the same layout Python already
+# expects: a symlink named `lotsync` pointing at the actual checkout,
+# with its parent directory added to PYTHONPATH. This was verified
+# locally (see PRE_DEPLOYMENT_REVIEW.md-adjacent deployment prep notes)
+# before being written here -- it is not a guess.
+services:
+  - type: web
+    name: lotsync-api
+    env: python
+    region: oregon
+    plan: starter # persistent disk (below) requires a paid plan -- see DEPLOYMENT.md
+    branch: master
+    buildCommand: pip install -r requirements.txt
+    startCommand: >-
+      mkdir -p /tmp/pypath &&
+      ln -sfn "$PWD" /tmp/pypath/lotsync &&
+      PYTHONPATH=/tmp/pypath uvicorn lotsync.api.app:app --host 0.0.0.0 --port $PORT
+    healthCheckPath: /health
+    autoDeploy: true
+    disk:
+      name: lotsync-data
+      mountPath: /var/data
+      sizeGB: 1
+    envVars:
+      - key: LOTSYNC_DB_PATH
+        value: /var/data/lotsync.db
+      - key: LOTSYNC_CONFIG_PATH
+        value: /var/data/oms_config.xlsx
+      - key: LOTSYNC_API_UPLOADS_DIR
+        value: /var/data/api_uploads
+      - key: LOTSYNC_OUT_DIR
+        value: /var/data/outputs
+      - key: LOTSYNC_UPLOADS_DIR
+        value: /var/data/uploads
+      - key: LOTSYNC_CORS_ORIGINS
+        # Placeholder -- update to the real Vercel URL after the
+        # frontend is deployed (see DEPLOYMENT.md's ordering). A
+        # placeholder here means no browser origin can call the API
+        # until this is set for real; that's intentional (safe default,
+        # not a broken one).
+        value: https://REPLACE-WITH-YOUR-VERCEL-URL.vercel.app
+      - key: PYTHON_VERSION
+        value: "3.12.0"

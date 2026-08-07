@@ -196,9 +196,9 @@ export default function InventorySync(): JSX.Element {
   }
 
   return (
-    <div className="min-h-screen bg-slate-50 flex flex-col">
+    <div className="h-full flex flex-col bg-slate-50 overflow-hidden">
       {/* Page Header */}
-      <div className="bg-white border-b border-slate-100 px-6 py-4">
+      <div className="bg-white border-b border-slate-100 px-6 py-4 flex-shrink-0">
         <div className="flex items-center justify-between">
           <div>
             <h1 className="text-[22px] font-bold text-slate-900 leading-tight">Inventory Sync</h1>
@@ -224,7 +224,7 @@ export default function InventorySync(): JSX.Element {
         </div>
       </div>
 
-      <div className="flex-1 px-6 py-5 flex flex-col gap-5">
+      <div className="flex-1 min-h-0 overflow-y-auto px-6 py-5 flex flex-col gap-5">
         {/* Upload Reports */}
         <div className="bg-white rounded-2xl border border-slate-100 p-4">
           <p className="text-[11px] font-semibold text-slate-400 uppercase tracking-wider mb-3">

@@ -8,6 +8,10 @@
 // source of the "nan days" text dealership staff were seeing (root
 // cause fixed in sync/reconciler.py; sanitize() below is a frontend
 // safety net on top of that, not a substitute for it).
+//
+// Descriptions answer "why is this work on today's queue," not "what
+// business rule created this" -- no thresholds, standing-policy names,
+// reconciliation/sync terminology, or "generated because" phrasing.
 
 import type { TaskDTO } from './api/types'
 
@@ -16,30 +20,37 @@ export interface TaskDisplay {
   title: string
   /** Plural, used as a Dashboard group header ("Install RecovR Devices"). Falls back to `title` when no natural plural exists. */
   groupTitle: string
-  /** One short sentence answering "why am I looking at this" -- no thresholds, rule names, or raw sync wording. */
+  /** One short sentence answering "why is this work on today's queue" -- no thresholds, rule names, or raw sync wording. */
   description: string
 }
 
+// Subject-free on purpose ("Waiting for..." not "These vehicles are
+// waiting for..."): describeTask() is shared between the Dashboard
+// group header (describing many vehicles at once) and Vehicle Detail's
+// per-task card (describing one task on the vehicle already on screen)
+// -- a "these vehicles"/"this vehicle" subject would read naturally in
+// only one of those two places. Dropping the subject entirely reads
+// correctly in both.
 const TASK_TYPE_DISPLAY: Record<string, TaskDisplay> = {
   install_recovr_device: {
     title: 'Install RecovR Device',
     groupTitle: 'Install RecovR Devices',
-    description: 'Vehicle is in inventory but no paired RecovR device has been detected.',
+    description: 'Waiting for a RecovR installation.',
   },
   install_mdd_beacon: {
     title: 'Install MDD Beacon',
     groupTitle: 'Install MDD Beacons',
-    description: 'Vehicle is missing an MDD beacon.',
+    description: 'Missing an MDD beacon.',
   },
   investigate_key_for_recovr: {
     title: 'Investigate Key For RecovR',
     groupTitle: 'Investigate Key For RecovR',
-    description: 'RecovR device is missing and the key is checked out. Installation is blocked until the key is available.',
+    description: 'RecovR device is missing, and the key is checked out, which is blocking installation.',
   },
   investigate_checked_out_key: {
     title: 'Investigate Checked Out Key',
     groupTitle: 'Investigate Checked Out Keys',
-    description: 'Key has been checked out for more than 3 days. Keys are typically returned within 1–2 days.',
+    description: 'Key has been checked out longer than expected.',
   },
 }
 
@@ -66,4 +77,33 @@ export function describeTask(t: TaskDTO): TaskDisplay {
     groupTitle: title,
     description: t.reason ? sanitize(t.reason) : 'No additional detail recorded.',
   }
+}
+
+// Per-vehicle operational detail line for an expanded task row (e.g.
+// "Key checked out 4 days ago"). Only the two Keyper-involving task
+// types have a per-vehicle number worth surfacing this way; the two
+// install task types have nothing that varies vehicle-to-vehicle
+// beyond what the group description already says, so they intentionally
+// get no line here rather than a duplicated/invented one.
+//
+// This is the one place in the frontend that still reads Task.reason
+// for a KNOWN task_type -- there's no structured field for "how many
+// days" on TaskDTO (Task.reason is the only place it lives), so this
+// is presentation-layer parsing of already-clean text (post the
+// sync/reconciler.py NaN fix), not a new coupling to raw sync wording.
+// Matches only "<digits> day(s)" with a space (e.g. "4 days"), which
+// deliberately does not match the hyphenated "3-day investigate
+// threshold" phrase also present in investigate_checked_out_key's
+// reason text -- that's rule wording, never surfaced here.
+function parseDaysOut(reason: string | null): number | null {
+  if (!reason) return null
+  const match = reason.match(/(\d+)\s+days?\b/i)
+  return match ? parseInt(match[1], 10) : null
+}
+
+export function describeTaskDetail(t: TaskDTO): string | undefined {
+  if (t.task_type !== 'investigate_checked_out_key' && t.task_type !== 'investigate_key_for_recovr') return undefined
+  const days = parseDaysOut(t.reason)
+  if (days == null) return undefined
+  return `Key checked out ${days} day${days === 1 ? '' : 's'} ago`
 }

@@ -24,7 +24,8 @@ import { getRecommendations } from '../api/recommendations'
 import { useApi } from '../api/useApi'
 import { isBackendUnavailable } from '../api/client'
 import type { TaskDTO, RecommendationDTO } from '../api/types'
-import { describeTask } from '../taskDisplay'
+import { describeTask, describeTaskDetail } from '../taskDisplay'
+import { describeEvent } from '../eventDisplay'
 
 // Same PRIORITY_RANK / priorityBadge palette as Tasks.tsx -- kept in
 // sync deliberately so a task looks the same wherever it appears.
@@ -129,16 +130,23 @@ function TaskGroupRow({ group, expanded, onToggle, onVehicleSelect }: {
 
   return (
     <div className="border-b border-slate-50 last:border-0">
-      <button onClick={onToggle}
-        className="relative w-full flex items-center gap-3 px-4 py-3 text-left hover:bg-slate-50/60 transition-colors">
+      {/* A dispatch card, not a disclosure triangle: title + count up
+          top, the operational "why" as its own line, and an explicit
+          "View/Hide Vehicles" label as the affordance -- not just a
+          bare chevron -- so this reads as a work order a dispatcher
+          opens, not a database row they expand. */}
+      <button onClick={onToggle} className="relative w-full text-left px-4 py-3 hover:bg-slate-50/60 transition-colors">
         <div className={`absolute left-0 top-0 bottom-0 w-[3px] ${p.bar}`} />
-        <ChevronExpand expanded={expanded} />
-        <div className="flex-1 min-w-0">
+        <div className="flex items-center justify-between gap-2">
           <span className="text-[13px] font-semibold text-slate-900">{display.groupTitle}</span>
-          <p className="text-[11px] text-slate-400 mt-0.5 leading-snug">{display.description}</p>
+          <span className="flex-shrink-0 text-[11px] font-semibold text-slate-500 bg-slate-100 px-2 py-0.5 rounded-full">
+            {group.tasks.length} vehicle{group.tasks.length === 1 ? '' : 's'}
+          </span>
         </div>
-        <span className="flex-shrink-0 text-[11px] font-semibold text-slate-500 bg-slate-100 px-2 py-0.5 rounded-full">
-          {group.tasks.length} vehicle{group.tasks.length === 1 ? '' : 's'}
+        <p className="text-[12px] text-slate-500 mt-0.5 leading-snug">{display.description}</p>
+        <span className="inline-flex items-center gap-1 text-[11px] font-semibold text-blue-600 mt-1.5">
+          <ChevronExpand expanded={expanded} />
+          {expanded ? 'Hide Vehicles' : 'View Vehicles'}
         </span>
       </button>
 
@@ -146,17 +154,22 @@ function TaskGroupRow({ group, expanded, onToggle, onVehicleSelect }: {
         <div className="bg-slate-50/50 divide-y divide-slate-100">
           {group.tasks.map(task => {
             const tp = priorityBadge[task.priority ?? ''] ?? priorityBadge.Low
+            const detail = describeTaskDetail(task)
             return (
               <div key={task.task_id} onClick={() => onVehicleSelect(task.vin)}
-                className="flex items-center gap-3 pl-9 pr-4 py-2.5 hover:bg-white cursor-pointer transition-colors">
-                <span className="text-[10px] font-mono text-blue-600 bg-blue-50 px-1.5 py-0.5 rounded font-medium flex-shrink-0">
-                  {task.vehicle?.stock_number ?? task.vin}
+                className="flex items-center justify-between gap-3 pl-9 pr-4 py-3 hover:bg-white cursor-pointer transition-colors">
+                <div className="min-w-0">
+                  <div className="flex items-center gap-2 flex-wrap">
+                    <span className="text-[13px] font-semibold text-slate-900">{task.vehicle?.display_name ?? 'Vehicle'}</span>
+                    {task.priority && <span className={`text-[10px] font-semibold ${tp.text}`}>{task.priority}</span>}
+                  </div>
+                  <p className="text-[11px] text-slate-500 mt-0.5">Stock {task.vehicle?.stock_number ?? task.vin}</p>
+                  {detail && <p className="text-[11px] text-slate-500 mt-0.5">{detail}</p>}
+                </div>
+                <span className="flex-shrink-0 flex items-center gap-1 text-[11px] font-semibold text-blue-600">
+                  View Vehicle
+                  <ChevronRight />
                 </span>
-                {task.vehicle?.display_name && (
-                  <span className="text-[12px] text-slate-600 truncate flex-1 min-w-0">{task.vehicle.display_name}</span>
-                )}
-                {task.priority && <span className={`text-[10px] font-semibold flex-shrink-0 ${tp.text}`}>{task.priority}</span>}
-                <ChevronRight />
               </div>
             )
           })}
@@ -388,46 +401,11 @@ export default function Dashboard({ onVehicleSelect, onNavigate }: {
           </div>
         </div>
 
-        {/* Right column */}
+        {/* Right column -- System Health before Recent Activity: health is
+            current operational state (closer to Open Tasks/Recommendations
+            in relevance), Recent Activity is historical context, ranked
+            last per the intended hierarchy. */}
         <div className="w-full lg:w-72 flex-shrink-0 lg:overflow-y-auto space-y-4 min-h-0">
-          {/* Recent Activity */}
-          <div className="bg-white rounded-2xl border border-slate-100 p-4">
-            <div className="flex items-center justify-between mb-3">
-              <span className="text-[13px] font-semibold text-slate-900">Recent Activity</span>
-            </div>
-
-            {dashboardState.status === 'error' && (
-              <p className="text-[12px] text-slate-400">
-                {isBackendUnavailable(dashboardState.error) ? 'The LotSync API is unreachable.' : 'Could not load activity.'}
-              </p>
-            )}
-            {dashboardState.status === 'loading' && <p className="text-[12px] text-slate-400">Loading…</p>}
-            {dashboardState.status === 'success' && recentActivity.length === 0 && (
-              <p className="text-[12px] text-slate-400">No activity recorded yet.</p>
-            )}
-
-            <div>
-              {recentActivity.slice(0, 8).map((entry) => (
-                <div key={entry.event_id} className="flex items-start gap-2.5 py-1.5">
-                  <div className="flex-shrink-0 mt-[5px]">
-                    <div className="w-1.5 h-1.5 rounded-full bg-blue-400" />
-                  </div>
-                  <div className="flex-1 min-w-0">
-                    <div className="flex items-center gap-1.5 flex-wrap">
-                      <span className="text-[10px] font-mono text-slate-400">{formatTimestamp(entry.event_time ?? entry.observed_at)}</span>
-                      {entry.vehicle?.stock_number && (
-                        <span className="text-[10px] font-mono text-blue-500 bg-blue-50 px-1 rounded">
-                          {entry.vehicle.stock_number}
-                        </span>
-                      )}
-                    </div>
-                    <div className="text-[12px] text-slate-700 leading-snug mt-0.5">{entry.summary ?? entry.event_type}</div>
-                  </div>
-                </div>
-              ))}
-            </div>
-          </div>
-
           {/* Sync Health */}
           <div className="bg-white rounded-2xl border border-slate-100 p-4">
             <div className="flex items-center justify-between mb-3">
@@ -501,6 +479,45 @@ export default function Dashboard({ onVehicleSelect, onNavigate }: {
                   <path d="M2.5 6h7M6.5 3l3 3-3 3" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"/>
                 </svg>
               </button>
+            </div>
+          </div>
+
+          {/* Recent Activity -- historical context, not actionable, so it
+              ranks last in this column (see the right-column comment above). */}
+          <div className="bg-white rounded-2xl border border-slate-100 p-4">
+            <div className="flex items-center justify-between mb-3">
+              <span className="text-[13px] font-semibold text-slate-900">Recent Activity</span>
+            </div>
+
+            {dashboardState.status === 'error' && (
+              <p className="text-[12px] text-slate-400">
+                {isBackendUnavailable(dashboardState.error) ? 'The LotSync API is unreachable.' : 'Could not load activity.'}
+              </p>
+            )}
+            {dashboardState.status === 'loading' && <p className="text-[12px] text-slate-400">Loading…</p>}
+            {dashboardState.status === 'success' && recentActivity.length === 0 && (
+              <p className="text-[12px] text-slate-400">No activity recorded yet.</p>
+            )}
+
+            <div>
+              {recentActivity.slice(0, 8).map((entry) => (
+                <div key={entry.event_id} className="flex items-start gap-2.5 py-1.5">
+                  <div className="flex-shrink-0 mt-[5px]">
+                    <div className="w-1.5 h-1.5 rounded-full bg-blue-400" />
+                  </div>
+                  <div className="flex-1 min-w-0">
+                    <div className="flex items-center gap-1.5 flex-wrap">
+                      <span className="text-[10px] font-mono text-slate-400">{formatTimestamp(entry.event_time ?? entry.observed_at)}</span>
+                      {entry.vehicle?.stock_number && (
+                        <span className="text-[10px] font-mono text-blue-500 bg-blue-50 px-1 rounded">
+                          {entry.vehicle.stock_number}
+                        </span>
+                      )}
+                    </div>
+                    <div className="text-[12px] text-slate-700 leading-snug mt-0.5">{describeEvent(entry).title}</div>
+                  </div>
+                </div>
+              ))}
             </div>
           </div>
         </div>

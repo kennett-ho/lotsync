@@ -124,6 +124,14 @@ function Sidebar({ activeNav, onNav, mobileOpen, onCloseMobile }: {
             </svg>
           </button>
         </div>
+
+        {/* A tiny, tasteful signature -- not branding. Sits beneath the
+            nav/profile block so it never competes with anything
+            interactive; low enough contrast (white/15 at 9px) to read
+            as an easter egg, not a footer. */}
+        <div className="px-4 pb-3 pt-1 flex-shrink-0">
+          <p className="text-[9px] text-white/15 leading-tight select-none">Developed by Kennett Ho</p>
+        </div>
       </aside>
     </>
   )

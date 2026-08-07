@@ -24,6 +24,8 @@ import type {
 } from './api/types'
 import { taskStatusDisplay } from './taskStatus'
 import { describeEvent } from './eventDisplay'
+import { describeTask } from './taskDisplay'
+import { describeRecommendationDetail } from './recommendationDisplay'
 
 // ─── Icons ────────────────────────────────────────────────────────────────────
 
@@ -60,6 +62,10 @@ const keyperTone = (s: string | null): Tone =>
   s === null ? 'neutral' : s === 'In' ? 'green' : 'amber'
 const pairedTone = (s: string | null): Tone =>
   s === null ? 'neutral' : s === 'paired' ? 'green' : 'red'
+// mdd_status/recovr_status are stored as 'paired'/'not_paired' -- fine
+// as a backend value, not as text a dealership employee should read
+// verbatim (the underscore especially).
+const pairedLabel = (s: string): string => s === 'paired' ? 'Paired' : 'Not Paired'
 
 const systemColor: Record<string, string> = {
   lot: 'bg-slate-100 text-slate-600',
@@ -78,11 +84,6 @@ const SOURCE_LABEL: Record<string, string> = {
 }
 function sourceLabel(source: string): string {
   return SOURCE_LABEL[source] ?? source
-}
-
-function humanizeTaskType(taskType: string): string {
-  const words = taskType.replace(/_/g, ' ').replace(/\b\w/g, c => c.toUpperCase())
-  return words.replace(/\bRecovr\b/, 'RecovR').replace(/\bMdd\b/, 'MDD')
 }
 
 // See ./taskStatus.ts -- shared with Tasks.tsx so both screens use
@@ -179,20 +180,20 @@ function LeftPanel({ vehicle }: { vehicle: VehicleDetailDTO }) {
         <div className="text-[11px] font-bold text-slate-500 uppercase tracking-wider mb-3">System Status</div>
         <div className="space-y-2">
           {[
-            { label: 'Tekion', value: vehicle.tekion_status, tone: tekionTone(vehicle.tekion_status) },
-            { label: 'Keyper', value: vehicle.keyper_status, tone: keyperTone(vehicle.keyper_status) },
-            { label: 'MDD',    value: vehicle.mdd_status,    tone: pairedTone(vehicle.mdd_status) },
-            { label: 'RecovR', value: vehicle.recovr_status, tone: pairedTone(vehicle.recovr_status) },
+            { label: 'Tekion', value: vehicle.tekion_status, display: vehicle.tekion_status, tone: tekionTone(vehicle.tekion_status) },
+            { label: 'Keyper', value: vehicle.keyper_status, display: vehicle.keyper_status, tone: keyperTone(vehicle.keyper_status) },
+            { label: 'MDD',    value: vehicle.mdd_status,    display: vehicle.mdd_status && pairedLabel(vehicle.mdd_status),    tone: pairedTone(vehicle.mdd_status) },
+            { label: 'RecovR', value: vehicle.recovr_status, display: vehicle.recovr_status && pairedLabel(vehicle.recovr_status), tone: pairedTone(vehicle.recovr_status) },
           ].map(row => (
             <div key={row.label} className="flex items-center justify-between">
               <span className="text-[12px] text-slate-600">{row.label}</span>
               {row.value === null
                 ? <span className="text-slate-300 text-[11px]">—</span>
                 : row.tone === 'green'
-                ? <span className="flex items-center gap-1 text-emerald-600 text-[11px] font-semibold">{I.check} {row.value}</span>
+                ? <span className="flex items-center gap-1 text-emerald-600 text-[11px] font-semibold">{I.check} {row.display}</span>
                 : row.tone === 'red'
-                ? <span className="text-red-600 text-[11px] font-semibold">{row.value}</span>
-                : <span className="text-amber-600 text-[11px] font-semibold">{row.value}</span>
+                ? <span className="text-red-600 text-[11px] font-semibold">{row.display}</span>
+                : <span className="text-amber-600 text-[11px] font-semibold">{row.display}</span>
               }
             </div>
           ))}
@@ -301,7 +302,10 @@ function SysCardHeader({ name, status, tone }: { name: string; status: string; t
         <span className="text-[13px] font-bold">{sourceLabel(name)}</span>
       </div>
       <div className="flex items-center gap-1.5">
-        <span className="text-[11px] font-semibold capitalize">{status}</span>
+        {/* CSS capitalize only touches the first letter of each
+            whitespace-separated word -- "in_progress" has no spaces, so
+            without the replace this rendered as "In_progress" verbatim. */}
+        <span className="text-[11px] font-semibold capitalize">{status.replace(/_/g, ' ')}</span>
         <button className="opacity-50 hover:opacity-100 transition-opacity">{I.external}</button>
       </div>
     </div>
@@ -382,7 +386,7 @@ function TasksPanel({ tasks }: { tasks: TaskDTO[] }) {
 
       {tasks.length === 0 ? (
         <div className="flex items-center gap-2 py-3 text-[12px] text-slate-400">
-          <span className="text-emerald-500">{I.check}</span> No tasks generated for this vehicle.
+          <span className="text-emerald-500">{I.check}</span> No tasks for this vehicle right now.
         </div>
       ) : (
         // Below lg: cards stack full-width (no horizontal scroll). lg+:
@@ -395,6 +399,7 @@ function TasksPanel({ tasks }: { tasks: TaskDTO[] }) {
             // happened. Styling still falls back to the neutral/low
             // treatment; the text label itself only shows when real.
             const uc = task.priority ? (urgencyConfig[task.priority.toLowerCase()] ?? urgencyConfig.low) : urgencyConfig.low
+            const display = describeTask(task)
             return (
               <div key={task.task_id} className={`w-full lg:w-64 lg:flex-shrink-0 rounded-xl border p-3.5 ${uc.border} ${uc.bg}`}>
                 <div className={`h-0.5 w-full rounded-full mb-3 ${uc.bar}`} />
@@ -402,8 +407,8 @@ function TasksPanel({ tasks }: { tasks: TaskDTO[] }) {
                   {task.priority && <span className={`text-[10px] font-bold px-1.5 py-0.5 rounded ${uc.badge}`}>{uc.label}</span>}
                   <span className="text-[10px] font-semibold text-slate-500">{deriveTaskStatusLabel(task)}</span>
                 </div>
-                <p className="text-[12px] font-bold text-slate-900 leading-snug mb-1">{humanizeTaskType(task.task_type)}</p>
-                {task.reason && <p className="text-[11px] text-slate-500 leading-relaxed">{task.reason}</p>}
+                <p className="text-[12px] font-bold text-slate-900 leading-snug mb-1">{display.title}</p>
+                <p className="text-[11px] text-slate-500 leading-relaxed">{display.description}</p>
               </div>
             )
           })}
@@ -427,7 +432,6 @@ function OperationalInsights({ recommendations }: { recommendations: Recommendat
         <span className="text-[10px] font-bold text-blue-600 bg-blue-50 border border-blue-100 px-1.5 py-0.5 rounded-full">
           {open.length} active
         </span>
-        <span className="text-[11px] text-slate-400 ml-1">· From the Recommendation engine</span>
       </div>
 
       {open.length === 0 ? (
@@ -448,8 +452,16 @@ function OperationalInsights({ recommendations }: { recommendations: Recommendat
                 <div className="flex items-center gap-1.5 mb-1.5">
                   {rec.severity && <span className={`text-[10px] font-bold px-1.5 py-0.5 rounded ${uc.badge}`}>{uc.label}</span>}
                 </div>
-                <p className="text-[12px] font-bold text-slate-900 leading-snug mb-1">{rec.title ?? rec.rule_source}</p>
-                {rec.detail && <p className="text-[11px] text-slate-500 leading-relaxed mb-3">{rec.detail}</p>}
+                {/* rule_source (e.g. "key_out_aging") is a backend rule
+                    identifier, not display copy -- rec.title is always
+                    set by the one recommendation this project currently
+                    generates, but this stays a safe fallback rather than
+                    ever showing that raw identifier if a future rule
+                    forgets to set one. */}
+                <p className="text-[12px] font-bold text-slate-900 leading-snug mb-1">{rec.title ?? 'Recommendation'}</p>
+                {describeRecommendationDetail(rec) && (
+                  <p className="text-[11px] text-slate-500 leading-relaxed mb-3">{describeRecommendationDetail(rec)}</p>
+                )}
                 <div className="flex items-center gap-1.5 flex-wrap">
                   <button disabled title="Coming soon -- write APIs are out of this sprint's scope"
                     className="text-[11px] font-bold px-2.5 py-1 rounded-md border border-blue-200 bg-white text-blue-300 cursor-not-allowed flex items-center gap-1">

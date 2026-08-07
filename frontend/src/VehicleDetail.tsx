@@ -23,6 +23,7 @@ import type {
   ActivityDTO, ConnectedSystemStatusDTO, RecommendationDTO, TaskDTO, VehicleDetailDTO,
 } from './api/types'
 import { taskStatusDisplay } from './taskStatus'
+import { describeEvent } from './eventDisplay'
 
 // ─── Icons ────────────────────────────────────────────────────────────────────
 
@@ -247,6 +248,7 @@ function Timeline({ events }: { events: ActivityDTO[] }) {
             <div className="space-y-0">
               {sorted.map((ev) => {
                 const { date, time } = formatDateTime(ev.event_time ?? ev.observed_at)
+                const { title, detail } = describeEvent(ev)
                 return (
                   <div key={ev.event_id} className="relative flex gap-4 group">
                     <div className="flex-shrink-0 relative z-10 mt-3">
@@ -264,9 +266,12 @@ function Timeline({ events }: { events: ActivityDTO[] }) {
                           {time && <div className="text-[10px] font-mono text-slate-500 font-semibold">{time}</div>}
                         </div>
                       </div>
-                      <p className="text-[13px] font-bold leading-snug mb-1 text-slate-900">
-                        {ev.summary ?? ev.event_type}
+                      <p className="text-[13px] font-bold leading-snug text-slate-900">
+                        {title}
                       </p>
+                      {detail && (
+                        <p className="text-[11px] text-slate-400 leading-snug mt-0.5">{detail}</p>
+                      )}
                     </div>
                   </div>
                 )

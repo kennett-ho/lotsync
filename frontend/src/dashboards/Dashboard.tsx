@@ -205,7 +205,7 @@ export default function Dashboard({ onVehicleSelect, onNavigate }: {
               <div className="px-4 py-8 text-center text-[13px] text-slate-400">Loading tasks…</div>
             )}
             {tasksState.status === 'success' && tasks.length === 0 && (
-              <div className="px-4 py-8 text-center text-[13px] text-slate-400">No outstanding tasks.</div>
+              <div className="px-4 py-8 text-center text-[13px] text-slate-400">No open tasks.</div>
             )}
 
             <div>

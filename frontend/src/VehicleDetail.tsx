@@ -22,6 +22,7 @@ import { ApiError, isBackendUnavailable } from './api/client'
 import type {
   ActivityDTO, ConnectedSystemStatusDTO, RecommendationDTO, TaskDTO, VehicleDetailDTO,
 } from './api/types'
+import { taskStatusDisplay } from './taskStatus'
 
 // ─── Icons ────────────────────────────────────────────────────────────────────
 
@@ -83,21 +84,10 @@ function humanizeTaskType(taskType: string): string {
   return words.replace(/\bRecovr\b/, 'RecovR').replace(/\bMdd\b/, 'MDD')
 }
 
+// See ./taskStatus.ts -- shared with Tasks.tsx so both screens use
+// identical end-user wording for the same backend commitment_standing value.
 function deriveTaskStatusLabel(t: TaskDTO): string {
-  switch (t.commitment_standing) {
-    case 'honored':    return 'Honored'
-    case 'moot':       return 'Moot'
-    case 'cancelled':  return 'Cancelled'
-    case 'superseded': return 'Superseded'
-    default:
-      switch (t.execution_status) {
-        case 'not_started': return 'Outstanding'
-        case 'in_progress':  return 'In Progress'
-        case 'blocked':      return 'Blocked'
-        case 'completed':    return 'Waiting Verification'
-        default:             return t.execution_status
-      }
-  }
+  return taskStatusDisplay(t).label
 }
 
 const urgencyConfig: Record<string, { bar: string; border: string; bg: string; badge: string; label: string }> = {

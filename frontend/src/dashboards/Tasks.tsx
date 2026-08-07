@@ -48,6 +48,7 @@ import { getTasks } from '../api/tasks'
 import { useApi } from '../api/useApi'
 import { isBackendUnavailable } from '../api/client'
 import type { TaskDTO } from '../api/types'
+import { commitmentStandingLabel, taskStatusDisplay, type StatusTone } from '../taskStatus'
 
 // Placeholder for "the current user" until Phase 3 authentication
 // exists -- matches the rest of this prototype's hardcoded identity.
@@ -63,27 +64,11 @@ function humanize(taskType: string): string {
 }
 
 // ─── Display-status derivation (read-only; never written back) ────────────────
+// See ../taskStatus.ts -- shared with VehicleDetail.tsx so both screens use
+// identical end-user wording for the same backend commitment_standing value.
+const deriveDisplayStatus = taskStatusDisplay
 
-type Tone = 'slate' | 'blue' | 'amber' | 'green'
-
-function deriveDisplayStatus(t: TaskDTO): { label: string; tone: Tone } {
-  switch (t.commitment_standing) {
-    case 'honored':    return { label: 'Honored', tone: 'green' }
-    case 'moot':       return { label: 'Moot', tone: 'slate' }
-    case 'cancelled':  return { label: 'Cancelled', tone: 'slate' }
-    case 'superseded': return { label: 'Superseded', tone: 'slate' }
-    default:
-      switch (t.execution_status) {
-        case 'not_started': return { label: 'Outstanding', tone: 'slate' }
-        case 'in_progress':  return { label: 'In Progress', tone: 'blue' }
-        case 'blocked':      return { label: 'Blocked', tone: 'amber' }
-        case 'completed':    return { label: 'Waiting Verification', tone: 'amber' }
-        default:             return { label: t.execution_status, tone: 'slate' }
-      }
-  }
-}
-
-const toneClasses: Record<Tone, string> = {
+const toneClasses: Record<StatusTone, string> = {
   slate: 'text-slate-400',
   blue: 'text-blue-600 font-semibold',
   amber: 'text-amber-600 font-semibold',
@@ -116,7 +101,13 @@ function formatDateTime(iso: string | null): string {
 
 // ─── Sidebar ──────────────────────────────────────────────────────────────────
 
-type QueueFilter = 'all' | 'my' | 'standing-policy' | 'human-ratified' | 'verification' | 'completed-today'
+// 'active' (the default queue) is scoped to commitment_standing === 'outstanding'
+// -- the Tasks page represents today's work, not a historical log (see
+// PRODUCT.md). Discharged tasks (honored/moot/cancelled/superseded) are
+// preserved in the database exactly as before and remain visible via the
+// 'completed' queue below, still individually labeled by deriveDisplayStatus
+// -- never collapsed into one generic status.
+type QueueFilter = 'active' | 'my' | 'standing-policy' | 'human-ratified' | 'verification' | 'completed-today' | 'completed'
 type SidebarFilter =
   | { type: 'queue'; value: QueueFilter }
   | { type: 'department'; value: string }
@@ -125,12 +116,16 @@ type SidebarFilter =
 function matchesFilter(t: TaskDTO, f: SidebarFilter): boolean {
   if (f.type === 'queue') {
     switch (f.value) {
-      case 'all':              return true
-      case 'my':                return t.assigned_employee_id === CURRENT_EMPLOYEE_ID
-      case 'standing-policy':   return t.ratification_type !== 'human'
-      case 'human-ratified':    return t.ratification_type === 'human'
+      case 'active':            return t.commitment_standing === 'outstanding'
+      // These are slices of the operational queue, not the historical log --
+      // scoped to outstanding for the same reason 'active' is, so "My Tasks"
+      // etc. don't silently mix in already-discharged work.
+      case 'my':                return t.commitment_standing === 'outstanding' && t.assigned_employee_id === CURRENT_EMPLOYEE_ID
+      case 'standing-policy':   return t.commitment_standing === 'outstanding' && t.ratification_type !== 'human'
+      case 'human-ratified':    return t.commitment_standing === 'outstanding' && t.ratification_type === 'human'
       case 'verification':      return t.commitment_standing === 'outstanding' && t.execution_status === 'completed'
       case 'completed-today':   return isCompletedToday(t)
+      case 'completed':         return t.commitment_standing !== 'outstanding'
     }
   }
   if (f.type === 'department') return t.department === f.value
@@ -180,12 +175,22 @@ function Sidebar({ tasks, filter, onFilter }: { tasks: TaskDTO[]; filter: Sideba
     <aside className="flex-shrink-0 w-48 bg-white border-r border-slate-200 flex flex-col py-3 overflow-y-auto" style={{ scrollbarWidth: 'none' }}>
       {section('Queue')}
       <div className="px-2 space-y-0.5">
-        <Btn label="All Tasks"           f={{ type: 'queue', value: 'all' }} />
+        <Btn label="Active Tasks"        f={{ type: 'queue', value: 'active' }} />
         <Btn label="My Tasks"            f={{ type: 'queue', value: 'my' }} />
         <Btn label="Standing Policy"     f={{ type: 'queue', value: 'standing-policy' }} />
         <Btn label="Ratified by Person"  f={{ type: 'queue', value: 'human-ratified' }} />
         <Btn label="Verification Needed" f={{ type: 'queue', value: 'verification' }} warn />
-        <Btn label="Completed Today"     f={{ type: 'queue', value: 'completed-today' }} />
+      </div>
+
+      {section('History')}
+      <div className="px-2 space-y-0.5">
+        {/* "Closed" (not "Completed") -- this bucket holds every discharged
+            task, and "Completed" is now the specific display label for
+            honored tasks alone (see ../taskStatus.ts). Reusing it here for
+            the whole bucket would misdescribe a No Longer Needed or
+            Cancelled task as "Completed". */}
+        <Btn label="Closed Today"        f={{ type: 'queue', value: 'completed-today' }} />
+        <Btn label="Closed"              f={{ type: 'queue', value: 'completed' }} />
       </div>
 
       {availableDepartments.length > 0 && (
@@ -431,7 +436,7 @@ function TaskDetail({ task, onBack, onVehicleSelect }: {
               <div className="bg-amber-50 border border-amber-200 rounded-xl p-4">
                 <div className="text-[12px] font-bold text-amber-800 mb-1">Waiting for Inventory Sync</div>
                 <p className="text-[11px] text-amber-700 leading-relaxed">
-                  Execution was marked complete, but the commitment itself is still outstanding until the next
+                  Execution was marked complete, but the commitment itself is still open until the next
                   sync confirms it. This is a real, surfaced disagreement, not an error.
                 </p>
               </div>
@@ -448,7 +453,7 @@ function TaskDetail({ task, onBack, onVehicleSelect }: {
               </div>
               <div className="flex justify-between">
                 <span className="text-slate-400">Commitment</span>
-                <span className="font-medium text-slate-700 capitalize">{task.commitment_standing}</span>
+                <span className="font-medium text-slate-700">{commitmentStandingLabel(task.commitment_standing)}</span>
               </div>
               <div className="flex justify-between">
                 <span className="text-slate-400">Execution</span>
@@ -485,7 +490,7 @@ const spinner = (
 
 export default function Tasks({ onVehicleSelect }: { onVehicleSelect: (s: string) => void }) {
   const state = useApi(() => getTasks(), [])
-  const [filter, setFilter] = useState<SidebarFilter>({ type: 'queue', value: 'all' })
+  const [filter, setFilter] = useState<SidebarFilter>({ type: 'queue', value: 'active' })
   const [selectedId, setSelectedId] = useState<number | null>(null)
 
   const tasks = state.status === 'success' ? state.data : []
@@ -523,7 +528,7 @@ export default function Tasks({ onVehicleSelect }: { onVehicleSelect: (s: string
         <div className="flex-shrink-0 flex items-center justify-between px-5 py-2.5 bg-white border-b border-slate-200">
           <div className="flex items-center gap-3">
             <h2 className="text-[14px] font-bold text-slate-900">Dispatch Queue</h2>
-            {outstanding > 0 && <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-slate-100 text-slate-500">{outstanding} outstanding</span>}
+            {outstanding > 0 && <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-slate-100 text-slate-500">{outstanding} open</span>}
             {inProgress  > 0 && <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-blue-100 text-blue-700">{inProgress} in progress</span>}
           </div>
           {state.status === 'success' && <span className="text-[11px] text-slate-400">{visible.length} tasks</span>}

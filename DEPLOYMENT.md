@@ -8,6 +8,11 @@
 > emergency hotfix only. See [`PRODUCTION_BASELINE.md`](PRODUCTION_BASELINE.md)
 > for the verified production baseline and lock rules.
 
+> **Development environment (Sprint 02):** an isolated DealerDOH dev
+> stack exists — dev frontend, dev API, dev Supabase — documented in
+> [`DEV_ENVIRONMENT.md`](DEV_ENVIRONMENT.md). This file describes the
+> **production** deployment only.
+
 Target stack: **Vercel** (frontend, static Vite build) + **Render** (backend, FastAPI/uvicorn + SQLite on a persistent disk). Database strategy for this first deployment is unchanged (SQLite) — see `SQLITE_TO_POSTGRES_ASSESSMENT.md` for the scoped follow-up plan if/when Postgres becomes worth the cost.
 
 This document is the primary, step-by-step reference. `render.yaml` at the repo root is an optional convenience for a one-click Render "Blueprint" deploy — if its exact syntax ever drifts from what Render's Blueprint parser currently expects, follow the manual dashboard steps below instead; they don't depend on that file at all.

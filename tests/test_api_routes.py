@@ -10,7 +10,9 @@ tests/README.md's "no external dependencies" note, not an abandonment
 of it -- every query-layer/DTO-level test remains plain unittest.
 """
 
+import os
 import unittest
+from unittest import mock
 
 from fastapi.testclient import TestClient
 
@@ -43,7 +45,18 @@ class HealthEndpointTest(ApiTestCase):
     def test_health_returns_ok(self):
         resp = self.client.get("/health")
         self.assertEqual(resp.status_code, 200)
-        self.assertEqual(resp.json(), {"status": "ok"})
+        body = resp.json()
+        self.assertEqual(body["status"], "ok")
+        # Sprint 02: /health additionally reports which environment
+        # answered. With no ENVIRONMENT set (this test process, and
+        # current production), it must say so honestly.
+        self.assertEqual(body["environment"], "unspecified")
+
+    def test_health_reports_environment_when_set(self):
+        with mock.patch.dict(os.environ, {"ENVIRONMENT": "development"}):
+            resp = self.client.get("/health")
+        self.assertEqual(resp.status_code, 200)
+        self.assertEqual(resp.json()["environment"], "development")
 
 
 class DashboardEndpointTest(ApiTestCase):

@@ -43,7 +43,7 @@ the remote. The deployed production revision **is** `v1.0.0-beta.6`.
 | | |
 |---|---|
 | **Frontend host** | Vercel (static Vite build; project root `frontend/`, config in `frontend/vercel.json`) |
-| **Frontend URL** | ⚠️ **Not recorded in the repository — needs product-owner confirmation.** `https://lotsync.vercel.app` is **not** this app (it serves an unrelated Next.js project; Vercel subdomains are a global namespace). The real URL is whatever Vercel assigned at import time. **Action: record it here once confirmed.** |
+| **Frontend URL** | `https://lotsync-nu.vercel.app` — confirmed by the product owner and verified live on 2026-08-15 (LotSync dashboard loaded with no browser console errors). |
 | **Backend host** | Render — web service `lotsync-api` (per `render.yaml`; Starter plan, Oregon region, `autoDeploy: true` on `master`) |
 | **Backend URL** | `https://lotsync-api.onrender.com` — verified live: `/health` returns `{"status":"ok"}` (HTTP 200) |
 | **GitHub** | `https://github.com/kennett-ho/lotsync` (private, GitHub Free plan) |
@@ -56,7 +56,7 @@ the remote. The deployed production revision **is** `v1.0.0-beta.6`.
 | **Production path** | `/var/data/lotsync.db` on Render persistent disk `lotsync-data` (1 GB, mounted at `/var/data`) |
 | **Path resolution** | `LOTSYNC_DB_PATH` env var, read in `database/repository.py` (`DEFAULT_DB_PATH`); defaults to repo-relative `data/lotsync.db` when unset (local dev only) |
 | **Schema/migration state** | Migration `0008_event_fidelity.sql` — latest of 8 numbered migrations in `database/migrations/`, tracked in the `schema_migrations` table and auto-applied by `connect()`. Production is necessarily at 0008: the deployed beta.6 code applies pending migrations on every connection, and `/health` exercises that path. |
-| **Backups** | ⚠️ **NONE as of baseline date.** No automated backup exists (known finding, `PRE_DEPLOYMENT_REVIEW.md` P5 / `DEPLOYMENT.md`). First manual backup is **pending user action** — see "Production database backup procedure" below. |
+| **Backups** | **First verified manual backup completed 2026-08-15.** The live database was copied with SQLite's online-backup API, downloaded off Render, and independently re-verified locally. No automated backup schedule exists yet; see "Production database backup record and procedure" below. |
 
 ## Verification results (2026-08-15, local, at commit `13c4f815`)
 
@@ -64,7 +64,7 @@ the remote. The deployed production revision **is** `v1.0.0-beta.6`.
 |---|---|
 | **Backend tests** | **385 / 385 passing** (`Ran 385 tests in 7.607s — OK`), via `PYTHONPATH=.. python -m unittest discover -s tests -p "test_*.py"` (Python 3.12.10, repo `.venv`). Matches the count in beta.6's commit message. |
 | **Frontend build** | **Passes** — `npm run build` (Vite 8.1.5, Node v22.19.0), clean output to `frontend/dist/`, exit 0. |
-| **CI** | **None.** Both checks above are manual. Standing risk, unchanged since Sprint 1. |
+| **CI** | **Prepared in Infrastructure Sprint 01.5.** `.github/workflows/ci.yml` runs the backend suite and frontend production build as independent jobs on every push and pull request. The workflow has no deploy steps, secrets, or production database access. |
 
 ## Environment variables (names only — values live in each host's dashboard, never in git)
 
@@ -141,21 +141,19 @@ Recommended settings for `master` once available:
 
 - Require a pull request before merging (release train from `dev`).
 - Block force pushes; block branch deletion.
-- Require status checks once CI exists (backend test suite, frontend
-  production build) — CI does not exist yet, so this part only
-  becomes meaningful after a CI workflow is added.
+- Require the `Backend tests` and `Frontend production build` CI checks
+  once branch protection becomes available.
 - Do **not** enable "require review approvals ≥ 1" while this is a
   single-maintainer repository — with no second reviewer it locks the
   owner out of their own release train (GitHub does not let the PR
   author approve their own PR).
 
-## Production database backup procedure (⚠️ PENDING USER ACTION)
+## Production database backup record and procedure
 
-No path to the Render disk exists from the development machine (no
-Render CLI, no SSH key configured), so the first backup must be taken
-by the operator. This is a **live** SQLite database — never copy the
-raw file while the service is running; use SQLite's online-backup
-mechanism, which is safe against concurrent writes:
+The first backup was completed on 2026-08-15 through Render's dashboard
+shell and SSH. This is a **live** SQLite database — never copy the raw
+file while the service is running; use SQLite's online-backup mechanism,
+which is safe against concurrent writes:
 
 **Step 1 — in the Render dashboard → `lotsync-api` → Shell tab:**
 
@@ -203,11 +201,12 @@ drive).
 
 | Backup record | |
 |---|---|
-| Taken at | *(pending)* |
-| Size | *(pending)* |
-| `PRAGMA integrity_check` | *(pending)* |
-| SHA-256 | *(pending)* |
-| Stored at | *(pending)* |
+| Taken at | `2026-08-15T07:33:14.549079+00:00` |
+| Schema / row count | Migration `8`; `4,672` vehicles |
+| Size | `4,210,688` bytes (`4.02 MiB`) |
+| `PRAGMA integrity_check` | `ok` on Render and on the downloaded copy |
+| SHA-256 | `7111f1176d420b984a3e7fdcd0d217e15897e4c0b951204ea5e4f5fedc7f226c` (identical on Render and locally) |
+| Stored at | Render: `/var/data/backups/lotsync-2026-08-15.db`; local off-Render copy: `C:\Users\demon\LotSync-Backups\lotsync-2026-08-15.db`; independent cloud copy pending explicit approval |
 
 ---
 
@@ -228,8 +227,9 @@ Recorded here so they are decisions, not surprises:
 4. **Stale test counts in older docs** — `PROJECT_STATUS.md` says 328,
    `DEPLOYMENT.md` says 360; actual (verified) is **385**. Each was
    correct when written; this file's count is the baseline.
-5. **Production frontend URL not recorded anywhere in the repo** — see
-   Hosting above; needs one-time confirmation from the Vercel
-   dashboard.
-6. **No CI, no branch protection possible on current GitHub plan** —
-   the production lock is procedural only.
+5. **Production frontend URL was not recorded anywhere in the repo** —
+   the product owner confirmed `https://lotsync-nu.vercel.app` on
+   2026-08-15; it is now recorded under Hosting above.
+6. **CI was absent at baseline; branch protection is still unavailable
+   on the current GitHub plan** — Infrastructure Sprint 01.5 adds the
+   CI workflow, but the production lock remains procedural.

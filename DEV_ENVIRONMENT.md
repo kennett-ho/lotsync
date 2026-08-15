@@ -27,9 +27,9 @@ SQLite on persistent disk              Ephemeral SQLite, reseeded per boot
   the subdomain under this project's Domains settings)
 - Separate Vercel project from production `lotsync`; same repo, root
   directory `frontend/`, framework Vite.
-- **Branch mapping:** deploys from `chore/sprint-02-dev-environment`
-  during Sprint 02 review; **switch to `dev` after the Sprint 02 PR
-  merges** (Settings → Environments → Production → Branch Tracking).
+- **Branch mapping:** deploys from **`dev`** (switched from the
+  Sprint 02 task branch on 2026-08-15 after PR #3 merged; the setting
+  lives under Settings → Environments → Production → Branch Tracking).
 - Env vars (names; values in the Vercel dashboard): `VITE_API_BASE_URL`
   (→ the dev API below), `VITE_ENVIRONMENT=development` (renders the
   permanent "DealerDOH DEV" banner — see `frontend/src/App.tsx`).
@@ -43,9 +43,9 @@ SQLite on persistent disk              Ephemeral SQLite, reseeded per boot
 - Free instance (Oregon): **no persistent disk**, spins down when idle
   (first request after idle takes ~50s — expected, not a bug), and the
   filesystem is wiped on every deploy/restart.
-- **Branch mapping:** auto-deploys `chore/sprint-02-dev-environment`
-  during Sprint 02 review; **switch to `dev` after the PR merges**
-  (Settings → Build & Deploy → Branch).
+- **Branch mapping:** auto-deploys **`dev`** (switched from the
+  Sprint 02 task branch on 2026-08-15 after PR #3 merged; the setting
+  lives under Settings → Build & Deploy → Branch).
 - Start command chains `seed_dev.py` before uvicorn (same
   `/tmp/pypath` symlink convention as production's `render.yaml`), so
   every boot starts from a freshly seeded synthetic database — the dev
@@ -114,8 +114,8 @@ not use it yet** — the SQLite → PostgreSQL migration is Sprint 03.
    credential of any kind can cross environments.
 5. **No deploy path to production:** production deploys ONLY on push
    to `master` (Render `lotsync-api` + Vercel `lotsync`); the dev
-   services track the sprint branch (then `dev`), and neither has any
-   configuration referencing `master`.
+   services track `dev`, and neither has any configuration
+   referencing `master`.
 6. **Data direction:** production data was never copied, imported, or
    referenced — the dev dataset is generated from synthetic fixtures
    already in git.

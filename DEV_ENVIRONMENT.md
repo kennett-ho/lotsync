@@ -48,9 +48,12 @@ environment has proven the behavior long enough to trust.
 - Free instance (Oregon): no persistent disk (not needed — persistence
   now lives in PostgreSQL), spins down when idle (first request after
   idle takes ~50s — expected, not a bug).
-- **Branch mapping:** auto-deploys **`dev`** (switched from the
-  Sprint 02 task branch on 2026-08-15 after PR #3 merged; the setting
-  lives under Settings → Build & Deploy → Branch).
+- **Branch mapping:** auto-deploys **`dev`**. During a sprint's
+  pre-merge review window the service may temporarily track that
+  sprint's task branch so the deployed dev environment can be smoke
+  -tested before merge approval (done for Sprints 02 and 03), and
+  returns to `dev` when the sprint's PR merges. The setting lives
+  under Settings → Build & Deploy → Branch.
 - Start command is the `/tmp/pypath` symlink convention plus uvicorn
   (same as production's `render.yaml`). **As of Sprint 03 it no longer
   chains `seed_dev.py`** — the database is persistent now, so seeding

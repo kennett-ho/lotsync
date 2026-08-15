@@ -44,6 +44,37 @@ const NAV_ITEMS: NavItem[] = [
   { id: 'inventory-sync',label: 'Inventory Sync',  icon: svgIcon('M23 4v6h-6M1 20v-6h6', 'M3.51 9a9 9 0 0 1 14.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0 0 20.49 15') },
 ]
 
+// ─── Development environment banner ──────────────────────────────────────────
+
+// Sprint 02 (DealerDOH development environment): a deployment that
+// identifies itself as development shows a permanent banner so it can
+// never be mistaken for the production LotSync app a dealership is
+// actively using. Driven by VITE_ENVIRONMENT=development, set only on
+// the development Vercel project (baked in at build time, same as
+// VITE_API_BASE_URL -- see src/api/client.ts). Production builds don't
+// define it, so this renders nothing there.
+const IS_DEV_ENVIRONMENT =
+  ((import.meta as unknown as { env?: Record<string, string | undefined> }).env
+    ?.VITE_ENVIRONMENT ?? '') === 'development'
+
+function DevBanner() {
+  return (
+    <div
+      className="flex-shrink-0 text-center"
+      style={{
+        backgroundColor: '#6D28D9',
+        color: '#FFFFFF',
+        fontSize: '12px',
+        fontWeight: 600,
+        letterSpacing: '0.04em',
+        padding: '4px 12px',
+      }}
+    >
+      DealerDOH DEV — Development Environment — Synthetic/Test Data Only
+    </div>
+  )
+}
+
 // ─── Sidebar ──────────────────────────────────────────────────────────────────
 
 // lg (1024px) is this app's one "does it feel like the desktop shell"
@@ -275,24 +306,28 @@ export default function App() {
   const backLabel = activeNav === 'vehicles' ? 'Vehicles' : 'Dashboard'
 
   return (
-    <div className="flex h-screen overflow-hidden" style={{ fontFamily: "'Plus Jakarta Sans', system-ui, sans-serif", backgroundColor: '#F8FAFC' }}>
-      <Sidebar activeNav={activeNav} onNav={setActiveNav} mobileOpen={mobileNavOpen} onCloseMobile={() => setMobileNavOpen(false)} />
+    <div className="flex flex-col h-screen overflow-hidden" style={{ fontFamily: "'Plus Jakarta Sans', system-ui, sans-serif", backgroundColor: '#F8FAFC' }}>
+      {IS_DEV_ENVIRONMENT && <DevBanner />}
 
-      <div className="flex-1 flex flex-col overflow-hidden min-w-0">
-        <Header onVehicleSelect={handleVehicleSelect} onOpenMobileNav={() => setMobileNavOpen(true)} />
+      <div className="flex flex-1 overflow-hidden min-h-0">
+        <Sidebar activeNav={activeNav} onNav={setActiveNav} mobileOpen={mobileNavOpen} onCloseMobile={() => setMobileNavOpen(false)} />
 
-        <div key={`${activeNav}-${selectedVehicle ?? 'dash'}`} className="flex-1 flex flex-col overflow-hidden min-h-0"
-          style={{ animation: 'fadeSlideIn 0.18s ease-out' }}>
-          {selectedVehicle
-            // Sprint 3: Vehicle Detail is wired to GET /vehicles/{vin} --
-            // selectedVehicle must be a VIN for this to resolve. Callers
-            // still passing a stock number (any dashboard not yet
-            // integrated this sprint) will see Vehicle Detail's own
-            // "not found" state rather than a crash -- see
-            // PHASE_3_SPRINT_3_REVIEW.md for which callers were updated.
-            ? <VehicleDetailPage vin={selectedVehicle} onBack={handleBack} backLabel={backLabel} />
-            : <NavContent activeNav={activeNav} onVehicleSelect={handleVehicleSelect} onNavigate={setActiveNav} />
-          }
+        <div className="flex-1 flex flex-col overflow-hidden min-w-0">
+          <Header onVehicleSelect={handleVehicleSelect} onOpenMobileNav={() => setMobileNavOpen(true)} />
+
+          <div key={`${activeNav}-${selectedVehicle ?? 'dash'}`} className="flex-1 flex flex-col overflow-hidden min-h-0"
+            style={{ animation: 'fadeSlideIn 0.18s ease-out' }}>
+            {selectedVehicle
+              // Sprint 3: Vehicle Detail is wired to GET /vehicles/{vin} --
+              // selectedVehicle must be a VIN for this to resolve. Callers
+              // still passing a stock number (any dashboard not yet
+              // integrated this sprint) will see Vehicle Detail's own
+              // "not found" state rather than a crash -- see
+              // PHASE_3_SPRINT_3_REVIEW.md for which callers were updated.
+              ? <VehicleDetailPage vin={selectedVehicle} onBack={handleBack} backLabel={backLabel} />
+              : <NavContent activeNav={activeNav} onVehicleSelect={handleVehicleSelect} onNavigate={setActiveNav} />
+            }
+          </div>
         </div>
       </div>
     </div>

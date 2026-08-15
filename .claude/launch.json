@@ -6,6 +6,12 @@
       "runtimeExecutable": "npm",
       "runtimeArgs": ["run", "dev", "--prefix", "frontend"],
       "port": 8443
+    },
+    {
+      "name": "backend-dev-seed",
+      "runtimeExecutable": ".venv\\Scripts\\python.exe",
+      "runtimeArgs": ["tools/run_dev_seed_api.py"],
+      "port": 8000
     }
   ]
 }

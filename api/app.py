@@ -41,7 +41,13 @@ app = FastAPI(
 @app.get("/health")
 def health(conn: sqlite3.Connection = Depends(get_db)) -> dict:
     conn.execute("SELECT 1")
-    return {"status": "ok"}
+    # Sprint 02 (DealerDOH dev environment): deployments identify
+    # themselves via the ENVIRONMENT env var (the dev Render service
+    # sets ENVIRONMENT=development) so an operator hitting /health can
+    # always tell which environment answered. Deployments that predate
+    # this variable (current production) report "unspecified" rather
+    # than guessing.
+    return {"status": "ok", "environment": os.environ.get("ENVIRONMENT", "unspecified")}
 
 # Phase 3, Sprint 3 -- the frontend (Vite dev server, a different origin)
 # calls this API directly from the browser for the first time. Not a

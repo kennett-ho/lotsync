@@ -74,6 +74,11 @@ data/uploads/*
 data/outputs/*
 !data/outputs/.gitkeep
 
+# data/outputs-dev-seed/ -- seed_dev.py's default CSV output folder
+# (kept separate from data/outputs/ so a local seed run never
+# overwrites real generated reports). Same reasoning as data/outputs/.
+data/outputs-dev-seed/
+
 # data/api_uploads/ (Phase 3, Sprint 4) -- one subfolder per
 # POST /inventory-sync/run request, holding that request's uploaded
 # report files. Same reasoning as data/uploads/ above: live dealership

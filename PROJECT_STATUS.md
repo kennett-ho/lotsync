@@ -5,7 +5,7 @@ sprint. This is a snapshot, not a narrative — see `SPRINT_X_REVIEW.md`
 files for the story behind each entry, and `IMPLEMENTATION_PLAN.md`
 for the full plan this tracks progress against.
 
-**Last updated:** 2026-08-15 (Infrastructure Sprint 01.5 — First Verified Backup & CI)
+**Last updated:** 2026-08-15 (Infrastructure Sprint 02 — Development Environment Foundation)
 
 ## ⚠️ Production is live and locked (2026-08-15)
 
@@ -33,6 +33,17 @@ and SHA-256. `.github/workflows/ci.yml` adds the same proven backend
 suite and frontend production build as independent checks on every push
 and pull request. Neither operation changed deployed application code or
 the live production database.
+
+**Infrastructure Sprint 02:** the first fully isolated DealerDOH
+development environment exists — dev frontend
+(`dealerdoh-dev.vercel.app`, permanent "DealerDOH DEV" banner), dev API
+(`dealerdoh-api-dev.onrender.com`, ephemeral synthetic-seeded SQLite,
+`/health` reports `environment=development`), and a dev-only Supabase
+project (`dealerdoh-dev`, Postgres + Auth provisioned; app integration
+deferred to Sprints 03/05). Production was not touched; no production
+credential, path, or dataset exists anywhere in the dev stack. See
+[`DEV_ENVIRONMENT.md`](DEV_ENVIRONMENT.md) for URLs, branch mappings,
+seed/reset procedure, and the verified isolation guarantees.
 
 **Staleness note:** the sections below this one were last brought
 current at v0.7.4 (2026-08-03). Releases v0.8.0 → v1.0.0-beta.6

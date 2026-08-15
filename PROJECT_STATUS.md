@@ -5,7 +5,7 @@ sprint. This is a snapshot, not a narrative — see `SPRINT_X_REVIEW.md`
 files for the story behind each entry, and `IMPLEMENTATION_PLAN.md`
 for the full plan this tracks progress against.
 
-**Last updated:** 2026-08-15 (Infrastructure Sprint 01 — Production Baseline & Git Foundation)
+**Last updated:** 2026-08-15 (Infrastructure Sprint 01.5 — First Verified Backup & CI)
 
 ## ⚠️ Production is live and locked (2026-08-15)
 
@@ -14,7 +14,7 @@ Production is **`v1.0.0-beta.6`** (commit `13c4f815`, branch
 `master`), deployed on Render (`lotsync-api`, FastAPI + SQLite on a
 persistent disk) and Vercel (Vite frontend). The verified baseline —
 version, hosting, database location, migration state, test/build
-status, backup procedure, and lock rules — lives in
+status, verified backup record and procedure, and lock rules — lives in
 [`PRODUCTION_BASELINE.md`](PRODUCTION_BASELINE.md).
 
 **New workflow as of this sprint:** normal development no longer
@@ -25,6 +25,14 @@ happens on `master`. Both Render and Vercel auto-deploy every push to
 commit (`13c4f815`). Branch protection on `master` is not available on
 the current GitHub plan (private repo, Free tier) — the lock is
 procedural; see `PRODUCTION_BASELINE.md`.
+
+**Infrastructure Sprint 01.5:** the first production database backup
+was created with SQLite's online-backup API, downloaded off Render, and
+re-verified locally by integrity check, schema version, row count, size,
+and SHA-256. `.github/workflows/ci.yml` adds the same proven backend
+suite and frontend production build as independent checks on every push
+and pull request. Neither operation changed deployed application code or
+the live production database.
 
 **Staleness note:** the sections below this one were last brought
 current at v0.7.4 (2026-08-03). Releases v0.8.0 → v1.0.0-beta.6
@@ -92,8 +100,9 @@ this separate, still-undesigned module.
   deleted), run via
   `PYTHONPATH=.. python -m unittest discover -s tests -p "test_*.py"`
   from the repo root.
-- No CI — the suite must be run manually. Standing risk, unchanged
-  since Sprint 1.
+- `.github/workflows/ci.yml` runs the 385-test backend suite and the
+  frontend production build as independent jobs on every push and pull
+  request; the workflow has no deploy or production-data access.
 - **Frontend automated test coverage remains zero**, unchanged since
   Sprint 3 — no test runner exists in `frontend/package.json` today.
   This sprint's Timeline/event_time verification was again entirely

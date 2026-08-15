@@ -1,6 +1,20 @@
 # SQLite → PostgreSQL Migration Assessment
 
-**Status: assessment only. Nothing has been migrated. No code in this document's scope has been changed.**
+> **Status update (Infrastructure Sprint 03, 2026-08-15):** the
+> migration this document assessed has now been implemented **for the
+> DealerDOH development environment only** — dual-engine persistence
+> behind `DATABASE_ENGINE`, PostgreSQL migrations, dual-engine CI, and
+> the deployed dev API running against Supabase PostgreSQL. Production
+> remains on SQLite exactly as this document recommended, until its own
+> planned migration sprint. See `DEV_ENVIRONMENT.md` for the
+> implemented architecture. The assessment below is preserved unchanged
+> as the historical record; its findings held up well — the one item it
+> flagged as a real design decision (`event.sync_run_id`) was resolved
+> by preserving TEXT semantics with explicit casts/coercion, and the
+> one incompatibility it did not list (`IS NOT 'Sold'` in
+> `queries/vehicles.py`) was found and fixed during implementation.
+
+**Original status line: assessment only. Nothing has been migrated. No code in this document's scope has been changed.**
 
 Produced ahead of the v0.8.x Render deployment, per the standing decision in `PRE_DEPLOYMENT_REVIEW.md` (R1/D6) and `DEPLOYMENT.md`: SQLite stays the database for this first deployment (backed by a Render persistent disk); Postgres is evaluated here as a scoped follow-up, not a blocker.
 

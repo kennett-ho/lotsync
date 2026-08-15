@@ -5,7 +5,7 @@ sprint. This is a snapshot, not a narrative — see `SPRINT_X_REVIEW.md`
 files for the story behind each entry, and `IMPLEMENTATION_PLAN.md`
 for the full plan this tracks progress against.
 
-**Last updated:** 2026-08-15 (Infrastructure Sprint 02 — Development Environment Foundation)
+**Last updated:** 2026-08-15 (Infrastructure Sprint 03 — Dev-Only SQLite → Supabase PostgreSQL Migration)
 
 ## ⚠️ Production is live and locked (2026-08-15)
 
@@ -44,6 +44,18 @@ deferred to Sprints 03/05). Production was not touched; no production
 credential, path, or dataset exists anywhere in the dev stack. See
 [`DEV_ENVIRONMENT.md`](DEV_ENVIRONMENT.md) for URLs, branch mappings,
 seed/reset procedure, and the verified isolation guarantees.
+
+**Infrastructure Sprint 03:** DealerDOH DEV now runs the real
+application against **Supabase PostgreSQL** — dual-engine persistence
+behind explicit `DATABASE_ENGINE` config (`database/engine.py` +
+PostgreSQL dialect migrations), with the full behavioral suite green
+on BOTH engines (402/402 SQLite, 402/402 PostgreSQL with one
+documented engine-specific skip) in CI via a disposable postgres
+service container, byte-identical CSV reports and row-identical
+behavioral projections across engines from the same synthetic
+fixtures. **Production is untouched and stays on SQLite** — the
+engine split is intentional and temporary until production's own
+migration sprint. See [`DEV_ENVIRONMENT.md`](DEV_ENVIRONMENT.md).
 
 **Staleness note:** the sections below this one were last brought
 current at v0.7.4 (2026-08-03). Releases v0.8.0 → v1.0.0-beta.6

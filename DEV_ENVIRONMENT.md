@@ -14,9 +14,14 @@ LotSync v1.0.0-beta.6                  DealerDOH Development
 Real dealership data                   Synthetic/disposable data only
 lotsync-nu.vercel.app                  dealerdoh-dev.vercel.app
 lotsync-api.onrender.com               dealerdoh-api-dev.onrender.com
-SQLite on persistent disk              Ephemeral SQLite, reseeded per boot
-(no Supabase)                          Supabase dealerdoh-dev (Postgres+Auth)
+SQLite on persistent disk              Supabase PostgreSQL (dealerdoh-dev)
 ```
+
+**This engine split is intentional and temporary** (Sprint 03):
+development validates PostgreSQL while production stays on its proven
+SQLite architecture. Production migrates only in its own planned,
+explicitly-approved sprint (Sprint 06 in the roadmap), after the dev
+environment has proven the behavior long enough to trust.
 
 ## Components
 
@@ -40,59 +45,92 @@ SQLite on persistent disk              Ephemeral SQLite, reseeded per boot
 
 - **URL:** `https://dealerdoh-api-dev.onrender.com` — `GET /health`
   returns `{"status":"ok","environment":"development"}`.
-- Free instance (Oregon): **no persistent disk**, spins down when idle
-  (first request after idle takes ~50s — expected, not a bug), and the
-  filesystem is wiped on every deploy/restart.
+- Free instance (Oregon): no persistent disk (not needed — persistence
+  now lives in PostgreSQL), spins down when idle (first request after
+  idle takes ~50s — expected, not a bug).
 - **Branch mapping:** auto-deploys **`dev`** (switched from the
   Sprint 02 task branch on 2026-08-15 after PR #3 merged; the setting
   lives under Settings → Build & Deploy → Branch).
-- Start command chains `seed_dev.py` before uvicorn (same
-  `/tmp/pypath` symlink convention as production's `render.yaml`), so
-  every boot starts from a freshly seeded synthetic database — the dev
-  database is disposable *by design*; restarting the service IS the
-  reset procedure.
-- Env vars (names only): `ENVIRONMENT=development`, `PYTHON_VERSION`,
-  `LOTSYNC_DB_PATH` (an ephemeral `/tmp` path — NOT `/var/data`),
-  `LOTSYNC_OUT_DIR`, `LOTSYNC_API_UPLOADS_DIR`, `LOTSYNC_CORS_ORIGINS`
-  (the dev frontend origin only).
+- Start command is the `/tmp/pypath` symlink convention plus uvicorn
+  (same as production's `render.yaml`). **As of Sprint 03 it no longer
+  chains `seed_dev.py`** — the database is persistent now, so seeding
+  is an explicit operator action, not a boot side effect.
+- Env vars (names only): `ENVIRONMENT=development`,
+  `DATABASE_ENGINE=postgres`, `DATABASE_URL` (SECRET — the Supabase
+  session-pooler DSN; lives only in Render's dashboard),
+  `PYTHON_VERSION`, `LOTSYNC_OUT_DIR`, `LOTSYNC_API_UPLOADS_DIR`,
+  `LOTSYNC_CORS_ORIGINS` (the dev frontend origin only).
 
-### Database (current) — ephemeral SQLite + synthetic seed
+### Database — Supabase project `dealerdoh-dev` (PostgreSQL)
 
-`seed_dev.py` runs the unmodified reconciliation pipeline over the
-checked-in synthetic fixtures (`tests/fixtures/synthetic/` — the same
-data the test suite uses): 17 vehicles, ~31 events, 3 tasks,
-1 recommendation, 5 sync runs, all obviously fake (`1TESTVIN…`,
-"Test Sedan", `K*` stock numbers). Guardrails: refuses to run when
-`ENVIRONMENT=production` or when pointed at the production DB path.
-Local equivalent: `python seed_dev.py --reset` then
-`tools/run_dev_seed_api.py` (or the `backend-dev-seed` launch config).
-
-### Database (future) — Supabase project `dealerdoh-dev`
-
-Provisioned and proven reachable in Sprint 02; **the application does
-not use it yet** — the SQLite → PostgreSQL migration is Sprint 03.
+As of Sprint 03 the deployed dev API's persistence IS this database —
+provisioned in Sprint 02, migrated and seeded in Sprint 03.
 
 - Org: **DealerDOH** (its own Supabase organization)
 - Project ref: `stpoxlfjhpcobnwfzptj`, region `us-west-2` (Oregon),
   Free plan / nano compute
 - Public URL: `https://stpoxlfjhpcobnwfzptj.supabase.co`
-- Postgres proven live via SQL (bootstrap marker table
-  `public.dealerdoh_dev_bootstrap`, RLS enabled, 1 row; may be dropped
-  by the Sprint 03 migration)
+- **Connection**: the Supabase **session pooler** (IPv4-friendly);
+  direct connections are IPv6-only, which Render cannot reach. The
+  exact DSN comes from the project's Connect panel and lives only in
+  Render's `DATABASE_URL` env var and the owner's password manager.
+- Schema: the same 8 numbered migrations as SQLite, in PostgreSQL
+  dialect (`database/migrations_postgres/`), tracked in the identical
+  `schema_migrations` table and auto-applied by `connect()`.
 - Auth provisioned (GoTrue answers `/auth/v1/health`); no app
-  integration yet — that's Sprint 05
-- Data API: enabled; "auto-expose new tables" deliberately disabled
-- Env var names for later sprints: `SUPABASE_URL`,
+  integration yet — that's Sprint 05. Data API enabled;
+  "auto-expose new tables" deliberately disabled — none of the app
+  tables are exposed via the Data API.
+- Env var names reserved for Sprint 05: `SUPABASE_URL`,
   `SUPABASE_PUBLISHABLE_KEY` (safe for browsers),
-  `SUPABASE_SECRET_KEY` (server-only, never in frontend/git),
-  `DATABASE_URL` (direct/pooler Postgres connection)
-- **Sprint 03 planning note:** direct Postgres connections are
-  IPv6-only by default on Supabase; connecting from Render will likely
-  need the session/transaction **pooler** endpoints (or the paid IPv4
-  add-on). Copy exact strings from the project's Connect panel.
-- The database password is held only in the owner's password manager
-  (resettable under Settings → Database); no secret values exist in
-  git, and the secret API key has never left the Supabase dashboard.
+  `SUPABASE_SECRET_KEY` (server-only, never in frontend/git).
+
+### Engine configuration (Sprint 03)
+
+`DATABASE_ENGINE` selects the persistence engine in
+`database/repository.py`'s `connect()` — the single entry point every
+caller already uses:
+
+- unset / `sqlite` (default): exactly the pre-Sprint-03 behavior.
+  Production runs this and sets nothing new.
+- `postgres`: connections come from `DATABASE_URL` via a small psycopg
+  connection pool; `?`-placeholder SQL is translated at the connection
+  boundary (`database/engine.py`); tests' `connect(":memory:")` maps
+  to a private, dropped-on-close schema (the exact isolation SQLite's
+  per-connection `:memory:` provides).
+
+`GET /health` reports both `environment` and `database_engine`, so
+which stack answered is always one curl away.
+
+Local development still defaults to SQLite (zero setup, unchanged).
+The full suite runs against both engines in CI — "Backend tests" and
+"Backend tests (PostgreSQL)" (disposable service container, never the
+live dev project). One test is engine-specific by construction and
+self-skips on postgres (SQLite file-reconnect idempotency;
+`tests/test_database_slice1.py`).
+
+### Seeding and reset (Sprint 03 reality)
+
+`seed_dev.py` is engine-aware and runs the unmodified reconciliation
+pipeline over the checked-in synthetic fixtures (17 vehicles, 31
+events, 3 tasks, 1 recommendation, 5 sync runs — all obviously fake:
+`1TESTVIN…`, "Test Sedan", `K*` stocks):
+
+- SQLite (local default): `python seed_dev.py --reset` — same as ever.
+- PostgreSQL: with `DATABASE_ENGINE=postgres` and `DATABASE_URL` set,
+  `python seed_dev.py --reset` drops the app tables and re-migrates/
+  re-seeds a clean schema. Guardrails: refuses under
+  `ENVIRONMENT=production`, never prints the DSN, and production has
+  no PostgreSQL database for it to reach anyway.
+- The deployed dev database is **no longer reseeded on boot** —
+  restarts/redeploys must preserve data (that persistence is the
+  Sprint 03 acceptance proof). Reset is a deliberate operator action.
+
+Troubleshooting: `/health` failing with a 500 under postgres means the
+database is unreachable (pool timeout ~15s) — check Render's
+`DATABASE_URL` against the Supabase Connect panel (session pooler) and
+Supabase project status; `database/engine.py` fails loudly by design
+rather than silently falling back to SQLite.
 
 ## Isolation guarantees (verified 2026-08-15)
 
@@ -104,11 +142,14 @@ not use it yet** — the SQLite → PostgreSQL migration is Sprint 03.
 2. **Dev API cannot touch production data:** free instance, **no disk
    attached** (the production disk `lotsync-data` is attached
    exclusively to `lotsync-api`; Render disks are single-service);
-   `LOTSYNC_DB_PATH` is an ephemeral `/tmp` path.
-3. **No production env values in dev:** the dev service carries only
-   the six names listed above with dev-only values (verified at
-   creation); the only shared value is `PYTHON_VERSION=3.12.0`, which
-   is public in `render.yaml`.
+   its database is Supabase `dealerdoh-dev` PostgreSQL, which contains
+   only synthetic data and which production has no connection to.
+3. **No production env values in dev:** dev-only values throughout
+   (verified at creation and at the Sprint 03 switch); `DATABASE_URL`
+   is a dev-only credential that can reach only the dev Supabase
+   project; the only shared value is `PYTHON_VERSION=3.12.0`, which
+   is public in `render.yaml`. Production has no `DATABASE_ENGINE` or
+   `DATABASE_URL` set at all.
 4. **Supabase is dev-only:** project `dealerdoh-dev` in the DealerDOH
    org; production has no Supabase project at all yet, so no
    credential of any kind can cross environments.
@@ -123,9 +164,11 @@ not use it yet** — the SQLite → PostgreSQL migration is Sprint 03.
 ## Known limitations
 
 - Free-tier cold starts (~50s) on the dev API after idle.
-- The dev database resets on every deploy/restart — deliberate now,
-  but anything typed into dev is lost; do not use dev to store
-  anything you care about.
+- The dev database is now persistent (Supabase PostgreSQL) — it
+  survives restarts and redeploys. It remains synthetic and resettable
+  (`seed_dev.py --reset` with the postgres env), just no longer
+  disposable-per-boot. Still: do not store anything you care about in
+  dev.
 - `oms_config.xlsx`-driven business config falls back to documented
   defaults on the dev API (config path not provisioned — the seed uses
   the synthetic test config at seed time only).

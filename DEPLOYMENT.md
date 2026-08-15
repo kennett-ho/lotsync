@@ -1,5 +1,13 @@
 # Deploying LotSync
 
+> ⚠️ **Production is live and locked (2026-08-15).** This deployment is
+> actively used by dealership personnel. Every push to `master`
+> auto-deploys to production on both Render and Vercel — so pushing to
+> `master` **is** deploying. Normal work goes to `feature/*`/`fix/*` →
+> `dev`; production changes arrive via the release train or an
+> emergency hotfix only. See [`PRODUCTION_BASELINE.md`](PRODUCTION_BASELINE.md)
+> for the verified production baseline and lock rules.
+
 Target stack: **Vercel** (frontend, static Vite build) + **Render** (backend, FastAPI/uvicorn + SQLite on a persistent disk). Database strategy for this first deployment is unchanged (SQLite) — see `SQLITE_TO_POSTGRES_ASSESSMENT.md` for the scoped follow-up plan if/when Postgres becomes worth the cost.
 
 This document is the primary, step-by-step reference. `render.yaml` at the repo root is an optional convenience for a one-click Render "Blueprint" deploy — if its exact syntax ever drifts from what Render's Blueprint parser currently expects, follow the manual dashboard steps below instead; they don't depend on that file at all.

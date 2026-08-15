@@ -5,7 +5,35 @@ sprint. This is a snapshot, not a narrative — see `SPRINT_X_REVIEW.md`
 files for the story behind each entry, and `IMPLEMENTATION_PLAN.md`
 for the full plan this tracks progress against.
 
-**Last updated:** 2026-08-03 (Sprint 3.8 / v0.7.4 — Product Alignment closed)
+**Last updated:** 2026-08-15 (Infrastructure Sprint 01 — Production Baseline & Git Foundation)
+
+## ⚠️ Production is live and locked (2026-08-15)
+
+LotSync is in real production use by dealership management.
+Production is **`v1.0.0-beta.6`** (commit `13c4f815`, branch
+`master`), deployed on Render (`lotsync-api`, FastAPI + SQLite on a
+persistent disk) and Vercel (Vite frontend). The verified baseline —
+version, hosting, database location, migration state, test/build
+status, backup procedure, and lock rules — lives in
+[`PRODUCTION_BASELINE.md`](PRODUCTION_BASELINE.md).
+
+**New workflow as of this sprint:** normal development no longer
+happens on `master`. Both Render and Vercel auto-deploy every push to
+`master`, so a push there *is* a production deployment. Work flows
+`feature/*` / `fix/*` → `dev` → QA → release train → `master`. The
+`dev` branch was created this sprint from exactly the production
+commit (`13c4f815`). Branch protection on `master` is not available on
+the current GitHub plan (private repo, Free tier) — the lock is
+procedural; see `PRODUCTION_BASELINE.md`.
+
+**Staleness note:** the sections below this one were last brought
+current at v0.7.4 (2026-08-03). Releases v0.8.0 → v1.0.0-beta.6
+(pre-deployment hardening, deployment readiness, the six beta
+releases, and deployment itself) are recorded in their git tag
+messages and `DEPLOYMENT.md`, not yet backfilled here or in
+`CHANGELOG.md` — a known gap, listed in
+`PRODUCTION_BASELINE.md`'s Discrepancies. The backend test count is
+**385/385** as of the baseline (the 328 below was correct at v0.7.4).
 
 ## Current position
 

@@ -118,8 +118,13 @@ class SyncRunProvenanceTest(unittest.TestCase):
         ).fetchone()
         self.assertEqual(null_sync_run_id_count, 0, "every Event must carry a sync_run_id")
 
+        # Sprint 03: CAST makes the TEXT-vs-INTEGER comparison explicit
+        # and portable. SQLite's type affinity used to coerce this
+        # silently; PostgreSQL refuses to compare text against integer
+        # at all. Same question, same answer, now honest about types.
         (orphan_count,) = self.conn.execute(
-            "SELECT COUNT(*) FROM event WHERE sync_run_id NOT IN (SELECT sync_run_id FROM sync_run)"
+            "SELECT COUNT(*) FROM event WHERE sync_run_id NOT IN "
+            "(SELECT CAST(sync_run_id AS TEXT) FROM sync_run)"
         ).fetchone()
         self.assertEqual(orphan_count, 0, "orphaned Events found with sync_run_ids not in sync_run")
 

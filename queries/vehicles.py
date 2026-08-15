@@ -74,7 +74,11 @@ def list_vehicles(conn: sqlite3.Connection, include_sold: bool = False) -> list:
     in this same list whenever a caller passes include_sold=True -- see
     api/routers/vehicles.py's `include_sold` query param.
     """
-    sold_filter = "" if include_sold else "WHERE v.tekion_status IS NOT 'Sold'"
+    # Sprint 03: `IS DISTINCT FROM` replaces the original SQLite-only
+    # `IS NOT 'Sold'` -- identical NULL-safe semantics (a vehicle with
+    # no Tekion record at all still shows by default; see the docstring
+    # above), in syntax both SQLite (3.39+) and PostgreSQL support.
+    sold_filter = "" if include_sold else "WHERE v.tekion_status IS DISTINCT FROM 'Sold'"
     rows = conn.execute(
         f"""
         SELECT v.vin, v.stock_number, v.display_name, v.year, v.make, v.model, v.new_or_used,

@@ -24,6 +24,14 @@ _SEED = os.path.join(_REPO_ROOT, "seed_dev.py")
 def _run_seed(extra_env, args=()):
     env = os.environ.copy()
     env.pop("ENVIRONMENT", None)  # start each case from a clean slate
+    # Sprint 03: these subprocess tests exercise the SQLite seeding
+    # path deterministically regardless of which engine the *suite* is
+    # running under -- otherwise a postgres-mode suite would have the
+    # seed subprocess write into the shared runtime database. The
+    # postgres seeding path has its own guardrails in seed_dev.py and
+    # is exercised operationally against the disposable dev database.
+    env["DATABASE_ENGINE"] = "sqlite"
+    env.pop("DATABASE_URL", None)
     env["PYTHONPATH"] = os.path.dirname(_REPO_ROOT)
     env.update(extra_env)
     return subprocess.run(

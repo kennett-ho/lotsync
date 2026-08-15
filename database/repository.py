@@ -15,8 +15,27 @@ import json
 import os
 import sqlite3
 
+from lotsync.database import engine as db_engine
+
 _REPO_ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 _MIGRATIONS_DIR = os.path.join(os.path.dirname(os.path.abspath(__file__)), "migrations")
+# Sprint 03: the PostgreSQL dialect of the same 8 numbered migrations
+# (identical intent/ordering; only dialect-required syntax differs --
+# see database/migrations_postgres/README note in each file header).
+_MIGRATIONS_DIR_POSTGRES = os.path.join(
+    os.path.dirname(os.path.abspath(__file__)), "migrations_postgres"
+)
+
+# Engine-neutral integrity-violation exception surface (Sprint 03) --
+# sqlite3 raises sqlite3.IntegrityError, psycopg raises its own
+# IntegrityError subclass; callers/tests asserting on constraint
+# violations should catch THIS, not either driver's class directly.
+try:  # pragma: no cover - psycopg present in dev/CI, absent nowhere we test
+    import psycopg as _psycopg
+
+    IntegrityError = (sqlite3.IntegrityError, _psycopg.IntegrityError)
+except ImportError:  # pragma: no cover
+    IntegrityError = sqlite3.IntegrityError
 
 # Overridable via LOTSYNC_DB_PATH; defaults to a repo-relative location,
 # same convention as config/settings.py and utils/file_resolution.py.
@@ -77,6 +96,24 @@ def connect(db_path: str = None) -> sqlite3.Connection:
     project through Phase 2) -- this flag is a no-op until something
     actually crosses a thread boundary.
     """
+    # Sprint 03: engine dispatch. Explicit configuration only --
+    # DATABASE_ENGINE=postgres opts in (DealerDOH DEV); everything
+    # else, including production, takes the unchanged SQLite path
+    # below. The returned object satisfies the same connection
+    # contract either way (execute with `?` placeholders, tuple rows,
+    # commit/rollback/close), so no caller changes.
+    if db_engine.get_engine() == "postgres":
+        conn = db_engine.connect_postgres(db_path)
+        if db_path == ":memory:":
+            # Fresh private schema (test isolation): always migrate.
+            apply_migrations(conn, _MIGRATIONS_DIR_POSTGRES)
+        elif not db_engine.runtime_migrations_verified():
+            # Runtime database: verify/apply once per process, not on
+            # every pooled per-request connection.
+            apply_migrations(conn, _MIGRATIONS_DIR_POSTGRES)
+            db_engine.mark_runtime_migrations_verified()
+        return conn
+
     if db_path is None:
         db_path = DEFAULT_DB_PATH
     dirname = os.path.dirname(db_path)
@@ -104,7 +141,9 @@ def upsert_vehicle(conn: sqlite3.Connection, vin: str, **fields):
     single transaction spans everything that source wrote this run.
     """
     if not fields:
-        conn.execute("INSERT OR IGNORE INTO vehicle (vin) VALUES (?)", (vin,))
+        # Sprint 03: was SQLite's `INSERT OR IGNORE`; `ON CONFLICT DO
+        # NOTHING` is the same semantics in syntax both engines share.
+        conn.execute("INSERT INTO vehicle (vin) VALUES (?) ON CONFLICT (vin) DO NOTHING", (vin,))
         return
 
     columns = list(fields.keys())
@@ -170,13 +209,15 @@ def upsert_event_freshness(conn: sqlite3.Connection, vin: str, event_type: str, 
     """
     if observed_at is None:
         observed_at = datetime.datetime.now().isoformat()
+    # str() on sync_run_id: same TEXT-column reasoning as insert_event.
     conn.execute(
         "INSERT INTO event_freshness (vin, event_type, source, last_observed_at, last_sync_run_id) "
         "VALUES (?, ?, ?, ?, ?) "
         "ON CONFLICT(vin, event_type) DO UPDATE SET "
         "source = excluded.source, last_observed_at = excluded.last_observed_at, "
         "last_sync_run_id = excluded.last_sync_run_id",
-        (vin, event_type, source, observed_at, sync_run_id),
+        (vin, event_type, source, observed_at,
+         str(sync_run_id) if sync_run_id is not None else None),
     )
 
 
@@ -308,15 +349,22 @@ def insert_event(conn: sqlite3.Connection, vin: str, event_type: str, source: st
     """
     if observed_at is None:
         observed_at = datetime.datetime.now().isoformat()
+    # sync_run_id lands in a TEXT column (the opaque provenance tag --
+    # see start_sync_run's docstring). SQLite's TEXT affinity was
+    # already storing integer run ids as their string form ('5', not
+    # 5); the explicit str() makes that same result engine-independent
+    # instead of relying on SQLite's implicit coercion (PostgreSQL
+    # refuses an integer parameter for a text column outright).
     cur = conn.execute(
         "INSERT INTO event (vin, event_type, source, sync_run_id, actor_employee_id, "
         "dealership_id, observed_at, summary, detail_fields, event_time) "
-        "VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
-        (vin, event_type, source, sync_run_id, actor_employee_id, dealership_id,
+        "VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?) RETURNING event_id",
+        (vin, event_type, source, str(sync_run_id) if sync_run_id is not None else None,
+         actor_employee_id, dealership_id,
          observed_at, summary, json.dumps(detail_fields) if detail_fields is not None else None,
          event_time),
     )
-    return cur.lastrowid
+    return cur.fetchone()[0]
 
 
 def start_sync_run(conn: sqlite3.Connection, source: str, dealership_id: str = None,
@@ -344,11 +392,12 @@ def start_sync_run(conn: sqlite3.Connection, source: str, dealership_id: str = N
         started_at = datetime.datetime.now().isoformat()
     cur = conn.execute(
         "INSERT INTO sync_run (source, dealership_id, started_at, status) "
-        "VALUES (?, ?, ?, 'in_progress')",
+        "VALUES (?, ?, ?, 'in_progress') RETURNING sync_run_id",
         (source, dealership_id, started_at),
     )
+    new_id = cur.fetchone()[0]
     conn.commit()
-    return cur.lastrowid
+    return new_id
 
 
 def complete_sync_run(conn: sqlite3.Connection, sync_run_id: int,
@@ -485,11 +534,11 @@ def insert_task(conn: sqlite3.Connection, vin: str, task_type: str, dealership_i
         created_at = datetime.datetime.now().isoformat()
     cur = conn.execute(
         "INSERT INTO task (vin, dealership_id, task_type, department, priority, reason, created_at, "
-        "ratified_by, ratification_type) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)",
+        "ratified_by, ratification_type) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?) RETURNING task_id",
         (vin, dealership_id, task_type, department, priority, reason, created_at,
          ratified_by, ratification_type),
     )
-    return cur.lastrowid
+    return cur.fetchone()[0]
 
 
 def get_open_task(conn: sqlite3.Connection, vin: str, task_type: str):
@@ -632,13 +681,13 @@ def escalate_task(conn: sqlite3.Connection, task_id: int, new_task_type: str,
     cur = conn.execute(
         "INSERT INTO task (vin, dealership_id, task_type, department, priority, "
         "ratified_by, ratification_type, escalated_from_task_id, reason, created_at) "
-        "VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
+        "VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?) RETURNING task_id",
         (parent["vin"], parent["dealership_id"], new_task_type,
          department if department is not None else parent["department"],
          priority if priority is not None else parent["priority"],
          ratified_by, ratification_type, task_id, reason, created_at),
     )
-    return cur.lastrowid
+    return cur.fetchone()[0]
 
 
 def insert_task_execution_event(conn: sqlite3.Connection, task_id: int, transition_type: str,
@@ -659,15 +708,16 @@ def insert_task_execution_event(conn: sqlite3.Connection, task_id: int, transiti
         observed_at = datetime.datetime.now().isoformat()
     cur = conn.execute(
         "INSERT INTO task_execution_event (task_id, transition_type, actor_employee_id, note, observed_at) "
-        "VALUES (?, ?, ?, ?, ?)",
+        "VALUES (?, ?, ?, ?, ?) RETURNING task_execution_event_id",
         (task_id, transition_type, actor_employee_id, note, observed_at),
     )
+    new_id = cur.fetchone()[0]
     execution_status = _EXECUTION_STATUS_BY_TRANSITION.get(transition_type, transition_type)
     conn.execute(
         "UPDATE task SET execution_status = ? WHERE task_id = ?",
         (execution_status, task_id),
     )
-    return cur.lastrowid
+    return new_id
 
 
 def assert_task_completed(conn: sqlite3.Connection, task_id: int, actor_employee_id: str,
@@ -719,10 +769,10 @@ def insert_recommendation(conn: sqlite3.Connection, vin: str, severity: str, tit
         created_at = datetime.datetime.now().isoformat()
     cur = conn.execute(
         "INSERT INTO recommendation (vin, severity, title, detail, rule_source, created_at) "
-        "VALUES (?, ?, ?, ?, ?, ?)",
+        "VALUES (?, ?, ?, ?, ?, ?) RETURNING recommendation_id",
         (vin, severity, title, detail, rule_source, created_at),
     )
-    return cur.lastrowid
+    return cur.fetchone()[0]
 
 
 def get_open_recommendation(conn: sqlite3.Connection, vin: str, rule_source: str):

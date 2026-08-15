@@ -27,6 +27,14 @@ httpx
 # always requires it).
 reportlab
 
+# Sprint 03 (DealerDOH) -- PostgreSQL driver + connection pool for the
+# DATABASE_ENGINE=postgres path (DealerDOH DEV runs against Supabase
+# PostgreSQL; production keeps SQLite and never exercises these at
+# runtime, but they install everywhere so one requirements file serves
+# both engines and the dual-engine test suite).
+psycopg[binary]
+psycopg-pool
+
 # Test-only -- tests/test_work_order.py reads the PDFs
 # reports/work_order.py generates back apart (page count, extracted
 # text) to assert on real content instead of just "it returned bytes."

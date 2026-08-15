@@ -47,7 +47,17 @@ def health(conn: sqlite3.Connection = Depends(get_db)) -> dict:
     # always tell which environment answered. Deployments that predate
     # this variable (current production) report "unspecified" rather
     # than guessing.
-    return {"status": "ok", "environment": os.environ.get("ENVIRONMENT", "unspecified")}
+    # Sprint 03: database_engine says which persistence engine served
+    # this response (the SELECT 1 above went through it, so "ok" +
+    # engine name is real connectivity evidence, not configuration
+    # echo). Never includes DSN/host/credential material.
+    from lotsync.database.engine import get_engine
+
+    return {
+        "status": "ok",
+        "environment": os.environ.get("ENVIRONMENT", "unspecified"),
+        "database_engine": get_engine(),
+    }
 
 # Phase 3, Sprint 3 -- the frontend (Vite dev server, a different origin)
 # calls this API directly from the browser for the first time. Not a

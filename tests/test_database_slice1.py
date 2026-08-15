@@ -27,6 +27,7 @@ import unittest
 import pandas as pd
 
 from lotsync.config.settings import load_settings, load_day_out_buckets
+from lotsync.database import engine as db_engine
 from lotsync.importers.keyper import load_keyper
 from lotsync.importers.tekion import load_tekion
 from lotsync.importers.sold import load_tekion_sold
@@ -159,6 +160,15 @@ class KeyperWritePathTest(unittest.TestCase):
 
 
 class RepositoryMigrationTest(unittest.TestCase):
+    @unittest.skipIf(
+        db_engine.get_engine() == "postgres",
+        "SQLite-file-specific by construction: reconnecting to the same "
+        "*file path*. The property it proves -- reconnecting never "
+        "re-applies migrations -- is engine-shared via schema_migrations "
+        "bookkeeping and is exercised on PostgreSQL by every connect() "
+        "against the already-migrated runtime database. One of the few "
+        "documented engine-specific tests (see DEV_ENVIRONMENT.md).",
+    )
     def test_connecting_twice_to_same_file_is_idempotent(self):
         # Asserts against schema_migrations' count staying the SAME
         # across a reconnect, not a hardcoded literal -- the literal

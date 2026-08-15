@@ -7,9 +7,9 @@ upsert_employee's explicit existence-check branching (not a blind reuse
 of upsert_vehicle's single-statement form).
 """
 
-import sqlite3
 import unittest
 
+from lotsync.database import repository
 from lotsync.database.repository import (
     connect, upsert_employee, get_employee, upsert_dealership,
 )
@@ -96,7 +96,10 @@ class EmployeeDealershipRelationshipTest(unittest.TestCase):
         self.assertIsNone(row["dealership_id"])
 
     def test_dealership_id_referencing_unknown_dealership_raises(self):
-        with self.assertRaises(sqlite3.IntegrityError):
+        # Sprint 03: repository.IntegrityError is the engine-neutral
+        # constraint-violation surface (sqlite3.IntegrityError on
+        # SQLite, psycopg's IntegrityError on PostgreSQL).
+        with self.assertRaises(repository.IntegrityError):
             upsert_employee(self.conn, "emp-0142", name="Marcus Torres", dealership_id="does-not-exist")
 
     def test_dealership_id_referencing_real_dealership_succeeds(self):

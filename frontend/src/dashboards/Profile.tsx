@@ -59,15 +59,21 @@ function AccountSection() {
     setNotice(null)
     // Display name lives in Supabase user_metadata: Auth owns profile
     // identity (no duplicate profile store -- see ACCOUNT_LIFECYCLE.md).
-    // updateUser refreshes the local session, so the next /me sees it.
     const { error } = await supabase.auth.updateUser({
       data: { display_name: trimmed || null },
     })
-    setBusy(false)
     if (error) {
+      setBusy(false)
       setNotice({ kind: 'error', text: 'Could not save your name right now.' })
       return
     }
+    // updateUser persists the metadata but the CURRENT access token
+    // still carries the old claims until its natural refresh -- and
+    // /me reads the verified token. Mint a fresh token now so the
+    // saved name is immediately visible (found live in the Sprint 09
+    // deployed smoke: "Saved." followed by an empty field).
+    await supabase.auth.refreshSession()
+    setBusy(false)
     setNotice({ kind: 'ok', text: 'Saved.' })
     refresh()
   }

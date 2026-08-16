@@ -5,7 +5,7 @@ sprint. This is a snapshot, not a narrative — see `SPRINT_X_REVIEW.md`
 files for the story behind each entry, and `IMPLEMENTATION_PLAN.md`
 for the full plan this tracks progress against.
 
-**Last updated:** 2026-08-15 (Infrastructure Sprint 04 — Deterministic Synthetic QA Dataset)
+**Last updated:** 2026-08-16 (Infrastructure Sprint 06 — Production Migration Planning)
 
 ## ⚠️ Production is live and locked (2026-08-15)
 
@@ -87,6 +87,24 @@ default — **production behavior is byte-for-byte unchanged** and the
 suites prove it (454/454 SQLite, 454/454 PostgreSQL incl. 25 new auth
 tests minting local ES256 tokens — no live Supabase in CI). See
 [`AUTH_ARCHITECTURE.md`](AUTH_ARCHITECTURE.md).
+
+**Infrastructure Sprint 06:** the production migration is now
+**planned, not executed** — production remains LotSync
+`v1.0.0-beta.6` on SQLite with no auth, untouched. The sprint
+produced the full cutover playbook:
+[`PRODUCTION_MIGRATION_PLAN.md`](PRODUCTION_MIGRATION_PLAN.md)
+(strategy: short maintenance window; four separate releases — A: code,
+B: database, C: auth, D: rebrand/domain — each with its own approval
+gate, smoke, and rollback; nine explicit operator approval gates
+G1–G9) and
+[`PRODUCTION_MIGRATION_RUNBOOK.md`](PRODUCTION_MIGRATION_RUNBOOK.md)
+(the numbered operator checklist). The production data inventory was
+taken **read-only from the verified 2026-08-15 backup** (hash
+re-verified): 4,672 vehicles, 8,876 events, 362 tasks, 14,606 business
+rows, 4.02 MiB, integrity ok, zero orphans — production itself was
+never touched. Prerequisite before any execution: a Sprint 07
+rehearsal that builds and proves the migration tool end-to-end,
+including a deliberate rollback drill.
 
 **Staleness note:** the sections below this one were last brought
 current at v0.7.4 (2026-08-03). Releases v0.8.0 → v1.0.0-beta.6

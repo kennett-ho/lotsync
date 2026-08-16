@@ -13,6 +13,14 @@
 > by preserving TEXT semantics with explicit casts/coercion, and the
 > one incompatibility it did not list (`IS NOT 'Sold'` in
 > `queries/vehicles.py`) was found and fixed during implementation.
+>
+> **Status update (Infrastructure Sprint 06, 2026-08-16):** the
+> production migration this assessment deferred is now **planned, not
+> executed** — see `PRODUCTION_MIGRATION_PLAN.md` (strategy, release
+> decomposition, validation, rollback) and
+> `PRODUCTION_MIGRATION_RUNBOOK.md` (operator checklist). Production
+> remains on SQLite exactly as recommended until that plan's
+> explicitly approved release trains execute.
 
 **Original status line: assessment only. Nothing has been migrated. No code in this document's scope has been changed.**
 

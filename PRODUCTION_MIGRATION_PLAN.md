@@ -294,12 +294,18 @@ against.
 
 ---
 
-## 5. Migration tooling (to be built and rehearsed in Sprint 07)
+## 5. Migration tooling
 
-No import tool exists yet (`seed_dev.py` seeds synthetic fixtures; it
-does not import). The cutover requires
-**`tools/migrate_sqlite_to_postgres.py`**, built and proven during the
-rehearsal (§21) — never first-run against production. Requirements:
+> **BUILT AND REHEARSED (Sprint 07, 2026-08-16).**
+> `tools/migrate_sqlite_to_postgres.py` implements every requirement
+> below and passed the full production-scale rehearsal plus a 10-test
+> automated suite (`tests/test_migration_tool.py`, runs in the
+> PostgreSQL CI job). `tools/generate_rehearsal_dataset.py` and
+> `tools/behavior_compare.py` accompany it. Evidence:
+> `PRODUCTION_MIGRATION_REHEARSAL.md`.
+
+The cutover requires **`tools/migrate_sqlite_to_postgres.py`** — never
+first-run against production. Requirements (all implemented):
 
 1. **Reads a SQLite backup FILE** (opened read-only), never a live
    database. The import source is the verified final backup — the
@@ -446,8 +452,12 @@ The residual backup-to-suspend gap is ~1 minute, covered by layers
 1–3.
 
 **Window:** schedule **90 minutes**, announce up to 2 hours.
-Expected actual: backup+scp ~5 min, import ~5 min, validation ~10
-min, env flip + restart ~5 min, smoke ~15 min ⇒ ~40 min with slack.
+Expected actual (revised on Sprint 07 rehearsal evidence — see
+`PRODUCTION_MIGRATION_REHEARSAL.md` §12): backup+scp ~5 min, import
+~2–10 min (0.98 s measured locally at full scale; remote adds RTTs),
+validation ~5 min (incl. behavioral comparison), env flip + restart
+~3–5 min, smoke ~15 min ⇒ **≈30 min active**, dominated by human
+verification rather than data movement.
 During suspension users see the frontend load but API calls fail —
 acceptable inside an announced window (an optional static
 maintenance note is a Release D-era nicety, not a requirement).
@@ -792,9 +802,16 @@ before, not during.**
 
 ## 21. Dry-run strategy (the gate to scheduling any real cutover)
 
-**Sprint 07 (recommended next sprint) = full rehearsal.** No
-production cutover is scheduled until a rehearsal has passed
-end-to-end. Using dev-side infrastructure only:
+> **EXECUTED — Sprint 07 (2026-08-16): PASS.** Every step below was
+> performed against disposable local infrastructure (portable
+> PostgreSQL 17.5; the standing dev environment was not used and was
+> never reachable from any rehearsal component). Full evidence,
+> timings, findings, and the Go/No-Go assessment:
+> `PRODUCTION_MIGRATION_REHEARSAL.md`. The remaining pre-G3
+> prerequisites are decisions and provisioning (§22, G1), not
+> engineering.
+
+The rehearsal contract, as specified before execution:
 
 1. Build §5's migration tool + §6's validation suite.
 2. Generate a **production-shaped synthetic SQLite database** at real

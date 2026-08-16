@@ -5,7 +5,7 @@ sprint. This is a snapshot, not a narrative — see `SPRINT_X_REVIEW.md`
 files for the story behind each entry, and `IMPLEMENTATION_PLAN.md`
 for the full plan this tracks progress against.
 
-**Last updated:** 2026-08-16 (Infrastructure Sprint 06 — Production Migration Planning)
+**Last updated:** 2026-08-16 (Infrastructure Sprint 07 — Production Migration Rehearsal & Rollback Drill)
 
 ## ⚠️ Production is live and locked (2026-08-15)
 
@@ -105,6 +105,33 @@ rows, 4.02 MiB, integrity ok, zero orphans — production itself was
 never touched. Prerequisite before any execution: a Sprint 07
 rehearsal that builds and proves the migration tool end-to-end,
 including a deliberate rollback drill.
+
+**Infrastructure Sprint 07:** the Sprint 06 playbook was **rehearsed
+end-to-end and passed** — against disposable local infrastructure
+only (portable PostgreSQL 17.5; production untouched, standing dev
+untouched and unreachable from the rehearsal). Built and committed:
+`tools/migrate_sqlite_to_postgres.py` (defensive operator migration
+tool: dry-run default, FK-safe verbatim-ID copy, sequence reset to
+the sqlite high-water, four-layer exact validation, refusal
+safeguards), `tools/generate_rehearsal_dataset.py` (deterministic
+production-shaped synthetic SQLite — 4,700 vehicles / 14,665 business
+rows incl. sparse-sequence and FK edge cases), and
+`tools/behavior_compare.py` (cross-engine behavioral validation via
+the app's own query layer — 22/22 identical). Executed: timed backup
+→ freeze → migration (0.98 s at full scale, validation all-green) →
+Release B env flip (healthy on PostgreSQL in ~18 s) → Release C auth
+flip (full 401/403/role/store matrix green) → simulated first
+PostgreSQL write (delta captured: 1 sync run, 3 events, 2 tasks
+honored) → **pre-write rollback drill (19.4 s, zero loss proven
+logically)** → post-write replay recovery (converged to identical
+rows and IDs) → five failure injections (all failed closed; two real
+tool defects found and fixed: missing connect timeout, prompt EOF
+crash). Tests now **464/464 on both engines** (+10 migration-tool
+tests in the PostgreSQL CI job; no CI workflow changes). Verdict:
+**GO — technically ready to schedule**, pending the plan §22 owner
+decisions and G1 provisioning. Full evidence:
+[`PRODUCTION_MIGRATION_REHEARSAL.md`](PRODUCTION_MIGRATION_REHEARSAL.md).
+Production remains LotSync `v1.0.0-beta.6`, untouched.
 
 **Staleness note:** the sections below this one were last brought
 current at v0.7.4 (2026-08-03). Releases v0.8.0 → v1.0.0-beta.6

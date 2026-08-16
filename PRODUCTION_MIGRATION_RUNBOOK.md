@@ -22,6 +22,18 @@ for the `lotsync-api` service. Never print or commit secrets.
 and `tools/migrate_sqlite_to_postgres.py` + its validation suite exist
 at a tagged commit. No rehearsal pass → nothing below is scheduled.
 
+> **REHEARSED 2026-08-16 (Sprint 07): PASS.** The full Release B + C
+> sequence below was executed against a production-shaped disposable
+> environment — migration validated exactly, auth boundary proven,
+> first-write delta captured, pre-write rollback timed at zero loss,
+> post-write replay recovery demonstrated convergent, five failure
+> injections all failed closed. Evidence, timings, and the four
+> defects found-and-fixed: `PRODUCTION_MIGRATION_REHEARSAL.md`.
+> Steps below marked *(REHEARSED)* were executed literally; the
+> Render/Vercel dashboard mechanics and the Supabase-hosted login
+> flow are the parts still exercised for the first time at the real
+> cutover (the latter is already live-proven in dev).
+
 ---
 
 ## Release A — DealerDOH code on production (behavior unchanged)
@@ -87,7 +99,7 @@ at a tagged commit. No rehearsal pass → nothing below is scheduled.
 - [ ] Confirm no sync currently running
       (`GET /inventory-sync/history` — newest run complete)
 
-### B.2 Final backup (plan §7)
+### B.2 Final backup (plan §7) *(REHEARSED: 0.06 s local; expect ~5 min via Render shell + scp)*
 - [ ] Render Shell: SQLite online backup →
       `lotsync-prod-<UTC>Z-final-pre-cutover.db`
 - [ ] Record: timestamp · size · SHA-256 · `integrity_check: ok` ·
@@ -104,7 +116,7 @@ at a tagged commit. No rehearsal pass → nothing below is scheduled.
 - [ ] **Suspend the Render service** (dashboard) — writes now
       impossible; users see API-unreachable inside the announced window
 
-### B.4 Import (plan §5)
+### B.4 Import (plan §5) *(REHEARSED: 0.98 s at 14.6k rows local; expect ~2–10 min remote. Interrupted mid-copy = transaction rollback → plain re-run; any committed partial state → the tool refuses and `--wipe-destination` recovers — both proven)*
 - [ ] **G4: owner approves running the migration at the production
       DSN** (typed confirmation in the tool)
 - [ ] Run `migrate_sqlite_to_postgres.py`: source = the verified local
@@ -131,7 +143,7 @@ at a tagged commit. No rehearsal pass → nothing below is scheduled.
       plan §12/§18)
 - [ ] Resume/restart the service; watch boot logs to healthy
 
-### B.7 Smoke (plan §16, Release B row — read-only; NO sync)
+### B.7 Smoke (plan §16, Release B row — read-only; NO sync) *(REHEARSED end-to-end incl. frontend)*
 - [ ] `/health` → 200, `environment: "production"`,
       `database_engine: "postgres"`
 - [ ] Frontend: all Release A page checks again — **numbers equal the
@@ -148,7 +160,11 @@ at a tagged commit. No rehearsal pass → nothing below is scheduled.
 - [ ] **FIX FORWARD** — only §15's minor list qualifies
 - [ ] **ROLLBACK** — revert the three env vars → service restarts on
       untouched SQLite → reopen on old stack (zero loss before first
-      PG write); record everything
+      PG write); record everything. *(REHEARSED: 19.4 s stop-to-healthy
+      locally; zero loss proven.)* Verify zero loss **logically** —
+      table counts + content comparison against the final backup —
+      never by byte-hash: SQLite's online backup is logically
+      identical but not byte-identical to its source
 - [ ] `/handoff-report` for Release B
 
 ### B.9 Post-cutover (plan §17)
@@ -253,6 +269,6 @@ at a tagged commit. No rehearsal pass → nothing below is scheduled.
 | Release A bad | Render rollback-to-deploy + Vercel promote-previous (or `git revert` on `master`) |
 | B before env flip | Resume service; nothing changed |
 | B after flip, before first PG write | Revert `DATABASE_ENGINE`/`DATABASE_URL`/`ENVIRONMENT` → restarts on untouched SQLite |
-| B after writes exist | Loss-bearing: env revert + manually re-run the day's syncs from source CSVs — owner call, plan §14 |
+| B after writes exist | Loss-bearing: env revert + re-run the day's syncs from source CSVs — owner call, plan §14. *(REHEARSED: replay converged to identical rows and identical IDs — sequence preservation makes this deterministic)* |
 | C gate broken | Vercel promote-previous |
 | C enforcement broken | `AUTH_MODE=disabled` env revert |

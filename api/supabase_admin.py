@@ -88,7 +88,13 @@ def _provider_error(status: int) -> HTTPException:
         # OUR credential was rejected -- a deployment configuration
         # problem, not the caller's fault.
         return SupabaseAdminUnavailable()
-    if status == 422:
+    if status in (400, 422):
+        # The provider understood us but refused the request itself
+        # (e.g. a redirect URL missing from the project allowlist, or
+        # an already-registered address on the invite endpoint).
+        # Distinguishable from the credential/availability 503 so an
+        # operator can tell config classes apart without any provider
+        # detail leaking to clients.
         return HTTPException(status_code=422,
                              detail="The identity provider rejected the request")
     if status == 429:

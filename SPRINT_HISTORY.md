@@ -1311,6 +1311,43 @@ The migration rail is proven and can remain parked while v1.1.0-beta feature dev
 
 ---
 
+# Sprint 08 — v1.1.0-beta.1 Scope & Release Readiness Register
+
+**Status:** In Progress — Awaiting Merge
+
+## Objective
+
+Turn `v1.1.0-beta.1` from a collection of ideas into a controlled release contract: every proposed capability classified REQUIRED / CONDITIONAL / POST-v1.1, every REQUIRED rail given an owner sprint, purpose, addressed risk, exact exit conditions, required evidence, and a release-blocking status — plus the recommended Sprint 09+ execution order and explicit scope-discipline rules.
+
+## Starting State
+
+- `dev` = `51d59f9` (Sprint 07 merge), `master` locked at `v1.0.0-beta.6` / `13c4f815`
+- CI green on the `dev` head; DEV and production endpoints healthy (read-only checks)
+- This document (`SPRINT_HISTORY.md`) was found owner-staged locally but not yet committed — landed in-repo as this sprint's first commit, together with owner-staged reality corrections (stale smoke-test workflow note; `dealerdoh.com` now owned; status pointer)
+
+## Major Work
+
+Created **`V1_1_RELEASE_READINESS.md`** — the authoritative release contract for `v1.1.0-beta.1`:
+
+- Readiness register: 13 rails + the production-migration rail, each with priority, status, planned sprint, blocking status, exit-condition summary, and required evidence
+- Full exit criteria for every REQUIRED rail (A Account Lifecycle, B Onboarding/Help, C Role-Aware Presentation, D Ingestion Safety, F Observability, G Structured Logging, H Security Hardening, I Supply Chain, J Performance, K Accessibility blocking subset, L Privacy/Legal internal-beta subset, M Human UAT)
+- **Sprint 08 decision:** Notifications (this document's Rail D / the spec's Rail E) classified **CONDITIONAL**, not REQUIRED — v1.1 ingestion is manual-upload-only, so sync outcomes are visible at the point of action; the rail auto-promotes if automated ingestion enters v1.1, if UAT shows users missing critical conditions, or by owner decision. Presented for owner ratification at this sprint's PR gate
+- Automated Report Ingestion held CONDITIONAL behind the vendor-discovery checklist (owner action; answers targeted before Sprint 12 planning)
+- Scope-discipline rules (five narrow admission criteria after Sprint 08), evidence rules (what "done" means per change class), back-burner trigger register, and the known-findings register with per-item blocking status
+- **Recommended order (changed from provisional):** 09 Account → 10 Ingestion Safety → **11 Observability + Logging (moved up from 13)** → 12 Role-Aware UX + Onboarding → (12.5 Notifications only if triggered) → 13 Security + Supply Chain (folded) → 14 Performance + Accessibility → 15 Privacy/Legal → 16 Human UAT → 17 RC Freeze — nine sprints to RC instead of ten, with instrumentation in place before the big UX build and before UAT
+
+Note: rail letters in `V1_1_RELEASE_READINESS.md` follow the Sprint 08 specification and diverge from this document's older catalog from D onward (mapping recorded in the register). The register is operative; this document's rails section remains historical context.
+
+## Production Impact
+
+None. Planning/documentation only. No production Supabase, no cutover scheduling, no user or DNS changes.
+
+## PR
+
+Recorded at merge time per the rolling-update procedure.
+
+---
+
 # Current v1.1.0-beta Goal
 
 The first DealerDOH-era production release is expected to become:
@@ -1997,6 +2034,13 @@ Require private-by-default storage policy and authorized access.
 
 # Proposed v1.1.0-beta Sprint Roadmap
 
+> **Superseded for scope and order (Sprint 08):**
+> [`V1_1_RELEASE_READINESS.md`](V1_1_RELEASE_READINESS.md) is now the
+> operative release contract — classifications, exit criteria,
+> evidence rules, and the recommended Sprint 09–17 sequence live
+> there. The roadmap below is retained as historical context per this
+> document's no-rewrite rule.
+
 This roadmap remains adjustable.
 
 ## Sprint 08 — v1.1 Release Scope & Readiness Register
@@ -2208,10 +2252,12 @@ Never mark planned work as completed before it is actually merged and verified.
 
 # Current Immediate Next Actions
 
-1. Establish the formal v1.1.0-beta release/readiness register.
-2. Continue feature and production-readiness sprints on `dev`.
-3. Keep real production frozen on `v1.0.0-beta.6`.
-4. Do not schedule the real production cutover until the release candidate is frozen and `/release-readiness` passes.
+1. ~~Establish the formal v1.1.0-beta release/readiness register.~~ Done pending merge — `V1_1_RELEASE_READINESS.md` (Sprint 08).
+2. Owner: ratify the Sprint 08 classifications at the PR gate (especially Notifications → CONDITIONAL) and start the vendor-discovery checklist for automated ingestion.
+3. Begin Sprint 09 — Account Lifecycle & Settings — when explicitly initiated.
+4. Continue feature and production-readiness sprints on `dev`.
+5. Keep real production frozen on `v1.0.0-beta.6`.
+6. Do not schedule the real production cutover until the release candidate is frozen and `/release-readiness` passes.
 
 ---
 

@@ -1010,3 +1010,93 @@ def get_employee(conn: sqlite3.Connection, employee_id: str):
     if row is None:
         return None
     return dict(zip(["employee_id", "name", "role", "department", "dealership_id", "status"], row))
+
+
+# ─── Sprint 05: access model (organization / dealership parent / membership) ──
+#
+# See database/migrations/0009_access_model.sql for the model's design
+# reasoning. These are deliberately small primitives with the same
+# division of responsibility as everything above: callers decide,
+# these write/read. ensure_* functions are idempotent (safe for the
+# QA seed and the operator provisioning script to re-run), and all of
+# them commit like the Sprint 4 task/recommendation helpers' callers
+# do -- membership writes are administrative one-offs, not part of a
+# sync_run transaction boundary.
+
+
+def ensure_organization(conn: sqlite3.Connection, organization_id: str, name: str):
+    """Insert-if-missing; an existing row's name is left untouched."""
+    conn.execute(
+        "INSERT INTO organization (organization_id, name) VALUES (?, ?) "
+        "ON CONFLICT (organization_id) DO NOTHING",
+        (organization_id, name),
+    )
+
+
+def ensure_dealership(conn: sqlite3.Connection, dealership_id: str, name: str,
+                       brand: str = None, organization_id: str = None):
+    """
+    Insert-if-missing, then (idempotently) attach the organization
+    parent if one was given and the row doesn't have one yet -- the
+    exact "Dealership gains a parent" step DATA_MODEL.md's Tenant vs
+    Dealership resolution describes. Never overwrites an existing,
+    different parent: reassigning a dealership between organizations
+    is an explicit operator decision, not a seed side effect.
+    """
+    conn.execute(
+        "INSERT INTO dealership (dealership_id, name, brand, organization_id) "
+        "VALUES (?, ?, ?, ?) ON CONFLICT (dealership_id) DO NOTHING",
+        (dealership_id, name, brand, organization_id),
+    )
+    if organization_id is not None:
+        conn.execute(
+            "UPDATE dealership SET organization_id = ? "
+            "WHERE dealership_id = ? AND organization_id IS NULL",
+            (organization_id, dealership_id),
+        )
+
+
+def upsert_user_membership(conn: sqlite3.Connection, auth_user_id: str,
+                            organization_id: str, dealership_id: str, role: str,
+                            active: int = 1):
+    """
+    One membership per (auth_user_id, dealership_id) -- a repeat call
+    updates role/active/organization in place (role changes are an
+    UPDATE, not a second row; see the migration's UNIQUE reasoning).
+    The role CHECK constraint rejects unknown roles at write time.
+    """
+    conn.execute(
+        "INSERT INTO user_membership "
+        "(auth_user_id, organization_id, dealership_id, role, active) "
+        "VALUES (?, ?, ?, ?, ?) "
+        "ON CONFLICT (auth_user_id, dealership_id) DO UPDATE SET "
+        "role = excluded.role, active = excluded.active, "
+        "organization_id = excluded.organization_id",
+        (auth_user_id, organization_id, dealership_id, role, active),
+    )
+
+
+def get_active_membership(conn: sqlite3.Connection, auth_user_id: str,
+                           dealership_id: str):
+    """
+    THE authorization lookup (api/auth.py): the caller's verified
+    Supabase user ID plus the deployment's own serving dealership --
+    never a client-supplied store -- to a membership context. Returns
+    None when no ACTIVE membership exists for exactly that pairing,
+    which the API layer turns into 403. Role comes from this row and
+    nowhere else.
+    """
+    row = conn.execute(
+        "SELECT m.membership_id, m.auth_user_id, m.role, "
+        "       m.organization_id, o.name, m.dealership_id, d.name "
+        "FROM user_membership m "
+        "JOIN organization o ON o.organization_id = m.organization_id "
+        "JOIN dealership d ON d.dealership_id = m.dealership_id "
+        "WHERE m.auth_user_id = ? AND m.dealership_id = ? AND m.active = 1",
+        (auth_user_id, dealership_id),
+    ).fetchone()
+    if row is None:
+        return None
+    columns = ["membership_id", "auth_user_id", "role", "organization_id",
+               "organization_name", "dealership_id", "dealership_name"]
+    return dict(zip(columns, row))

@@ -19,6 +19,14 @@ ever becomes a product sold to unrelated dealer groups, `Dealership`
 gains a `tenant_id` and becomes a child of `Tenant` — that's the whole
 migration. Nothing about the shape below needs to change to support it.
 
+> **Executed in Sprint 05** (migration 0009), under the DealerDOH
+> vocabulary: the parent table is named `organization`, `dealership`
+> gained a nullable `organization_id`, and `user_membership` connects
+> a Supabase Auth user to (organization, dealership, role) — the
+> access-control model, distinct from the operational `employee`
+> record. Exactly the migration this paragraph predicted; no shape
+> below changed. See `AUTH_ARCHITECTURE.md`.
+
 **Dealership (current concern, modeled — see `models/dealership.py`).**
 A location/business unit inside one deployment — Mark Kia, Mark Mazda,
 Mark Mitsubishi. Vehicles legitimately move between dealerships

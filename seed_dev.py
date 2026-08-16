@@ -58,8 +58,8 @@ _REPO_ROOT = os.path.dirname(os.path.abspath(__file__))
 # bookkeeping) so the next run starts from a clean, re-migrated schema.
 _APP_TABLES = (
     "event_freshness", "task_execution_event", "recommendation", "task",
-    "event", "pending_identity", "sync_run", "employee", "dealership",
-    "vehicle", "schema_migrations",
+    "event", "pending_identity", "sync_run", "user_membership", "employee",
+    "dealership", "organization", "vehicle", "schema_migrations",
 )
 
 

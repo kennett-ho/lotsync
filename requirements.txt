@@ -42,3 +42,11 @@ psycopg-pool
 # dependencies note" category as httpx above, not a runtime dependency
 # of the app itself.
 pypdf
+
+# Sprint 05 (DealerDOH) -- Supabase Auth token verification in
+# api/auth.py: PyJWT verifies the ES256-signed access tokens the
+# dealerdoh-dev Supabase project issues (against its public JWKS);
+# cryptography supplies the ECC P-256 primitives PyJWT needs for that.
+# Inert under the default AUTH_MODE=disabled (the production path).
+PyJWT
+cryptography

@@ -71,6 +71,23 @@ in the existing CI jobs (428/428 SQLite, 428/428 PostgreSQL, one
 documented skip), and documented for humans in
 [`DEV_QA_GUIDE.md`](DEV_QA_GUIDE.md). Production untouched.
 
+**Infrastructure Sprint 05:** DealerDOH DEV has its first real
+**authentication and authorization boundary** — Supabase Auth
+(email/password, synthetic `.example` users only) issues ES256 JWTs
+that FastAPI independently verifies against the project JWKS, then
+authorizes against the new access model
+(`organization → dealership → user_membership → role`, migration
+0009 — executing DATA_MODEL.md's "Dealership gains a parent"
+resolution). Server-side only: role and store come from the
+membership row, never from the client; cross-store access is denied
+and proven (a Store-B-only manager gets 403). One role restriction
+exists (sync run = admin/manager); reads stay shared. RLS assessed
+and deferred with documented conditions. `AUTH_MODE=disabled` is the
+default — **production behavior is byte-for-byte unchanged** and the
+suites prove it (454/454 SQLite, 454/454 PostgreSQL incl. 25 new auth
+tests minting local ES256 tokens — no live Supabase in CI). See
+[`AUTH_ARCHITECTURE.md`](AUTH_ARCHITECTURE.md).
+
 **Staleness note:** the sections below this one were last brought
 current at v0.7.4 (2026-08-03). Releases v0.8.0 → v1.0.0-beta.6
 (pre-deployment hardening, deployment readiness, the six beta

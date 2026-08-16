@@ -7,6 +7,8 @@ import InventorySync from './dashboards/InventorySync'
 import Profile from './dashboards/Profile'
 import { getDashboard } from './api/dashboard'
 import { useApi } from './api/useApi'
+import IdentityFooter from './auth/IdentityFooter'
+import { isAuthEnabled as IS_AUTH_ENABLED } from './auth/supabase'
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -135,6 +137,12 @@ function Sidebar({ activeNav, onNav, mobileOpen, onCloseMobile }: {
             )
           })}
         </nav>
+
+        {/* Sprint 05: when auth is enabled, the signed-in identity
+            (email · role · dealership, from GET /me) plus Sign Out
+            live here -- see auth/IdentityFooter.tsx. Renders nothing
+            in unauthenticated builds (production). */}
+        {IS_AUTH_ENABLED && <IdentityFooter />}
 
         {/* Profile & Settings entry point -- no user identity displayed here,
             just a generic icon/label; see Profile.tsx for the page itself. */}

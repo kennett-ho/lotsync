@@ -142,6 +142,12 @@ RAPIDRECON_FRESHNESS_SCENARIOS = {
 }
 
 TOTALS = {
+    # Sprint 05 access-model identity rows (dev_seed/seeder.py's
+    # seed_qa_access_identity) -- memberships are per-environment
+    # (provisioning script), so none stand in the seed itself.
+    "organizations": 1,
+    "dealerships": 1,
+    "user_memberships": 0,
     "vehicles": 34,
     "active_vehicles": 28,
     "sold_vehicles": 6,

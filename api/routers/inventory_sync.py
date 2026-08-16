@@ -20,6 +20,7 @@ from typing import Optional
 
 from fastapi import APIRouter, Depends, File, HTTPException, UploadFile
 
+from lotsync.api.auth import SYNC_RUN_ROLES, require_roles
 from lotsync.api.dependencies import get_db
 from lotsync.api.dtos import PendingIdentityDTO, SyncRunBatchDTO, SyncSummaryDTO
 from lotsync.config.settings import (
@@ -45,7 +46,13 @@ UPLOADS_DIR = os.environ.get("LOTSYNC_API_UPLOADS_DIR", os.path.join(_REPO_ROOT,
 OUT_DIR = os.environ.get("LOTSYNC_OUT_DIR", os.path.join(_REPO_ROOT, "data", "outputs"))
 
 
-@router.post("/run", response_model=SyncSummaryDTO)
+# Sprint 05: the one role-restricted route -- running a sync mutates
+# dealership state, and the governed role model gives that to
+# admin/manager only (see api/auth.py's SYNC_RUN_ROLES note; every
+# read route stays shared across all active-member roles). Inert under
+# AUTH_MODE=disabled, like the rest of the auth layer.
+@router.post("/run", response_model=SyncSummaryDTO,
+             dependencies=[Depends(require_roles(*SYNC_RUN_ROLES))])
 async def run_sync(
     tekion_unsold: Optional[UploadFile] = File(None),
     tekion_sold: Optional[UploadFile] = File(None),

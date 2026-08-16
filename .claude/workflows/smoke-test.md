@@ -2,13 +2,18 @@
 
 Use for local, preview, or dev browser checks. Use production smoke for production.
 
-Repo reality: no dev deployment exists yet (Sprint 02 will create
-`dev.dealerdoh.com`). Until then the ONLY non-production target is the
-local stack (`tools/launch.ps1` / `Launch LotSync.bat` — backend on
-localhost, frontend on the Vite dev port). The production URLs —
-`https://lotsync-nu.vercel.app` and `https://lotsync-api.onrender.com`
-— are NEVER a smoke-test target for this workflow; production checks go
-through `/production-smoke` only.
+Repo reality: the integrated synthetic DEV environment exists and
+normally tracks `dev`:
+
+- frontend: `https://dealerdoh-dev.vercel.app`
+- API: `https://dealerdoh-api-dev.onrender.com`
+- persistence/auth: Supabase PostgreSQL + Supabase Auth, DEV-only
+
+The local stack (`tools/launch.ps1` / `Launch LotSync.bat` — backend on
+localhost, frontend on the Vite dev port) remains valid for local checks.
+The production URLs — `https://lotsync-nu.vercel.app` and
+`https://lotsync-api.onrender.com` — are NEVER a smoke-test target for
+this workflow; production checks go through `/production-smoke` only.
 
 1. Confirm target environment and URL.
 2. Confirm branch/SHA/deployment if available.

@@ -3,9 +3,11 @@
 Engineering dashboard, kept current after every completed slice or
 sprint. This is a snapshot, not a narrative — see `SPRINT_X_REVIEW.md`
 files for the story behind each entry, and `IMPLEMENTATION_PLAN.md`
-for the full plan this tracks progress against.
+for the full plan this tracks progress against. See
+[`SPRINT_HISTORY.md`](SPRINT_HISTORY.md) for the chronological
+DealerDOH infrastructure history and v1.1.0-beta release roadmap.
 
-**Last updated:** 2026-08-16 (Infrastructure Sprint 07 — Production Migration Rehearsal & Rollback Drill)
+**Last updated:** 2026-08-16 (Infrastructure Sprint 08 — v1.1.0-beta.1 Scope & Release Readiness Register)
 
 ## ⚠️ Production is live and locked (2026-08-15)
 
@@ -132,6 +134,31 @@ tests in the PostgreSQL CI job; no CI workflow changes). Verdict:
 decisions and G1 provisioning. Full evidence:
 [`PRODUCTION_MIGRATION_REHEARSAL.md`](PRODUCTION_MIGRATION_REHEARSAL.md).
 Production remains LotSync `v1.0.0-beta.6`, untouched.
+
+**Infrastructure Sprint 08:** `v1.1.0-beta.1` now has a **release
+contract** —
+[`V1_1_RELEASE_READINESS.md`](V1_1_RELEASE_READINESS.md): 13 rails +
+the production-migration rail classified REQUIRED / CONDITIONAL /
+POST-v1.1, each REQUIRED rail with owner sprint, purpose, addressed
+risk, exact exit conditions, required evidence, and blocking status;
+scope-discipline and evidence rules; back-burner trigger register;
+known-findings register. Sprint 08 decisions (**both ratified by the owner 2026-08-16**, who
+also adjusted scope: SPA deep-link routing → REQUIRED under the
+account-lifecycle rail; sidebar-dismissal and sold-vehicle-browse
+non-blocking unless UAT shows otherwise): **Notifications
+reclassified CONDITIONAL** (manual-upload v1.1 shows sync outcomes at
+the point of action; auto-promotes with automated ingestion or UAT
+evidence);
+**observability moved ahead of the UX build** (Sprint 11) so the
+tutorial/help/sync surfaces ship instrumented and UAT runs observed;
+supply-chain folded into the security sprint — nine sprints to RC
+freeze (09 Account → 10 Ingestion → 11 Observability → 12 Role-UX/
+Onboarding → 13 Security → 14 Perf+A11y → 15 Legal → 16 UAT → 17 RC).
+This sprint also landed the owner-staged
+[`SPRINT_HISTORY.md`](SPRINT_HISTORY.md) (rolling sprint history)
+plus small reality corrections (stale smoke-test workflow note;
+`dealerdoh.com` now owned). Planning only — no rail implementation,
+production untouched.
 
 **Staleness note:** the sections below this one were last brought
 current at v0.7.4 (2026-08-03). Releases v0.8.0 → v1.0.0-beta.6

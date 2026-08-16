@@ -195,7 +195,7 @@ attached and ignored), verify real logins, then flip
   returns the gate-free frontend instantly. Both proven mechanisms.
 
 ### Release D — rebrand and domain cutover
-`dealerdoh.com` purchase, `app.`/`api.` subdomains, service/project
+`dealerdoh.com` configuration, `app.`/`api.` subdomains, service/project
 renames, CORS and `VITE_API_BASE_URL` updates, Site URL updates.
 **Deliberately excluded from the operational migration** — see §19.
 Brand risk and infrastructure risk stay separate.
@@ -775,7 +775,7 @@ Supabase Site URL changes are a coupled set with user-facing failure
 modes that have nothing to do with the database or auth — mixing them
 into B or C would widen every rollback.
 
-Release D outline (its own plan, post-G8): purchase `dealerdoh.com` →
+Release D outline (its own plan, post-G8): configure the owned `dealerdoh.com` domain →
 stage `api.dealerdoh.com` on Render + `app.dealerdoh.com` on Vercel
 (both platforms serve old and new hostnames simultaneously — a
 gradual, revertible cutover) → update `LOTSYNC_CORS_ORIGINS` (add,

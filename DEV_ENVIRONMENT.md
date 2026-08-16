@@ -28,8 +28,8 @@ environment has proven the behavior long enough to trust.
 ### Frontend — Vercel project `dealerdoh-dev`
 
 - **URL:** `https://dealerdoh-dev.vercel.app` (future: `dev.dealerdoh.com` —
-  requires purchasing/configuring the `dealerdoh.com` domain, then adding
-  the subdomain under this project's Domains settings)
+  the owned `dealerdoh.com` domain is not configured yet; add the
+  subdomain under this project's Domains settings when approved)
 - Separate Vercel project from production `lotsync`; same repo, root
   directory `frontend/`, framework Vite.
 - **Branch mapping:** deploys from **`dev`** (switched from the
@@ -199,5 +199,5 @@ rather than silently falling back to SQLite.
   remains unauthenticated until its own planned migration
   (`PRODUCTION_MIGRATION_PLAN.md`). This bullet previously said "no
   authentication yet" — stale since Sprint 05, corrected in Sprint 06.
-- `dealerdoh.com` is not yet purchased/configured; dev runs on the
+- `dealerdoh.com` is owned but not yet configured; dev runs on the
   `*.vercel.app` / `*.onrender.com` URLs above.

@@ -1,6 +1,6 @@
 # DealerDOH — Rolling Sprint History & Release Readiness
 
-**Document Version:** 0.1  
+**Document Version:** 0.2  
 **Last Updated:** August 16, 2026  
 **Status:** Living Document  
 **Repository File:** `SPRINT_HISTORY.md`
@@ -9,7 +9,9 @@
 
 # Purpose
 
-This document is the chronological engineering and product-development record for DealerDOH.
+This document is the canonical chronological engineering, product-development, decision-memory, and release-readiness record for DealerDOH.
+
+It intentionally serves four purposes at once: historical record, current-state snapshot, architectural decision memory, and forward release-readiness register.
 
 It exists to answer:
 
@@ -25,6 +27,32 @@ It exists to answer:
 This document should be updated after every completed sprint and merged PR.
 
 Do not rewrite history when architecture changes later. Record what was true at the time and add the newer state chronologically.
+
+---
+
+# Executive Current State at a Glance
+
+| Area | Current State |
+|---|---|
+| **Production product** | LotSync |
+| **Production release** | `v1.0.0-beta.6` |
+| **Production branch / commit** | `master` / `13c4f8153561402ef40116d9148c047a8463fe25` |
+| **Production persistence** | SQLite on Render persistent disk |
+| **Production Auth** | Disabled / not yet rolled out |
+| **Development product** | DealerDOH |
+| **Development branch / current head** | `dev` / `dddbb5f` (Sprint 08 merge) |
+| **Development persistence** | Supabase PostgreSQL |
+| **Development Auth** | Supabase Auth + FastAPI server-side authorization (`AUTH_MODE=required`) |
+| **Current backend regression baseline** | 464/464 SQLite and 464/464 PostgreSQL |
+| **Standing DEV QA dataset** | 34 vehicles, 18 tasks, 2 recommendations, 98 events, 10 sync runs |
+| **Latest completed sprint** | Sprint 08 — v1.1.0-beta.1 Scope & Release Readiness Register |
+| **Migration readiness** | Technical rehearsal PASS / GO; real production cutover intentionally unscheduled |
+| **Current release target** | `v1.1.0-beta.1` |
+| **Open PRs** | tracked per sprint; see Git/PR records in each entry |
+| **Public domain** | `dealerdoh.com` owned; production domain cutover not yet performed |
+| **Immediate focus** | Execute the v1.1 rails per `V1_1_RELEASE_READINESS.md` (next: Sprint 09 — Account Lifecycle & Settings) |
+
+**Production rule:** `master` is what real dealership users are allowed to depend on. Normal development belongs on task branches and `dev`; production remains frozen until an explicit release train is approved.
 
 ---
 
@@ -67,6 +95,19 @@ DealerDOH is the planned evolution of LotSync from a lot/inventory-specific oper
 
 The public domain `dealerdoh.com` is owned.
 
+## Core Product Doctrine
+
+The following decisions are foundational and should survive individual screen or infrastructure changes:
+
+- **Vehicle is the central operational entity.**
+- **Systems provide evidence/context; DealerDOH correlates and explains that evidence.**
+- **Events are factual observations/history; Tasks are committed work; Recommendations surface evidence for human judgment.**
+- **Humans retain subjective dealership decisions.** DealerDOH should not become an AI operations manager or silently replace dealership judgment.
+- **Missing evidence is not zero.** A missing vendor source must never be interpreted as proof that no records exist.
+- **Invalid evidence is not valid zero.** An empty, incomplete, wrong-type, or malformed vendor report must fail closed rather than generate destructive operational conclusions.
+- **Preserve the workflow need, not unnecessary UI.** A screen can change while the operational need survives.
+- **Lot Staff remain the primary operational users of the original inventory workflow.** Managers and other departments contribute or receive role-aware surfaces according to real workflow needs.
+
 ---
 
 # Current Release State
@@ -106,7 +147,8 @@ Production has remained intentionally frozen while DealerDOH development proceed
 
 # Development
 
-**Branch:** `dev`
+**Branch:** `dev`  
+**Current recorded head:** `51d59f9`
 
 Current architecture:
 
@@ -165,9 +207,118 @@ Normal development does not occur directly on `master`.
 
 ---
 
+# Canonical Decision Register
+
+These are current decisions, not brainstorms. Future sprints should treat them as governing constraints unless a later explicit decision supersedes them.
+
+| Decision | Current Position | Why / Trigger for Revisit |
+|---|---|---|
+| **Production branch** | `master` = production | Existing Render/Vercel production wiring. Rename only in a deliberate release/infrastructure change. |
+| **Integration branch** | `dev` = next integrated release | All normal work enters through task branch → PR → `dev`. |
+| **Public signup** | Disabled | DealerDOH accounts are created/invited by an authorized manager/admin. |
+| **Role presentation** | One application with role-aware Manager vs Lot Staff presentation | Avoid fake role switching/separate apps. Truly different departments may later receive distinct operational surfaces when workflows justify it. |
+| **Authorization boundary** | FastAPI | Sensitive dealership data is accessed through server-side business logic; the browser does not directly query protected tables. |
+| **RLS** | Deferred defense-in-depth | Reassess when browser access to sensitive Supabase data begins or richer multi-store tenancy requires a second DB-layer boundary. |
+| **Store scoping** | Explicit serving-dealership membership in FastAPI | Full per-row store scoping becomes mandatory before Store #2 goes live. |
+| **Production migration risk** | Database, Auth, and branding are separate release risks | Keep Release A/B/C/D independently reversible where practical. |
+| **Evidence handling** | Missing evidence ≠ zero | Prevent source outages/missing reports from generating false state. |
+| **Ingestion safety** | Invalid evidence ≠ valid zero | Empty/incomplete/wrong report types must be rejected before state mutation. |
+| **Future ingestion channels** | Manual upload, scheduled email, and vendor API must converge on the same classifier/validator | Prevent automated ingestion from bypassing the safeguards added for manual upload. |
+| **Notifications v1** | In-app first | SMS/push/Slack/digests remain deferred unless a concrete operational need appears. |
+| **Observability** | Sentry + PostHog planned, with deliberate redaction/privacy rules | Error telemetry and product analytics serve different purposes and should not receive secrets/raw sensitive reports. |
+| **Real user validation** | Human UAT is required before production cutover | AI/browser smoke tests cannot substitute for a manager and lot attendant using the product uncoached. |
+
+---
+
+# Known Active Findings & Technical Debt Register
+
+| Finding / Debt | Status | Required Before | Notes / Trigger |
+|---|---|---|---|
+| Sold vehicles have no normal browse path | **Open — planned Sprint 12** | Non-blocking unless Manager UAT or a required workflow demonstrates otherwise (owner decision 2026-08-16) | API/history supports sold vehicles; UI discovery path remains missing. |
+| Sidebar navigation can leave Vehicle Detail open | **Open — planned Sprint 12** | Non-blocking unless UAT demonstrates otherwise (owner decision 2026-08-16) | State-navigation UX issue surfaced by QA dataset. |
+| SPA deep links can 404 on Vercel | **Open — REQUIRED, Sprint 09 (Rail A)** | v1.1 (owner decision 2026-08-16: recovery/password-reset links may depend on direct routing) | App is currently state-based rather than fully URL-routed/rewrite-safe. |
+| Admin and Manager are currently mostly equivalent | **Accepted / Deferred** | User-management maturity | Intentional minimal role model; diverge only when justified capabilities exist. |
+| Full per-row store scoping | **Deferred / Triggered before Store #2** | Second real store | Current single-serving-store membership boundary is proven, but multi-store rows need explicit scoping. |
+| Legacy HS256 Supabase key retirement | **Open operator hardening item** | Security-hardening / production Auth readiness | DealerDOH verifier already pins ES256; confirm legacy anon/service-role key dependencies before retirement. |
+| Historical `CHANGELOG.md` backfill | **Open** | Nice-to-have before v1.1 archive/freeze | Existing changelog historically stopped at v0.7.4 while later releases live in tags/history. |
+| Automatic-ingestion vendor research | **Active / Conditional** | Before automated ingestion implementation | Verify actual Tekion/Keyper/RecovR/RapidRecon/MDD mechanisms this week. |
+| Privacy/legal production documents | **Planned** | Broader commercial rollout / release-readiness assessment | Data inventory must precede accurate Privacy Policy, Accessibility Statement, security/subprocessor disclosures, etc. |
+| Render persistent disk after Postgres | **Operational constraint, not removable yet** | Production cost optimization | The disk also supports `oms_config.xlsx`, upload staging, and generated report/output workflows; PostgreSQL migration alone does not make it disposable. |
+
+---
+
+# Development Eras
+
+The numbered DealerDOH production-maturity sprints below are **not the beginning of the project**. LotSync already had substantial product, backend, frontend, and deployment work before production was locked. This document preserves those earlier efforts as eras rather than renumbering historical phase/sprint schemes. Exact historical sprint numbering should remain in the original roadmap/docs/tags where it was used.
+
+## Era I — Operational Problem Discovery & Prototype
+
+LotSync originated from real dealership operations work at Mark Kia. The initial problem was not "build dealership SaaS"; it was reconciling operational truth scattered across multiple systems. Early work included:
+
+- comparing Tekion inventory state with Keyper, RecovR, MDD, and RapidRecon evidence;
+- building a master reconciliation workflow from exports/spreadsheets;
+- identifying practical rules around sold vehicles, checked-out keys, tracking devices, recon state, and stale system evidence;
+- shifting from ad hoc spreadsheet analysis toward a vehicle-centered operational system.
+
+**What this era established:** the domain knowledge and operational pain that later became the product's business rules.
+
+## Era II — Backend Foundation & Persistent Operational Model
+
+The backend evolved into a Python/FastAPI/SQLite application with migrations and raw SQL. Historical work in this era established the durable domain model and core reconciliation pipeline, including:
+
+- vehicle-centered persistence;
+- source import/persistence across dealership systems;
+- SyncRun provenance/history;
+- event history/freshness;
+- task generation;
+- recommendations;
+- dashboard/read-model queries;
+- regression tests around reconciliation behavior.
+
+Historical architectural milestones later reflected in the repository include `v0.7.1` architecture/developer-tooling stabilization, `v0.7.2` vehicle display-name improvements, and `v0.7.3` Event Fidelity.
+
+**What this era established:** a persistent operational engine instead of a one-off reconciliation script.
+
+## Era III — Product Alignment & Operational MVP
+
+By the `v0.7.4` Product Alignment milestone and subsequent `v0.8.x` work, the system's product identity became clearer:
+
+- Lot Staff were established as the primary operational users of the original product;
+- the product grammar centered Vehicle / Event / Task / Recommendation;
+- task lifecycle and operational wording were refined;
+- RecovR, Keyper, MDD, sold/active inventory, and missing-source behavior were aligned with dealership reality;
+- dashboard Tasks became grouped operational work rather than raw rule-engine output;
+- responsive/mobile field usability became part of the product.
+
+**What this era established:** LotSync as an operational product with governed semantics, not merely data reconciliation.
+
+## Era IV — Deployment Beta & Real-World Validation
+
+The `v0.9.x` → `v1.0.0-beta.x` period established the live beta and corrected issues that only surfaced in production-like operation. This era included:
+
+- Vercel frontend deployment;
+- Render FastAPI deployment;
+- SQLite persistence on a Render disk;
+- `/health`;
+- CORS configuration;
+- upload-path security hardening;
+- production report-output directory fixes;
+- Inventory Sync scrolling/field usability fixes;
+- printable Daily Work Order PDF (`v1.0.0-beta.6`);
+- real manager use of Inventory Sync after the developer left the dealership.
+
+**What this era established:** the product could be used independently by real dealership personnel, which is why the next era begins by formally locking production.
+
+---
+
+# Era V — DealerDOH Production-Maturity Program
+
+This era begins once the working LotSync beta is treated as real production and DealerDOH development is separated behind a governed dev → production release train.
+
 # Sprint 01 — Production Baseline & Git Foundation
 
-**Status:** Complete
+**Status:** Complete  
+**Date:** TBD — populate from merged PR/commit metadata; do not guess.
 
 ## Objective
 
@@ -252,6 +403,10 @@ Initial documentation commit on `dev`:
 - No verified off-host production database backup existed.
 - A push to `master` automatically triggered production deployment.
 
+## Production Impact
+
+No product behavior was intentionally changed. Production was inspected and documented, then treated as the locked reference point. Normal development moved away from production.
+
 ## Result
 
 LotSync production became formally:
@@ -260,11 +415,16 @@ LotSync production became formally:
 
 Normal development moved to `dev`.
 
+## What This Enabled Next
+
+A safe baseline from which backups, CI, dev infrastructure, and all later DealerDOH work could proceed without ambiguity about what production actually was.
+
 ---
 
 # Sprint 01.5 — Backup & CI Foundation
 
-**Status:** Complete
+**Status:** Complete  
+**Date:** TBD — populate from merged PR/commit metadata; do not guess.
 
 ## Objective
 
@@ -340,6 +500,10 @@ Merge commit:
 
 `aed153d`
 
+## Production Impact
+
+The production database was read through SQLite's safe online-backup mechanism and remained healthy. CI had no deployment step and no production DB access.
+
 ## Result
 
 DealerDOH development gained:
@@ -348,11 +512,16 @@ DealerDOH development gained:
 - automatic test/build gates
 - a safer integration branch
 
+## What This Enabled Next
+
+Infrastructure work could become more autonomous because every PR now had a repeatable test/build gate and production had a verified recovery artifact.
+
 ---
 
 # Process Milestone — DealerDOH Agent Development Procedures
 
-**Status:** Complete
+**Status:** Complete  
+**Date:** TBD — populate from merged PR/commit metadata; do not guess.
 
 This occurred between Sprint 01.5 and Sprint 02.
 
@@ -401,6 +570,10 @@ Merge commit:
 
 `dac6088e`
 
+## Production Impact
+
+None. The change was process/documentation only and explicitly taught agents that production release actions require separate approval.
+
 ## Result
 
 DealerDOH's development methodology became version-controlled institutional knowledge.
@@ -409,11 +582,16 @@ The task prompt now describes **what** to build.
 
 DealerDOH process skills describe **how** the work must be performed.
 
+## What This Enabled Next
+
+Future Fable/Claude/Codex work could follow a durable task → PR → merge → smoke → release procedure without re-explaining every safety rule in every sprint.
+
 ---
 
 # Sprint 02 — DealerDOH Development Environment Foundation
 
-**Status:** Complete
+**Status:** Complete  
+**Date:** TBD — populate from merged PR/commit metadata; do not guess.
 
 ## Objective
 
@@ -542,15 +720,24 @@ Merge commit:
 
 `ea50df30`
 
+## Production Impact
+
+None. `master`, the production Render service, the production Vercel project, the production SQLite DB, and production credentials remained untouched.
+
 ## Result
 
 DealerDOH gained a persistent integrated development environment completely separated from production.
+
+## What This Enabled Next
+
+Invasive architecture work—especially the SQLite → PostgreSQL migration—could be performed against a real deployed stack without risking the dealership.
 
 ---
 
 # Sprint 03 — DEV SQLite → Supabase PostgreSQL Migration
 
-**Status:** Complete
+**Status:** Complete  
+**Date:** TBD — populate from merged PR/commit metadata; do not guess.
 
 ## Objective
 
@@ -660,15 +847,24 @@ Merge commit:
 
 `6bf862f`
 
+## Production Impact
+
+None. Production continued using the existing SQLite path. The dual-engine design intentionally kept SQLite as the safe/default compatibility path while DEV switched to PostgreSQL.
+
 ## Result
 
 DealerDOH DEV moved to the intended future database architecture while production remained untouched on SQLite.
+
+## What This Enabled Next
+
+DEV gained durable persistence and a realistic future production DB architecture, making richer QA state, auth, and later migration rehearsal possible.
 
 ---
 
 # Sprint 04 — Deterministic Synthetic QA Dealership
 
-**Status:** Complete
+**Status:** Complete  
+**Date:** TBD — populate from merged PR/commit metadata; do not guess.
 
 ## Objective
 
@@ -826,15 +1022,24 @@ Merge commit:
 
 `e25e498`
 
+## Production Impact
+
+None. Only synthetic DEV fixtures and assertions changed; no production data was copied or mutated.
+
 ## Result
 
 DealerDOH DEV became a standing automated QA dealership instead of a simple demo environment.
+
+## What This Enabled Next
+
+Authentication, authorization, UX changes, and later release features could be validated against a known scenario matrix rather than arbitrary fake data.
 
 ---
 
 # Sprint 05 — Supabase Auth, Users, Roles & Store Boundaries
 
-**Status:** Complete
+**Status:** Complete  
+**Date:** TBD — populate from merged PR/commit metadata; do not guess.
 
 ## Objective
 
@@ -1015,15 +1220,24 @@ Merge commit:
 
 `a2f6322`
 
+## Production Impact
+
+None. Production remained unauthenticated with `AUTH_MODE=disabled` by default; no real employee accounts or production Supabase/Auth resources were introduced.
+
 ## Result
 
 DealerDOH DEV became a real authenticated application with server-enforced membership/store authorization.
+
+## What This Enabled Next
+
+Production migration planning could include a proven Auth path, real role/store boundaries, and realistic login/session smoke testing instead of hypothetical access-control design.
 
 ---
 
 # Sprint 06 — Production Migration Planning & Cutover Runbook
 
-**Status:** Complete
+**Status:** Complete  
+**Date:** TBD — populate from merged PR/commit metadata; do not guess.
 
 ## Objective
 
@@ -1109,6 +1323,12 @@ After PostgreSQL accepts new writes:
 
 A raw SQLite rollback may lose new data unless that work is replayed/recovered.
 
+## Render Disk Retention Finding
+
+A critical cost/architecture assumption was corrected during planning: moving the production database to PostgreSQL does **not** immediately make the Render persistent disk disposable. The disk also supports operational files such as `oms_config.xlsx`, upload staging, and generated report/output workflows.
+
+The production migration can retire `lotsync.db` as the authoritative datastore without automatically removing the disk or its cost. Disk retirement requires a separate storage/output migration decision.
+
 ## Runbook
 
 Created:
@@ -1128,15 +1348,24 @@ Merge commit:
 
 `4f765bc`
 
+## Production Impact
+
+None. The sprint was planning/read-only. No Supabase production project, env changes, production migrations, or release-train execution occurred.
+
 ## Result
 
 Production migration became a documented release operation rather than an improvised infrastructure change.
+
+## What This Enabled Next
+
+A full rehearsal could test the exact cutover, validation, rollback, and failure-handling procedure before any real production scheduling.
 
 ---
 
 # Sprint 07 — Production Migration Rehearsal & Rollback Drill
 
-**Status:** Complete
+**Status:** Complete  
+**Date:** TBD — populate from merged PR/commit metadata; do not guess.
 
 ## Objective
 
@@ -1305,15 +1534,24 @@ Merge commit:
 
 `51d59f9`
 
+## Production Impact
+
+None. Rehearsal used disposable synthetic infrastructure and production-shaped fake data. `master`, production deployments, production SQLite, real users, and DNS remained unchanged.
+
 ## Result
 
 The migration rail is proven and can remain parked while v1.1.0-beta feature development continues.
+
+## What This Enabled Next
+
+The technical migration question is no longer the blocker. DealerDOH can spend the next release cycle on product, security, observability, ingestion safety, accessibility, legal readiness, and human UAT before freezing the v1.1 candidate.
 
 ---
 
 # Sprint 08 — v1.1.0-beta.1 Scope & Release Readiness Register
 
-**Status:** In Progress — Awaiting Merge
+**Status:** Complete  
+**Date:** 2026-08-16 (merged same day)
 
 ## Objective
 
@@ -1323,7 +1561,7 @@ Turn `v1.1.0-beta.1` from a collection of ideas into a controlled release contra
 
 - `dev` = `51d59f9` (Sprint 07 merge), `master` locked at `v1.0.0-beta.6` / `13c4f815`
 - CI green on the `dev` head; DEV and production endpoints healthy (read-only checks)
-- This document (`SPRINT_HISTORY.md`) was found owner-staged locally but not yet committed — landed in-repo as this sprint's first commit, together with owner-staged reality corrections (stale smoke-test workflow note; `dealerdoh.com` now owned; status pointer)
+- This document was found owner-staged locally but not yet committed — landed in-repo as the sprint's first commit, together with owner-staged reality corrections (stale smoke-test workflow note; `dealerdoh.com` now owned; status pointer)
 
 ## Major Work
 
@@ -1331,12 +1569,12 @@ Created **`V1_1_RELEASE_READINESS.md`** — the authoritative release contract f
 
 - Readiness register: 13 rails + the production-migration rail, each with priority, status, planned sprint, blocking status, exit-condition summary, and required evidence
 - Full exit criteria for every REQUIRED rail (A Account Lifecycle, B Onboarding/Help, C Role-Aware Presentation, D Ingestion Safety, F Observability, G Structured Logging, H Security Hardening, I Supply Chain, J Performance, K Accessibility blocking subset, L Privacy/Legal internal-beta subset, M Human UAT)
-- **Sprint 08 decision:** Notifications (this document's Rail D / the spec's Rail E) classified **CONDITIONAL**, not REQUIRED — v1.1 ingestion is manual-upload-only, so sync outcomes are visible at the point of action; the rail auto-promotes if automated ingestion enters v1.1, if UAT shows users missing critical conditions, or by owner decision. **Ratified by the owner 2026-08-16**, with automated ingestion or UAT evidence as the promotion triggers
+- **Sprint 08 decision:** Notifications classified **CONDITIONAL**, not REQUIRED — v1.1 ingestion is manual-upload-only, so sync outcomes are visible at the point of action; the rail auto-promotes if automated ingestion enters v1.1 or on UAT evidence
 - Automated Report Ingestion held CONDITIONAL behind the vendor-discovery checklist (owner action; answers targeted before Sprint 12 planning)
-- Scope-discipline rules (five narrow admission criteria after Sprint 08), evidence rules (what "done" means per change class), back-burner trigger register, and the known-findings register with per-item blocking status
-- **Recommended order (changed from provisional):** 09 Account → 10 Ingestion Safety → **11 Observability + Logging (moved up from 13)** → 12 Role-Aware UX + Onboarding → (12.5 Notifications only if triggered) → 13 Security + Supply Chain (folded) → 14 Performance + Accessibility → 15 Privacy/Legal → 16 Human UAT → 17 RC Freeze — nine sprints to RC instead of ten, with instrumentation in place before the big UX build and before UAT
+- Scope-discipline rules (five narrow admission criteria after Sprint 08), evidence rules per change class, back-burner trigger register, and the known-findings register with per-item blocking status
+- **Recommended order (changed from provisional):** 09 Account → 10 Ingestion Safety → **11 Observability + Logging (moved up from 13)** → 12 Role-Aware UX + Onboarding → (12.5 Notifications only if triggered) → 13 Security + Supply Chain (folded) → 14 Performance + Accessibility → 15 Privacy/Legal → 16 Human UAT → 17 RC Freeze — nine sprints to RC instead of ten
 
-Note: rail letters in `V1_1_RELEASE_READINESS.md` follow the Sprint 08 specification and diverge from this document's older catalog from D onward (mapping recorded in the register). The register is operative; this document's rails section remains historical context.
+Note: rail letters in `V1_1_RELEASE_READINESS.md` follow the Sprint 08 specification and diverge from this document's older rail catalog from D onward (mapping recorded in the register). **The register is operative**; this document's rails section and readiness-summary table remain historical context.
 
 ## Owner Ratification & Scope Adjustment (2026-08-16, pre-merge)
 
@@ -1352,7 +1590,15 @@ None. Planning/documentation only. No production Supabase, no cutover scheduling
 
 ## PR
 
-Recorded at merge time per the rolling-update procedure.
+**PR #10.** Task commits: `28b6009` (owner-staged history landing), `a5ffaf6` (register), `4e1c232` (ratification). Merge commit: `dddbb5f`. CI green on the merged head (SQLite, PostgreSQL, frontend build; both Vercel preview statuses).
+
+## Result
+
+`v1.1.0-beta.1` has a release contract: scope is classified, exit criteria and evidence rules are explicit, and conditional/deferred work cannot silently grow the release.
+
+## What This Enabled Next
+
+Sprints 09–17 execute against a frozen contract instead of a provisional idea list, starting with Account Lifecycle & Settings.
 
 ---
 
@@ -1371,6 +1617,35 @@ Production remains:
 while additional release features and production-readiness rails are developed in `dev`.
 
 ---
+
+# v1.1.0-beta Release Readiness Register
+
+> **Superseded (Sprint 08):** the operative register — with the
+> ratified classifications, frozen sprint order, exact exit
+> conditions, and evidence rules — is
+> [`V1_1_RELEASE_READINESS.md`](V1_1_RELEASE_READINESS.md). The table
+> below predates that freeze and is retained as historical context
+> per this document's no-rewrite rule.
+
+This table is the fast release-gate view. The detailed Rail sections below explain the scope and reasoning. **Planned sprint numbers are provisional until Sprint 08 formally freezes the roadmap.**
+
+| Rail | Priority | Status | Provisional Sprint | Blocks v1.1? | Exit Condition |
+|---|---|---|---|---|---|
+| Account Lifecycle | Required | Planned | 09 | Yes | Admin/manager provisioning, password reset/recovery, settings/profile, disable/offboard path verified |
+| User Onboarding & Help | Required | Planned | 10 | Yes | First-login guidance + contextual Help usable by uncoached user |
+| Role-Aware Presentation | Required | Planned | 10 | Yes | Manager and Lot Staff see appropriate emphasis without bypassing server authorization |
+| Notifications | Likely Required | Planned / scope to confirm | 12 | TBD | Minimal in-app actionable notifications with read/unread + safe retention |
+| Inventory Ingestion Safety | Required | Planned | 11 | Yes | Empty/incomplete/wrong-type reports fail closed; preview/sanity checks precede mutation |
+| Automated Report Ingestion | Conditional | Discovery | TBD | No, unless vendor research makes it an explicit release item | Vendor mechanisms confirmed and routed through same classifier/validator |
+| Observability (Sentry/PostHog) | Required | Planned | 13 | Yes | Error telemetry + product events live with verified redaction/privacy controls |
+| Structured Logging & Monitoring | Required | Planned | 13 | Yes | Request IDs, structured safe logs, key alerts/health checks verified |
+| Security Hardening | Required | Planned | 14 | Yes | Read-only audit → fixes → adversarial re-test; no unresolved release-blocking Critical/High gaps |
+| Dependency / Supply Chain | Required | Planned | 14 | Yes | npm/Python scans in CI; reachable Critical/High findings resolved or explicitly accepted |
+| Performance & Resilience | Required | Planned | 15 | Yes | Realistic dealership load/slow-network paths measured and release blockers fixed |
+| Accessibility | Required engineering target | Planned | 15 | Yes | WCAG 2.2 AA-oriented audit complete; release-blocking accessibility defects fixed |
+| Privacy / Legal Readiness | Required assessment | Planned | 16 | Yes for commercial/public readiness | Data inventory + retention/subprocessor mapping + accurate policy/statement drafts |
+| Human UAT | Required | Planned | 17 | Yes | Manager + Lot Staff complete uncoached DEV tasks; blockers addressed |
+| Release Candidate Freeze | Required | Planned | 18 | Yes | Scope frozen, `/release-readiness` green, final smoke/security/accessibility/migration assumptions confirmed |
 
 # v1.1.0-beta Release Rails
 
@@ -2040,16 +2315,16 @@ Require private-by-default storage policy and authorized access.
 
 ---
 
-# Proposed v1.1.0-beta Sprint Roadmap
+# Proposed v1.1.0-beta Sprint Roadmap — Provisional
 
-> **Superseded for scope and order (Sprint 08):**
-> [`V1_1_RELEASE_READINESS.md`](V1_1_RELEASE_READINESS.md) is now the
-> operative release contract — classifications, exit criteria,
-> evidence rules, and the recommended Sprint 09–17 sequence live
-> there. The roadmap below is retained as historical context per this
-> document's no-rewrite rule.
+> **Superseded (Sprint 08):** the frozen order (09 Account →
+> 10 Ingestion → 11 Observability → 12 Role-UX/Onboarding →
+> 13 Security+Supply-Chain → 14 Perf+A11y → 15 Legal → 16 UAT →
+> 17 RC) lives in
+> [`V1_1_RELEASE_READINESS.md`](V1_1_RELEASE_READINESS.md) §9.
+> Retained below as historical context.
 
-This roadmap remains adjustable.
+This roadmap remains adjustable and is **not locked** until Sprint 08 formalizes the scope/readiness register. Sprint numbers, bundling, and order may change as risk and dealership research clarify priorities.
 
 ## Sprint 08 — v1.1 Release Scope & Readiness Register
 
@@ -2233,6 +2508,20 @@ Automatic ingestion remains conditional until this research is complete.
 
 ---
 
+# Evidence & Status Rules
+
+To keep this document trustworthy, sprint status is evidence-based:
+
+- **Complete** means the work was merged into `dev` (or the intended target), the merge SHA is recorded, and required post-merge CI/smoke checks passed.
+- **Implementation Complete — Awaiting Merge** means the PR is green but has not yet been merged.
+- **Planned** means no implementation claim should appear in the completed-history sections.
+- Record the **PR number, task commit(s), merge commit, and CI result on the merged head** whenever known.
+- When runtime behavior changes, record deployed smoke-test evidence after merge.
+- Never invent missing SHAs, dates, counts, or test results. Use **TBD** and fill from Git/PR metadata later.
+- Dates should come from PR/commit/release metadata, not memory guesses.
+- A finding remains in the Active Findings register until explicitly resolved, accepted/deferred with a trigger, or superseded by a later decision.
+- Historical behavior should not be rewritten to match current architecture; newer decisions belong later in chronology or in the Decision Register.
+
 # Rolling Update Procedure
 
 At the completion of each sprint:
@@ -2253,6 +2542,9 @@ At the completion of each sprint:
 14. Update Current State.
 15. Update planned sprint roadmap.
 16. Move completed rails from Planned → Verified when appropriate.
+17. Update the Executive Current State table (branch heads, latest sprint, test baseline, open PRs, cutover status).
+18. Reconcile the Active Findings register and Decision Register.
+19. If a planned sprint changed scope/order, update the provisional roadmap without rewriting older sprint history.
 
 Never mark planned work as completed before it is actually merged and verified.
 
@@ -2260,12 +2552,12 @@ Never mark planned work as completed before it is actually merged and verified.
 
 # Current Immediate Next Actions
 
-1. ~~Establish the formal v1.1.0-beta release/readiness register.~~ Done pending merge — `V1_1_RELEASE_READINESS.md` (Sprint 08).
-2. Owner: ratify the Sprint 08 classifications at the PR gate (especially Notifications → CONDITIONAL) and start the vendor-discovery checklist for automated ingestion.
-3. Begin Sprint 09 — Account Lifecycle & Settings — when explicitly initiated.
-4. Continue feature and production-readiness sprints on `dev`.
+1. ~~Run Sprint 08 to formalize the v1.1.0-beta scope/readiness register.~~ Done and merged (PR #10, `dddbb5f`) — `V1_1_RELEASE_READINESS.md` is operative, both Sprint 08 decisions ratified.
+2. Begin Sprint 09 — Account Lifecycle & Settings — when explicitly initiated (includes the REQUIRED SPA deep-link rewrite).
+3. Complete dealership vendor research before committing automatic email/API ingestion to the release (answers targeted before Sprint 12 planning).
+4. Continue feature and production-readiness work only through task branch → PR → `dev`.
 5. Keep real production frozen on `v1.0.0-beta.6`.
-6. Do not schedule the real production cutover until the release candidate is frozen and `/release-readiness` passes.
+6. Do not schedule the real production cutover until the candidate is frozen, `/release-readiness` passes, and any changes that affect migration assumptions receive a targeted rehearsal refresh.
 
 ---
 
@@ -2277,5 +2569,7 @@ It does need:
 
 > Every attack surface and workflow that currently exists to be deliberately secured, tested, observable, recoverable, and documented.
 
-And every future capability should have a documented trigger telling the team when its corresponding security, reliability, legal, or architectural controls become mandatory.
+And every future capability should have a documented trigger telling the team when its corresponding security, reliability, legal, privacy, accessibility, or architectural controls become mandatory.
+
+The purpose of this document is not to prove that DealerDOH is finished. It is to make the product's history, present state, known risks, release gates, and future obligations legible enough that neither a human nor an AI agent has to rediscover them from scratch.
 

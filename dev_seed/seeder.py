@@ -27,8 +27,11 @@ from lotsync.rules.aging import (
     KEY_OUT_AGING_DEFAULT, INCOMING_MISSING_DEFAULT, NEW_CAR_DEFAULT,
 )
 from lotsync.sync.pipeline import run_inventory_sync
+from lotsync.database.repository import ensure_dealership, ensure_organization
 from lotsync.dev_seed.scenarios import (
     DAY1_SYNC_DATE, DAY2_SYNC_DATE, INTERNAL_FLEET_VINS, STORE_NAME,
+    QA_DEALERSHIP_BRAND, QA_DEALERSHIP_ID, QA_DEALERSHIP_NAME,
+    QA_ORGANIZATION_ID, QA_ORGANIZATION_NAME,
     write_source_files,
 )
 
@@ -78,6 +81,24 @@ def run_qa_seed(db_conn, out_dir: str = None) -> list:
 
     Returns both days' summary dicts, in order.
     """
+    seed_qa_access_identity(db_conn)
     day1 = run_single_day(db_conn, 1)
     day2 = run_single_day(db_conn, 2, out_dir=out_dir)
     return [day1, day2]
+
+
+def seed_qa_access_identity(db_conn) -> None:
+    """
+    Sprint 05: the QA dealership's own organization/dealership rows,
+    seeded before any sync day so the access model's store exists the
+    moment the data does. Idempotent (safe on every reseed). User
+    memberships are deliberately NOT seeded here -- they bind to real
+    Supabase Auth user IDs that only exist per-environment, so
+    tools/provision_dev_auth.py owns them (re-run it after any
+    --reset, see DEV_QA_GUIDE.md).
+    """
+    ensure_organization(db_conn, QA_ORGANIZATION_ID, QA_ORGANIZATION_NAME)
+    ensure_dealership(db_conn, QA_DEALERSHIP_ID, QA_DEALERSHIP_NAME,
+                       brand=QA_DEALERSHIP_BRAND,
+                       organization_id=QA_ORGANIZATION_ID)
+    db_conn.commit()

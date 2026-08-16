@@ -87,7 +87,7 @@ class SeedRunTest(unittest.TestCase):
             self.assertGreaterEqual(
                 sync_runs, 5, "expected one sync_run per persisted source"
             )
-            self.assertEqual(migrations, 8, "seed DB should be at migration 0008")
+            self.assertEqual(migrations, 9, "seed DB should be at migration 0009")
 
 
 if __name__ == "__main__":

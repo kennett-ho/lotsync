@@ -34,6 +34,18 @@ DAY2_SYNC_DATE = REFERENCE_DATE
 STORE_NAME = "Mark Kia"  # the deployment's own configured store identity
 OTHER_STORE_NAME = "QA Other Store"  # QA-MDD-003's store-filter probe
 
+# Sprint 05 -- the access-model identity of the QA dealership itself
+# (organization -> dealership, per DATA_MODEL.md's Tenant vs Dealership
+# resolution). The dealership_id is what the deployed dev API serves
+# under (DEALERDOH_DEALERSHIP_ID) and what every QA membership binds
+# to; tests' cross-store denials fabricate a second dealership beside
+# it. Seeded idempotently by dev_seed/seeder.py on every run.
+QA_ORGANIZATION_ID = "qa-auto-group"
+QA_ORGANIZATION_NAME = "DealerDOH QA Auto Group"
+QA_DEALERSHIP_ID = "qa-motors"
+QA_DEALERSHIP_NAME = "DealerDOH QA Motors"
+QA_DEALERSHIP_BRAND = "QA"
+
 # QA-FLEET-001 -- excluded from active_vins by load_tekion, the same
 # mechanism the real config workbook's Excluded VINs sheet feeds.
 INTERNAL_FLEET_VINS = {"1QATEST0000000081"}

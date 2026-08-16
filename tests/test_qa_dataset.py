@@ -94,6 +94,26 @@ class QAStandingSeedTest(unittest.TestCase):
         self.assertEqual(_count(self.conn, "SELECT COUNT(*) FROM sync_run"), totals["sync_runs"])
         self.assertEqual(_count(self.conn, "SELECT COUNT(*) FROM event"), totals["events"])
 
+    def test_qa_access_identity_seeded(self):
+        # Sprint 05: the QA dealership's organization/dealership rows
+        # exist after every seed (idempotently), with the governed
+        # parent link -- memberships deliberately absent (they bind to
+        # per-environment Supabase Auth user IDs; see the seeder).
+        rows = self.conn.execute(
+            "SELECT d.dealership_id, d.name, d.organization_id, o.name "
+            "FROM dealership d JOIN organization o "
+            "ON o.organization_id = d.organization_id").fetchall()
+        self.assertEqual(rows, [
+            ("qa-motors", "DealerDOH QA Motors", "qa-auto-group",
+             "DealerDOH QA Auto Group"),
+        ])
+        self.assertEqual(
+            _count(self.conn, "SELECT COUNT(*) FROM organization"),
+            expected.TOTALS["organizations"])
+        self.assertEqual(
+            _count(self.conn, "SELECT COUNT(*) FROM user_membership"),
+            expected.TOTALS["user_memberships"])
+
     def test_all_sync_runs_complete(self):
         statuses = {row[0] for row in self.conn.execute("SELECT status FROM sync_run")}
         self.assertEqual(statuses, {"complete"})

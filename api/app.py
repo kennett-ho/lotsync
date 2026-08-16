@@ -19,10 +19,12 @@ reasoning.
 
 import os
 import sqlite3
+from typing import Optional
 
 from fastapi import Depends, FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
+from lotsync.api.auth import AccessContext, auth_mode, get_access_context
 from lotsync.api.dependencies import get_db
 from lotsync.api.routers import activity, dashboard, inventory_sync, recommendations, reports, tasks, vehicles
 
@@ -79,10 +81,39 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
-app.include_router(dashboard.router)
-app.include_router(vehicles.router)
-app.include_router(tasks.router)
-app.include_router(recommendations.router)
-app.include_router(activity.router)
-app.include_router(reports.router)
-app.include_router(inventory_sync.router)
+# Sprint 05: who the verified caller is, per the access model -- the
+# frontend's identity chip reads this instead of trusting anything
+# client-side. Under AUTH_MODE=disabled it reports that plainly (the
+# production posture: an unauthenticated beta), rather than inventing
+# an identity.
+@app.get("/me")
+def me(context: Optional[AccessContext] = Depends(get_access_context)) -> dict:
+    if context is None:
+        return {"authenticated": False, "auth_mode": auth_mode()}
+    return {
+        "authenticated": True,
+        "auth_mode": "required",
+        "email": context.email,
+        "role": context.role,
+        "organization": {"id": context.organization_id, "name": context.organization_name},
+        "dealership": {"id": context.dealership_id, "name": context.dealership_name},
+    }
+
+
+# Sprint 05: every operational router requires an authenticated,
+# membership-backed caller when AUTH_MODE=required (see api/auth.py --
+# under the default AUTH_MODE=disabled the dependency is inert and
+# these routes behave exactly as before this sprint). Applied at
+# include time so a future router added here inherits protection by
+# default instead of shipping accidentally public. /health (above) is
+# the ONE deliberately public endpoint -- Render's health checking
+# depends on it and it exposes no dealership data. /me carries the
+# same dependency inline, so in required mode it 401s/403s exactly
+# like an operational route; only under AUTH_MODE=disabled does it
+# report the unauthenticated posture plainly.
+_OPERATIONAL_ROUTERS = (
+    dashboard.router, vehicles.router, tasks.router, recommendations.router,
+    activity.router, reports.router, inventory_sync.router,
+)
+for _router in _OPERATIONAL_ROUTERS:
+    app.include_router(_router, dependencies=[Depends(get_access_context)])

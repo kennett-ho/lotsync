@@ -37,9 +37,11 @@ environment has proven the behavior long enough to trust.
   lives under Settings → Environments → Production → Branch Tracking).
 - Env vars (names; values in the Vercel dashboard): `VITE_API_BASE_URL`
   (→ the dev API below), `VITE_ENVIRONMENT=development` (renders the
-  permanent "DealerDOH DEV" banner — see `frontend/src/App.tsx`).
-- Reserved for Sprint 05 (documented, unused): `VITE_SUPABASE_URL`,
-  `VITE_SUPABASE_ANON_KEY` (public anon key ONLY — never service-role).
+  permanent "DealerDOH DEV" banner — see `frontend/src/App.tsx`),
+  and — Sprint 05 — `VITE_SUPABASE_URL` + `VITE_SUPABASE_ANON_KEY`
+  (public anon key ONLY, never service-role), which activate the
+  login gate (`frontend/src/auth/`). Production's Vercel project sets
+  neither, so its bundle stays gate-free and unchanged.
 
 ### Backend — Render web service `dealerdoh-api-dev`
 
@@ -62,7 +64,13 @@ environment has proven the behavior long enough to trust.
   `DATABASE_ENGINE=postgres`, `DATABASE_URL` (SECRET — the Supabase
   session-pooler DSN; lives only in Render's dashboard),
   `PYTHON_VERSION`, `LOTSYNC_OUT_DIR`, `LOTSYNC_API_UPLOADS_DIR`,
-  `LOTSYNC_CORS_ORIGINS` (the dev frontend origin only).
+  `LOTSYNC_CORS_ORIGINS` (the dev frontend origin only), and —
+  Sprint 05 — `AUTH_MODE=required` + `SUPABASE_URL` (public project
+  URL; token verification fetches the public JWKS from it) +
+  optionally `DEALERDOH_DEALERSHIP_ID` (defaults to `qa-motors`).
+  Production sets none of the Sprint 05 variables: `AUTH_MODE`
+  defaults to `disabled`, which is byte-for-byte pre-Sprint-05
+  behavior — see `AUTH_ARCHITECTURE.md`.
 
 ### Database — Supabase project `dealerdoh-dev` (PostgreSQL)
 
@@ -80,13 +88,16 @@ provisioned in Sprint 02, migrated and seeded in Sprint 03.
 - Schema: the same 8 numbered migrations as SQLite, in PostgreSQL
   dialect (`database/migrations_postgres/`), tracked in the identical
   `schema_migrations` table and auto-applied by `connect()`.
-- Auth provisioned (GoTrue answers `/auth/v1/health`); no app
-  integration yet — that's Sprint 05. Data API enabled;
-  "auto-expose new tables" deliberately disabled — none of the app
-  tables are exposed via the Data API.
-- Env var names reserved for Sprint 05: `SUPABASE_URL`,
-  `SUPABASE_PUBLISHABLE_KEY` (safe for browsers),
-  `SUPABASE_SECRET_KEY` (server-only, never in frontend/git).
+- **Auth integrated (Sprint 05):** email/password sign-in through
+  Supabase Auth (email provider only; public signups disabled), ES256
+  JWTs verified server-side by FastAPI, access authorized by the
+  `user_membership` access model. Synthetic dev users only
+  (`*@qa.dealerdoh.example` — see `DEV_QA_GUIDE.md`); RLS deliberately
+  deferred with documented conditions. Full design:
+  `AUTH_ARCHITECTURE.md`. Data API still exposes no app tables.
+- `SUPABASE_SECRET_KEY` (service-role) is used ONLY by the operator
+  provisioning script (`tools/provision_dev_auth.py`) — never by the
+  deployed API, never in the frontend, never in git or CI.
 
 ### Engine configuration (Sprint 03)
 

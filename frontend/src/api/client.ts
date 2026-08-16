@@ -11,7 +11,20 @@
  * status, JSON parsing.
  */
 
+import { currentAccessToken } from '../auth/supabase'
+
 const DEFAULT_API_BASE_URL = 'http://localhost:8000'
+
+/**
+ * Sprint 05 -- the auth header this file's own docstring reserved a
+ * seat for. Resolves to a Bearer header when a Supabase session
+ * exists, {} otherwise (auth disabled, or signed out) -- so every
+ * request shape below is unchanged except for this one merge point.
+ */
+async function authHeaders(): Promise<Record<string, string>> {
+  const token = await currentAccessToken()
+  return token ? { Authorization: `Bearer ${token}` } : {}
+}
 
 // Overridable via a .env.local VITE_API_BASE_URL, same convention the
 // backend already uses for LOTSYNC_* env vars -- not committed, since
@@ -48,7 +61,7 @@ export async function apiGet<T>(
 
   let response: Response
   try {
-    response = await fetch(url.toString())
+    response = await fetch(url.toString(), { headers: await authHeaders() })
   } catch {
     throw new ApiError(
       `Could not reach the LotSync API at ${API_BASE_URL}. Is the backend running?`,
@@ -78,7 +91,7 @@ export async function apiGetBlob(path: string): Promise<{ blob: Blob; filename: 
 
   let response: Response
   try {
-    response = await fetch(url.toString())
+    response = await fetch(url.toString(), { headers: await authHeaders() })
   } catch {
     throw new ApiError(
       `Could not reach the LotSync API at ${API_BASE_URL}. Is the backend running?`,
@@ -109,7 +122,11 @@ export async function apiPostForm<T>(path: string, formData: FormData): Promise<
 
   let response: Response
   try {
-    response = await fetch(url.toString(), { method: 'POST', body: formData })
+    response = await fetch(url.toString(), {
+      method: 'POST',
+      body: formData,
+      headers: await authHeaders(),
+    })
   } catch {
     throw new ApiError(
       `Could not reach the LotSync API at ${API_BASE_URL}. Is the backend running?`,

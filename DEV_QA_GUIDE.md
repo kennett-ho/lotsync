@@ -38,6 +38,30 @@ Relative display text ("Synced N hours ago") tracks the real clock;
 the *business outcomes* (which tasks exist, which buckets apply) never
 drift.
 
+## Signing in (Sprint 05)
+
+DealerDOH DEV requires authentication — unauthenticated visitors see
+the login screen, and every operational API route returns 401 without
+a valid token. Synthetic accounts (passwords in the owner's password
+manager; **never** in this repo):
+
+| Email | Role | Dealership | Use it to test |
+|---|---|---|---|
+| `admin@qa.dealerdoh.example` | Admin | qa-motors | everything, incl. sync run |
+| `manager@qa.dealerdoh.example` | Manager | qa-motors | everything, incl. sync run |
+| `lotstaff@qa.dealerdoh.example` | Lot Staff | qa-motors | shared operational data; sync run must be **denied** (403) |
+| `salesmanager@qa.dealerdoh.example` | Sales Manager | qa-motors | shared data access; no extra features exist yet by design |
+| `outsider@qa.dealerdoh.example` | Manager | **qa-store-b only** | the store boundary: this login gets **403** from every operational endpoint of this deployment |
+
+There is deliberately no role switcher — to test another role, sign
+out and sign in as another account. The sidebar footer shows the
+server-verified identity (email · role · dealership, from `GET /me`).
+
+After any `seed_dev.py --reset`, membership rows are gone (Auth users
+survive — they live in Supabase, not the app schema): re-run
+`tools/provision_dev_auth.py` to re-link them. See
+`AUTH_ARCHITECTURE.md` for the full model.
+
 ## What to click — one tour per behavior
 
 Find any vehicle fast: Vehicles page → search its stock number.

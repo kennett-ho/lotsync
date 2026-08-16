@@ -33,7 +33,7 @@ register.
 
 | Rail | Priority | Status | Planned Sprint | Blocks v1.1? | Exit Condition (summary — full text in §5) | Evidence Required |
 |---|---|---|---|---|---|---|
-| A — Account Lifecycle & User Administration | REQUIRED | Planned | 09 | **Yes** | Password reset + provisioning + Profile/Settings + offboarding all pass their §5.A criteria on deployed DEV | Merged PR · CI green · deployed-DEV smoke of the real recovery path · negative tests |
+| A — Account Lifecycle & User Administration | REQUIRED | **In Progress** (Sprint 09; implementation + tests done, deployed-DEV smoke and live recovery pending operator) | 09 | **Yes** | Password reset + provisioning + Profile/Settings + offboarding all pass their §5.A criteria on deployed DEV | Merged PR · CI green · deployed-DEV smoke of the real recovery path · negative tests |
 | B — Onboarding & Contextual Help | REQUIRED | Planned | 12 | **Yes** | Tutorial, Help entry points, empty/loading/error states pass §5.B; UAT confirms no-coaching operation | Merged PR · CI · DEV smoke · Rail M UAT evidence |
 | C — Role-Aware Presentation | REQUIRED | Planned | 12 | **Yes** | Manager + Lot Staff presentations verified; zero authorization drift (§5.C) | Merged PR · CI · DEV smoke both roles · negative authz tests · UAT |
 | D — Inventory Ingestion Safety | REQUIRED (high operational priority) | Planned | 10 | **Yes** | All seven §5.D validation classes enforced + pre-sync preview; invalid evidence cannot reach the sync engine | Merged PR · CI (incl. adversarial fixtures) · DEV smoke · QA-dataset regression intact |

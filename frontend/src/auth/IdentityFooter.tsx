@@ -1,45 +1,33 @@
 /**
- * Sprint 05 -- the signed-in identity block in the sidebar footer
- * (spec Phase 15): who you are, your role, your dealership, Sign Out.
- * Everything displayed comes from GET /me -- the server-derived
- * membership truth -- never from anything client-side, and there is
- * deliberately no way to switch roles here: testing another role
- * means signing in as another synthetic account.
+ * Sprint 05 -- the signed-in identity block in the sidebar footer:
+ * who you are, your role, your dealership, Sign Out. Sprint 09: reads
+ * the shared AccessProvider context (one /me per session) instead of
+ * fetching itself, and leads with the display name when the person
+ * has set one in Settings.
  */
 
-import { useApi } from '../api/useApi'
-import { apiGet } from '../api/client'
+import { ROLE_LABELS, useMe } from './AccessProvider'
 import { signOut } from './AuthGate'
 
-interface MeResponse {
-  authenticated: boolean
-  auth_mode: string
-  email?: string | null
-  role?: string
-  organization?: { id: string; name: string }
-  dealership?: { id: string; name: string }
-}
-
-const ROLE_LABELS: Record<string, string> = {
-  admin: 'Admin',
-  manager: 'Manager',
-  lot_staff: 'Lot Staff',
-  sales_manager: 'Sales Manager',
-}
-
 export default function IdentityFooter() {
-  const me = useApi(() => apiGet<MeResponse>('/me'), [])
+  const me = useMe()
 
-  const email = me.data?.email ?? '…'
-  const role = me.data?.role ? (ROLE_LABELS[me.data.role] ?? me.data.role) : ''
-  const dealership = me.data?.dealership?.name ?? ''
+  const primary = me?.display_name || me?.email || '…'
+  const secondaryEmail = me?.display_name ? me?.email ?? '' : ''
+  const role = me?.role ? (ROLE_LABELS[me.role] ?? me.role) : ''
+  const dealership = me?.dealership?.name ?? ''
 
   return (
     <div className="px-3 pb-3 pt-2 border-t border-white/10">
       <div className="px-2.5 py-2">
-        <div className="text-white text-[12px] font-semibold truncate" title={email}>
-          {email}
+        <div className="text-white text-[12px] font-semibold truncate" title={primary}>
+          {primary}
         </div>
+        {secondaryEmail && (
+          <div className="text-white/40 text-[11px] truncate" title={secondaryEmail}>
+            {secondaryEmail}
+          </div>
+        )}
         <div className="text-white/50 text-[11px] truncate">
           {role}{role && dealership ? ' · ' : ''}{dealership}
         </div>

@@ -15,6 +15,7 @@
 
 import { useEffect, useState } from 'react'
 import type { Session } from '@supabase/supabase-js'
+import AccessProvider from './AccessProvider'
 import Login from './Login'
 import { isAuthEnabled, supabase } from './supabase'
 
@@ -50,7 +51,10 @@ export default function AuthGate({ children }: { children: React.ReactNode }) {
 
   if (!session) return <Login />
 
-  return <>{children}</>
+  // Sprint 09: the signed-in app runs inside AccessProvider -- one
+  // shared /me identity, account-level denial handling (disabled
+  // membership -> dedicated screen), and global 401 -> clean sign-out.
+  return <AccessProvider>{children}</AccessProvider>
 }
 
 export async function signOut(): Promise<void> {

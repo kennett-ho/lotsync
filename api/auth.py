@@ -186,6 +186,10 @@ class AccessContext:
     organization_name: str
     dealership_id: str
     dealership_name: str
+    # Sprint 09: from the verified token's user_metadata (Supabase Auth
+    # owns profile identity; the person sets it in Settings). Optional
+    # -- older tokens and users without one simply carry None.
+    display_name: Optional[str] = None
 
 
 def get_access_context(request: Request, conn=Depends(get_db)) -> Optional[AccessContext]:
@@ -222,6 +226,8 @@ def get_access_context(request: Request, conn=Depends(get_db)) -> Optional[Acces
         # rather than authorize an unknown role.
         raise HTTPException(status_code=403, detail="Membership role not recognized")
 
+    metadata = claims.get("user_metadata") or {}
+    display_name = metadata.get("display_name")
     return AccessContext(
         auth_user_id=auth_user_id,
         email=claims.get("email"),
@@ -230,6 +236,7 @@ def get_access_context(request: Request, conn=Depends(get_db)) -> Optional[Acces
         organization_name=membership["organization_name"],
         dealership_id=membership["dealership_id"],
         dealership_name=membership["dealership_name"],
+        display_name=display_name if isinstance(display_name, str) else None,
     )
 
 

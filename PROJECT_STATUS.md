@@ -7,7 +7,7 @@ for the full plan this tracks progress against. See
 [`SPRINT_HISTORY.md`](SPRINT_HISTORY.md) for the chronological
 DealerDOH infrastructure history and v1.1.0-beta release roadmap.
 
-**Last updated:** 2026-08-16 (Infrastructure Sprint 08 — v1.1.0-beta.1 Scope & Release Readiness Register)
+**Last updated:** 2026-08-16 (Sprint 09 — Account Lifecycle, Recovery & Functional Settings)
 
 ## ⚠️ Production is live and locked (2026-08-15)
 
@@ -159,6 +159,21 @@ This sprint also landed the owner-staged
 plus small reality corrections (stale smoke-test workflow note;
 `dealerdoh.com` now owned). Planning only — no rail implementation,
 production untouched.
+
+**Sprint 09 (2026-08-16):** Rail A — Account Lifecycle — is
+**implemented and at the PR gate**: manager/admin user provisioning
+(no public signup; GoTrue invite flow; role policy server-enforced),
+enumeration-safe password recovery over a real `/auth/reset-password`
+direct link (Vercel SPA rewrite — the ratified Rail A requirement),
+membership-based instant offboarding (same valid JWT → 403 next
+request, proven by test), a Profile & Settings surface with **zero
+decorative controls** (the prior page was entirely fake — disposition
+table in [`ACCOUNT_LIFECYCLE.md`](ACCOUNT_LIFECYCLE.md)), and
+post-reset global session revocation. Suites **488/488 both engines**
+(+24 authorization-matrix tests). Deployed-DEV smoke incl. the live
+emailed recovery test remains pending operator configuration — Rail A
+is not Verified until it passes. No schema change; production
+untouched.
 
 **Pre-Sprint-09 governance update (2026-08-16):** Sprint 13's
 Security + Supply Chain scope now includes **Repository

@@ -1623,9 +1623,13 @@ Rail A: manager/admin-provisioned users (no public signup), real password recove
 
 Display name = Supabase `user_metadata` (Auth owns profile identity; **no migration 0010**, production-migration assumptions untouched). Offboarding = membership deactivation only (Auth ban/delete assessed, deferred — destroys identity/history for no added control). In-app direct change-password deferred (recovery flow is the password path; Supabase stays the authority). **Flagged-open:** manager→manager administration (smallest policy shipped).
 
-## Pending Rail A criteria (deployed verification)
+## Deployed DEV Smoke (performed pre-merge on the branch deployment)
 
-Deployed-DEV smoke incl. the real emailed recovery flow requires operator input (Render `SUPABASE_SECRET_KEY` + `DEALERDOH_FRONTEND_URL`, Supabase redirect-URL allowlist, a deliverable test email address) — Rail A stays short of Verified until those pass. Supabase's built-in email only delivers to project team members (documented limitation).
+All green, including the full live loop with an operator-provided deliverable address: **invite (manager UI/API) → real Supabase invite email → direct link opened from fresh navigation (SPA rewrite live) → set first password → global sign-out → login with the new password → correct Lot Staff identity/store from `/me`**. Live authorization probes: manager granting admin → 403; manager deactivating admin → 403; self-deactivation → 403; duplicate invite → 409 (single email sent); lot_staff on `/users` and sync-run → 403; shared reads + work-order PDF → 200; roster enriched with emails + invited-state badge; deactivate→reactivate cycle on the invited account. Unauthenticated: every operational + user route 401; `/health` public; direct `/auth/reset-password` → 200 HTML from fresh navigation; console clean (only deliberate 403 probes). QA dealership intact (16 open tasks / 2 recs / matrix on the dashboard).
+
+Three live findings, each fixed on the branch during smoke: (1) display-name save invisible until token refresh → `refreshSession()` after `updateUser` (`5225c57`); (2) provider-refused vs credential-unavailable conflated in one 503 → distinguishable 422/503 classes (`c960ada`); (3) operator-side: a whitespace character inside the pasted `SUPABASE_SECRET_KEY` value on Render broke the credential (owner re-staged; the tool's local key test isolated it). Supabase's built-in email delivered to the team-member address after a delay — the provider limitation stands documented for non-member addresses.
+
+Cleanup note: the test account (`kennett20054@gmail.com`, lot_staff, qa-motors) remains active for owner disposition — deactivate via User Management or keep as a live test identity.
 
 ## Production Impact
 

@@ -3,7 +3,9 @@
 Engineering dashboard, kept current after every completed slice or
 sprint. This is a snapshot, not a narrative — see `SPRINT_X_REVIEW.md`
 files for the story behind each entry, and `IMPLEMENTATION_PLAN.md`
-for the full plan this tracks progress against.
+for the full plan this tracks progress against. See
+[`SPRINT_HISTORY.md`](SPRINT_HISTORY.md) for the chronological
+DealerDOH infrastructure history and v1.1.0-beta release roadmap.
 
 **Last updated:** 2026-08-16 (Infrastructure Sprint 07 — Production Migration Rehearsal & Rollback Drill)
 

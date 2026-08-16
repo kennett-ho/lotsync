@@ -141,7 +141,10 @@ I tried it" is not a register state.
    what the chosen policy accepts (uniform "if an account exists…"
    messaging).
 4. The recovery link returns the user to DealerDOH and lets them set
-   a new password meeting policy.
+   a new password meeting policy — **including via direct URL
+   navigation: the SPA deep-link rewrite (`vercel.json`) is REQUIRED
+   scope of this rail** (owner decision 2026-08-16 — recovery/reset
+   links may depend on direct routing; see §8).
 5. A used or expired recovery link fails safely with a
    comprehensible, non-leaking message and a retry path.
 6. The new password works; the old one does not.
@@ -234,9 +237,11 @@ skip paths; state-persistence check; UAT notes (Rail M).
 4. Role presentation derives from the server-verified membership
    (`/me`), never client-selectable state.
 5. Rail M UAT validates both experiences.
-6. The three UX findings folded into this sprint (§8: sold-vehicle
-   browse path, sidebar/Vehicle-Detail dismissal, SPA deep-link
-   rewrites) are fixed or explicitly re-deferred by owner decision.
+6. The two UX findings planned into this sprint (§8: sold-vehicle
+   browse path, sidebar/Vehicle-Detail dismissal) are addressed as
+   planned work — **non-blocking for v1.1 unless Rail M UAT
+   demonstrates otherwise** (owner decision 2026-08-16; the SPA
+   deep-link rewrite moved to Rail A as REQUIRED, same decision).
 
 **Evidence:** merged PR; CI incl. re-run auth negative suite; DEV
 smoke both roles; UAT notes.
@@ -542,7 +547,7 @@ list; re-test records; telemetry cross-check.
 
 ## 6. CONDITIONAL Rails
 
-### 6.1 Rail E — Notifications (**Sprint 08 decision: CONDITIONAL, not REQUIRED**)
+### 6.1 Rail E — Notifications (**Sprint 08 decision: CONDITIONAL — ratified by owner 2026-08-16**)
 **Decision rationale (recorded per the sprint's mandate to decide):**
 v1.1's ingestion is manual-upload only; the person who runs a sync
 sees its outcome immediately on the Inventory Sync page (Rail D's
@@ -551,9 +556,10 @@ sync-status already surfaces last-sync state to managers. The
 async-failure scenario that makes notifications genuinely necessary
 arrives with **unattended ingestion** — which is itself conditional.
 Building a notification center ahead of that need is scope the
-release doesn't require. This is a deliberate tightening of
-`SPRINT_HISTORY.md`'s "LIKELY REQUIRED" — presented for owner
-ratification at the Sprint 08 PR gate.
+release doesn't require. This deliberate tightening of
+`SPRINT_HISTORY.md`'s "LIKELY REQUIRED" was **ratified by the owner
+on 2026-08-16**, with automated ingestion or UAT evidence as the
+promotion triggers.
 
 **Triggers (any one fires the rail into scope):**
 1. Automated Report Ingestion (§6.2) enters v1.1 → notifications
@@ -621,9 +627,9 @@ never silently before:
 
 | Finding | State | Blocks v1.1? | Owner sprint / disposition |
 |---|---|---|---|
-| Sold vehicles lack a normal UI browse path (API `include_sold` works) | Open | **Yes, via Rail C** exit 6 | Sprint 12 |
-| Sidebar navigation doesn't dismiss open Vehicle Detail | Open | **Yes, via Rail C** exit 6 (fix or explicit re-deferral) | Sprint 12 |
-| SPA deep links 404 on Vercel (no rewrites) | Open | **Yes, via Rail C** exit 6 (trivial `vercel.json` rewrite; also affects Rail A's recovery-link return path — coordinate with Sprint 09) | Sprint 09/12 |
+| Sold vehicles lack a normal UI browse path (API `include_sold` works) | Open — planned | **No** — unless Manager UAT or a required workflow demonstrates it must ship (owner decision 2026-08-16) | Sprint 12 |
+| Sidebar navigation doesn't dismiss open Vehicle Detail | Open — planned | **No** — unless Rail M UAT demonstrates otherwise (owner decision 2026-08-16) | Sprint 12 |
+| SPA deep links 404 on Vercel (no rewrites) | Open | **Yes — REQUIRED via Rail A** (owner decision 2026-08-16: recovery/password-reset links may depend on direct routing) | Sprint 09 |
 | Tasks page crashes on unknown non-null `priority` values (Sprint 07 finding; latent — production writes NULL) | Open (chip filed) | No (latent) | Sprint 12 with Rail C, or the standing chip |
 | Admin ≈ Manager equivalence | Open — by design | No | Revisit only on product justification (POST-v1.1) |
 | Full per-row store scoping before Store #2 | Deferred — triggered | No (single-store release) | §7 trigger |
@@ -642,9 +648,9 @@ never silently before:
 
 | # | Sprint | Rails | Why here |
 |---|---|---|---|
-| 09 | Account Lifecycle & Settings | A (+ the `vercel.json` rewrite the recovery link needs) | Identity is the foundation every later rail's testing logs in through; smallest-dependency start |
+| 09 | Account Lifecycle & Settings | A (incl. the REQUIRED `vercel.json` SPA rewrite — owner decision 2026-08-16) | Identity is the foundation every later rail's testing logs in through; smallest-dependency start |
 | 10 | Inventory Ingestion Safety | D | **Kept early on purpose:** bad input silently corrupting operational truth outranks UX polish; also defines the seam §6.2 would reuse |
-| 11 | Observability & Structured Logging | F + G | **Moved up from the provisional 13:** instrument *before* building the big UX surfaces so the tutorial/help/sync flows ship with events built in (not retrofitted), Sentry watches the UX sprint's own QA, the security audit (13) can audit real telemetry redaction, and UAT (16) runs fully observed |
+| 11 | Observability & Structured Logging | F + G | **Moved up from the provisional 13 (ratified by owner 2026-08-16):** instrument *before* building the big UX surfaces so the tutorial/help/sync flows ship with events built in (not retrofitted), Sentry watches the UX sprint's own QA, the security audit (13) can audit real telemetry redaction, and UAT (16) runs fully observed |
 | 12 | Role-Aware UX + Onboarding/Help | C + B (+ §8 UX findings) | The two UX rails are one coherent build; lands instrumented (11) and validated against safe ingestion (10) |
 | 12.5 | *Notifications — only if triggered* | E | §6.1 |
 | 13 | Security Hardening + Supply Chain | H + I | Audits the finished auth/ingestion/UX/telemetry surface once, not twice; folds I into the same evidence pass |

@@ -142,10 +142,13 @@ the production-migration rail classified REQUIRED / CONDITIONAL /
 POST-v1.1, each REQUIRED rail with owner sprint, purpose, addressed
 risk, exact exit conditions, required evidence, and blocking status;
 scope-discipline and evidence rules; back-burner trigger register;
-known-findings register. Sprint 08 decisions: **Notifications
+known-findings register. Sprint 08 decisions (**both ratified by the owner 2026-08-16**, who
+also adjusted scope: SPA deep-link routing → REQUIRED under the
+account-lifecycle rail; sidebar-dismissal and sold-vehicle-browse
+non-blocking unless UAT shows otherwise): **Notifications
 reclassified CONDITIONAL** (manual-upload v1.1 shows sync outcomes at
-the point of action; auto-promotes with automated ingestion, a UAT
-trigger, or owner decision — for owner ratification at the PR gate);
+the point of action; auto-promotes with automated ingestion or UAT
+evidence);
 **observability moved ahead of the UX build** (Sprint 11) so the
 tutorial/help/sync surfaces ship instrumented and UAT runs observed;
 supply-chain folded into the security sprint — nine sprints to RC

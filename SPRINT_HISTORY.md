@@ -1331,12 +1331,20 @@ Created **`V1_1_RELEASE_READINESS.md`** — the authoritative release contract f
 
 - Readiness register: 13 rails + the production-migration rail, each with priority, status, planned sprint, blocking status, exit-condition summary, and required evidence
 - Full exit criteria for every REQUIRED rail (A Account Lifecycle, B Onboarding/Help, C Role-Aware Presentation, D Ingestion Safety, F Observability, G Structured Logging, H Security Hardening, I Supply Chain, J Performance, K Accessibility blocking subset, L Privacy/Legal internal-beta subset, M Human UAT)
-- **Sprint 08 decision:** Notifications (this document's Rail D / the spec's Rail E) classified **CONDITIONAL**, not REQUIRED — v1.1 ingestion is manual-upload-only, so sync outcomes are visible at the point of action; the rail auto-promotes if automated ingestion enters v1.1, if UAT shows users missing critical conditions, or by owner decision. Presented for owner ratification at this sprint's PR gate
+- **Sprint 08 decision:** Notifications (this document's Rail D / the spec's Rail E) classified **CONDITIONAL**, not REQUIRED — v1.1 ingestion is manual-upload-only, so sync outcomes are visible at the point of action; the rail auto-promotes if automated ingestion enters v1.1, if UAT shows users missing critical conditions, or by owner decision. **Ratified by the owner 2026-08-16**, with automated ingestion or UAT evidence as the promotion triggers
 - Automated Report Ingestion held CONDITIONAL behind the vendor-discovery checklist (owner action; answers targeted before Sprint 12 planning)
 - Scope-discipline rules (five narrow admission criteria after Sprint 08), evidence rules (what "done" means per change class), back-burner trigger register, and the known-findings register with per-item blocking status
 - **Recommended order (changed from provisional):** 09 Account → 10 Ingestion Safety → **11 Observability + Logging (moved up from 13)** → 12 Role-Aware UX + Onboarding → (12.5 Notifications only if triggered) → 13 Security + Supply Chain (folded) → 14 Performance + Accessibility → 15 Privacy/Legal → 16 Human UAT → 17 RC Freeze — nine sprints to RC instead of ten, with instrumentation in place before the big UX build and before UAT
 
 Note: rail letters in `V1_1_RELEASE_READINESS.md` follow the Sprint 08 specification and diverge from this document's older catalog from D onward (mapping recorded in the register). The register is operative; this document's rails section remains historical context.
+
+## Owner Ratification & Scope Adjustment (2026-08-16, pre-merge)
+
+The owner ratified both Sprint 08 decisions (Notifications → CONDITIONAL with automated-ingestion-or-UAT promotion triggers; Observability/Logging ahead of the Role-Aware UX + Onboarding sprint) and made one scope adjustment, applied to the register before merge:
+
+- **SPA deep-link routing → REQUIRED** under Rail A (Sprint 09): account-recovery/password-reset links may depend on direct routing.
+- **Sidebar/Vehicle-Detail dismissal:** planned for the Role-Aware UX sprint, **non-blocking unless UAT demonstrates otherwise**.
+- **Sold-vehicle browse path:** planned, **non-blocking unless Manager UAT or a required workflow demonstrates it must ship in v1.1**.
 
 ## Production Impact
 

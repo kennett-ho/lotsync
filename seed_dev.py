@@ -1,13 +1,15 @@
 """
-seed_dev.py -- disposable synthetic development database seeder.
+seed_dev.py -- the DealerDOH DEV synthetic QA dealership seeder.
 
-Sprint 02 (DealerDOH development environment foundation): boots a
-development deployment with clearly-synthetic data by running the
-existing, unmodified reconciliation pipeline (main.py) over the
-checked-in synthetic fixtures the test suite already uses
-(tests/fixtures/synthetic/). No new data shape is invented here --
-if the pipeline's behavior changes, the seed changes with it, and the
-seeded database can never drift from what the tests already exercise.
+Sprint 02 established this as the development seeder (running main.py
+over the unit-test fixtures); Sprint 04 upgraded it to seed the
+standing QA dealership instead: dev_seed/'s deliberately constructed
+scenario roster (SYNTHETIC_QA_MATRIX.md), replayed as two consecutive
+sync days through sync/pipeline.py's run_inventory_sync -- the same
+code path the Inventory Sync API drives. The principle is unchanged:
+no data shape is invented at seed time; if pipeline behavior changes,
+the seeded database changes with it, and tests/test_qa_dataset.py
+asserts the expected outcomes on both persistence engines.
 
 Safety guardrails (see .claude/workflows/data-migration.md -- the
 default target is ALWAYS non-production):
@@ -28,15 +30,16 @@ Usage:
                starts from an empty schema (never allowed against the
                production path -- see guardrails above)
 
-On the Render development service, chain this before uvicorn in the
-start command. The free tier's filesystem is ephemeral, so every
-deploy/restart reseeds from scratch -- deliberate: the development
-database is disposable by design.
+The deployed dev database (Supabase PostgreSQL) is persistent and is
+NOT reseeded on boot -- running this script is an explicit operator
+action (see DEV_QA_GUIDE.md's reseed procedure). Standing totals after
+a reset+seed are exact and documented in SYNTHETIC_QA_MATRIX.md.
 
-Determinism note: record content is fully determined by the fixtures;
-"today"-relative values (sync date, aging buckets) follow
-tests/fixtures/synthetic/test_config.xlsx's Settings sheet, same as
-the test suite.
+Determinism note: every date the business rules read (sync dates,
+checkout dates, stocked-in dates, sold dates) is pinned relative to
+dev_seed/scenarios.py's REFERENCE_DATE (2026-07-21) -- expected
+outcomes never decay as the calendar advances. Only display-oriented
+timestamps (observed_at, created_at, sync-run timing) are wall-clock.
 """
 
 import argparse
@@ -49,7 +52,6 @@ import sys
 PRODUCTION_DB_PATH = "/var/data/lotsync.db"
 
 _REPO_ROOT = os.path.dirname(os.path.abspath(__file__))
-_FIXTURES = os.path.join(_REPO_ROOT, "tests", "fixtures", "synthetic")
 
 # Sprint 03: everything the seed writes lives in these tables --
 # --reset's postgres path drops exactly this set (plus the migration
@@ -75,9 +77,6 @@ def resolve_env():
     DATABASE_URL instead and no path default is invented here.
     """
     env = {
-        "LOTSYNC_UPLOADS_DIR": os.environ.get("LOTSYNC_UPLOADS_DIR") or _FIXTURES,
-        "LOTSYNC_CONFIG_PATH": os.environ.get("LOTSYNC_CONFIG_PATH")
-            or os.path.join(_FIXTURES, "test_config.xlsx"),
         "LOTSYNC_OUT_DIR": os.environ.get("LOTSYNC_OUT_DIR")
             or os.path.join(_REPO_ROOT, "data", "outputs-dev-seed"),
     }
@@ -142,26 +141,25 @@ def main(argv=None) -> None:
     # utils/file_resolution.py, and database/repository.py all read
     # their env vars at import time (module-level constants).
     try:
-        from lotsync.main import main as run_pipeline
+        from lotsync.database.repository import connect as db_connect
     except ImportError:
         # Local convenience: the repo checkout is named "lotsync", so
         # its parent directory on sys.path satisfies the `from
         # lotsync.x import y` convention (see README.md / render.yaml).
         sys.path.insert(0, os.path.dirname(_REPO_ROOT))
-        from lotsync.main import main as run_pipeline
+        from lotsync.database.repository import connect as db_connect
+    from lotsync.dev_seed.seeder import run_qa_seed
 
-    run_pipeline()
-
-    # Counts go through the same engine-dispatched connect() the
-    # pipeline used -- never a raw sqlite3.connect, which would be
-    # wrong (and empty) under DATABASE_ENGINE=postgres.
-    from lotsync.database.repository import connect as db_connect
-
+    # One connection for the whole seed, engine-dispatched -- never a
+    # raw sqlite3.connect, which would be wrong (and empty) under
+    # DATABASE_ENGINE=postgres.
     conn = db_connect(db_path if engine == "sqlite" else None)
     try:
+        run_qa_seed(conn, out_dir=env["LOTSYNC_OUT_DIR"])
         counts = {
             table: conn.execute(f"SELECT COUNT(*) FROM {table}").fetchone()[0]
-            for table in ("vehicle", "event", "task", "recommendation", "sync_run")
+            for table in ("vehicle", "event", "task", "recommendation",
+                          "pending_identity", "sync_run")
         }
     finally:
         conn.close()

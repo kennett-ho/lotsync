@@ -116,6 +116,12 @@ Production changes:
 - `master` is the production branch. Both Render and Vercel
   auto-deploy every push to it — **a push to `master` is a production
   deployment**, immediately, with no intermediate gate.
+- **A production migration plan exists but has NOT been executed**
+  (Infrastructure Sprint 06, 2026-08-16): the move to Supabase
+  PostgreSQL + Auth is fully planned in
+  `PRODUCTION_MIGRATION_PLAN.md` / `PRODUCTION_MIGRATION_RUNBOOK.md`,
+  gated behind its own explicit approvals. Until those release trains
+  run, every fact in this baseline remains the live production state.
 - Day-to-day work happens on `feature/*` / `fix/*` branches merged
   into `dev` (created this sprint from exactly `13c4f815`).
 - Existing tags are historical records — never moved, never reused.

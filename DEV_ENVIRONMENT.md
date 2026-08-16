@@ -194,7 +194,10 @@ rather than silently falling back to SQLite.
   defaults on the dev API (config path not provisioned). The QA seed
   reads the same canonical defaults directly from `rules/aging.py` —
   one source of truth for the deployed API and the seed alike.
-- No authentication yet (same as production) — the dev URLs are
-  unlisted, not private.
+- Authentication is live in dev as of Sprint 05 (`AUTH_MODE=required`,
+  synthetic users only — see `AUTH_ARCHITECTURE.md`). Production
+  remains unauthenticated until its own planned migration
+  (`PRODUCTION_MIGRATION_PLAN.md`). This bullet previously said "no
+  authentication yet" — stale since Sprint 05, corrected in Sprint 06.
 - `dealerdoh.com` is not yet purchased/configured; dev runs on the
   `*.vercel.app` / `*.onrender.com` URLs above.

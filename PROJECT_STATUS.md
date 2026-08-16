@@ -160,6 +160,15 @@ plus small reality corrections (stale smoke-test workflow note;
 `dealerdoh.com` now owned). Planning only — no rail implementation,
 production untouched.
 
+**Pre-Sprint-09 governance update (2026-08-16):** Sprint 13's
+Security + Supply Chain scope now includes **Repository
+Public-Release Sanitation** (`V1_1_RELEASE_READINESS.md` §5.H.1) — a
+read-only full-Git-history secret audit plus rotation/cleanup rules
+that gate any future private → public repository change. Current
+state: **Not Audited**; blocks repository publication only, not
+v1.1. Same task reconciled the owner's expanded SPRINT_HISTORY.md
+v0.2 with the merged Sprint 08 record.
+
 **Staleness note:** the sections below this one were last brought
 current at v0.7.4 (2026-08-03). Releases v0.8.0 → v1.0.0-beta.6
 (pre-deployment hardening, deployment readiness, the six beta

@@ -42,6 +42,7 @@ register.
 | G — Structured Logging & Monitoring | REQUIRED | Planned | 11 | **Yes** | §5.G: structured fields present, denylist enforced by test, alert conditions defined with owners | Merged PR · CI incl. redaction tests · DEV log samples |
 | H — Production Security Hardening | REQUIRED | Planned | 13 | **Yes** | §5.H: audit → remediate → adversarially verify → re-audit; no reachable Critical/High open | Audit reports (both passes) · fix PRs · adversarial test evidence |
 | I — Dependency / Supply-Chain Security | REQUIRED | Planned | 13 (within H's sprint) | **Yes** | §5.I: scans clean of reachable Critical/High or explicitly excepted; CI scanning live | Scan outputs · exception register · CI job green |
+| Repository Public-Release Sanitation | REQUIRED before any private→public visibility change | **Not Audited** | 13 (within H's sprint) | **No — blocks repository publication only, not v1.1** | §5.H.1: full-history secret audit passes; every historical exposure rotated/revoked; current-tree checks pass; final re-scan clean | Audit report · rotation records · history-cleanup assessment · re-scan |
 | J — Performance & Resilience | REQUIRED | Planned | 14 | **Yes** | §5.J thresholds met at 4,700+ vehicle scale incl. slow-network behavior | Measurement report vs thresholds · fix PRs · CI |
 | K — Accessibility | REQUIRED (blocking subset — §5.K) | Planned | 14 | **Yes** (blocking subset) | Blocking subset passes on core workflows; remainder documented as tracked remediation | Audit checklist · fix PRs · DEV keyboard/contrast evidence |
 | L — Privacy / Legal Readiness | REQUIRED ASSESSMENT (internal-beta subset blocks — §5.L) | Planned | 15 | **Yes** (subset) | Data inventory accurate; internal-beta documents published; commercial items explicitly deferred with owner sign-off | Data-flow inventory · published docs · deferral record |
@@ -398,9 +399,95 @@ the structured fields; the alert-condition inventory.
    exposure decision under auth; rate limiting on the new
    reset/login surfaces (coordinates with Rail A's Supabase
    settings).
+7. The **Repository Public-Release Sanitation** audit (below) is
+   executed as part of this sprint's security pass. Its outcome
+   gates a **repository-visibility change, not the v1.1 release**.
 
 **Evidence:** both audit reports; fix PRs with adversarial tests;
 the accepted-risk register (owner-signed).
+
+#### 5.H.1 — Repository Public-Release Sanitation (added 2026-08-16, pre-Sprint-09 governance task)
+
+**Context, stated precisely:** current DealerDOH secret-handling
+practices are strong — deployment env vars, password-manager
+storage, deleted scratch staging, pre-PR secret scans, and a
+deliberate frontend-public vs server-secret key separation. **But
+historical repository exposure has not yet been proven clean**: a
+`.gitignore` entry or a later file deletion does not remove a secret
+from prior commits, and earlier LotSync-era history predates these
+practices. Public visibility therefore has its own explicit gate.
+This does not imply the repository is currently unsafe, and it does
+not mean the repository must (or will) become public during v1.1 —
+**publication itself remains a separate owner decision**; this
+subsection defines what must be true before that decision may
+execute.
+
+**Full-history audit (read-only first).** Using appropriate
+secret-scanning tooling plus targeted pattern review — never
+assuming today's clean tree proves historical cleanliness — inspect:
+the current working tree; **all reachable commits, branches, and
+tags**; deleted historical files; `.env` / `.env.*`;
+deployment/config files; shell scripts; GitHub Actions workflows;
+test fixtures; documentation; database dumps; SQLite backups;
+temporary/export files ever committed; and old release artifacts if
+reachable from the repository.
+
+**Material to search for (minimum):** PostgreSQL/Supabase DSNs
+containing passwords; `DATABASE_URL` values; Supabase `sb_secret_*`
+keys; legacy `service_role` keys; legacy JWT signing secrets;
+database passwords; Render credentials/tokens; Vercel tokens;
+GitHub PATs/tokens; SMTP/email credentials; private API keys;
+private cryptographic keys; passwords; recovery tokens; webhook
+secrets; future Sentry/PostHog server-side secrets; other
+high-entropy credential-like material. **Classification must
+distinguish intentionally public frontend identifiers (e.g. a
+Supabase publishable/anon browser key) from actual secrets** — the
+former are findings to note, not exposures to rotate.
+
+**Required response to any real historical secret** (even if later
+removed): (1) classify the exposure; (2) determine whether the
+credential is still live; (3) rotate/revoke it; (4) update deployed
+environments to the replacement; (5) verify application health;
+(6) assess whether Git-history cleanup is warranted; (7) **never
+treat history rewriting alone as sufficient remediation**.
+Principle: *a secret that has entered Git history is exposed —
+private-at-the-time is not a reason to retain it.*
+
+**Git-history cleanup rules:** if historical sensitive material
+exists, Sprint 13 assesses whether history should be rewritten
+before public release (e.g. `git filter-repo` or equivalent) — but:
+no automatic rewriting, no automatic force-push, no invalidating
+branches/tags without explicit approval; **credential rotation comes
+first**; any rewrite requires its own operator approval and a
+recovery plan.
+
+**Current-tree public-release checks** (before any visibility
+change): `.gitignore` excludes local secret files; `.env.example`
+holds placeholders only; no production database/backup files
+tracked; no private deployment files publicly served; frontend
+bundles contain no server-side secrets; public source maps reviewed;
+workflow configuration exposes no unnecessary secrets; CI
+secret-scanning exists; dependency/security scanning exists;
+repository documentation reveals no credentials; old tags/releases
+carry no sensitive attached artifacts.
+
+**Gate and states.**
+
+> **Repository Public Visibility: BLOCKED until the full Git-history
+> sanitation audit passes and every historically committed credential
+> has been rotated/revoked.**
+
+States: `Not Audited` → `Audit Clean` **or** `Remediation Required`
+→ `Remediated — Awaiting Re-scan` → `Cleared for Public Visibility`.
+
+**Current state: `Not Audited`** (no history scan has been
+performed; nothing so far proves — or disproves — historical
+cleanliness).
+
+**Evidence when executed:** the audit report (tool output + targeted
+review notes); per-finding classification; rotation/revocation
+records with post-rotation health checks; the history-cleanup
+assessment; the current-tree checklist; the final re-scan.
 
 ### 5.I — Rail I: Dependency / Supply-Chain Security
 - **Owner sprint:** 13 (executes inside H's sprint — one security
@@ -617,6 +704,7 @@ never silently before:
 | Public API | First external API consumer | Scoped credentials, rotation/revocation, least privilege, rate limits |
 | Payments | Billing/subscriptions introduced | Dedicated payment/security implementation |
 | Object storage | Reports/artifacts move to Supabase Storage or similar | Private-by-default policy + authorized access design |
+| **Public repository visibility** | Owner intends to change the repo from private → public | Full-history secret audit · credential rotation for every historical exposure · history-cleanup assessment · current-tree sanitation · CI secret/dependency scanning · final re-scan · explicit owner approval (§5.H.1 — audit itself executes in Sprint 13) |
 | MFA / SSO / advanced user admin | Owner decision or first enterprise requirement | Rail A extension sprint |
 | Session replay | Privacy/redaction review passes | Rail F extension |
 | Release D (domain/rebrand) | Post-cutover stabilization (G8) per the migration plan | Its own release train |
@@ -653,7 +741,7 @@ never silently before:
 | 11 | Observability & Structured Logging | F + G | **Moved up from the provisional 13 (ratified by owner 2026-08-16):** instrument *before* building the big UX surfaces so the tutorial/help/sync flows ship with events built in (not retrofitted), Sentry watches the UX sprint's own QA, the security audit (13) can audit real telemetry redaction, and UAT (16) runs fully observed |
 | 12 | Role-Aware UX + Onboarding/Help | C + B (+ §8 UX findings) | The two UX rails are one coherent build; lands instrumented (11) and validated against safe ingestion (10) |
 | 12.5 | *Notifications — only if triggered* | E | §6.1 |
-| 13 | Security Hardening + Supply Chain | H + I | Audits the finished auth/ingestion/UX/telemetry surface once, not twice; folds I into the same evidence pass |
+| 13 | Security Hardening + Supply Chain | H + I + Repository Public-Release Sanitation audit (§5.H.1 — gates repo visibility, not v1.1) | Audits the finished auth/ingestion/UX/telemetry surface once, not twice; folds I and the history audit into the same evidence pass |
 | 14 | Performance + Accessibility | J + K | After features stabilize so measurements and audits hit the real product; shared browser-audit tooling |
 | 15 | Privacy / Legal Readiness | L | Data flows are final only after F/G (and E-if-triggered) settle |
 | 16 | Human UAT | M | Everything observable, secure, performant first; fix only true blockers |

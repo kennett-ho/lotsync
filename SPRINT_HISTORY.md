@@ -1602,6 +1602,23 @@ Sprints 09–17 execute against a frozen contract instead of a provisional idea 
 
 ---
 
+# Governance Update — Repository Public-Release Sanitation Gate (pre-Sprint 09)
+
+**Status:** Complete (docs-only)  
+**Date:** 2026-08-16
+
+Prompted by the possibility of eventually making the repository public: current secret-handling practices are strong (env-var deployment config, password-manager storage, deleted scratch staging, pre-PR secret scans, public-vs-secret key separation), but **historical repository exposure has not yet been proven clean** — a later `.gitignore` or file deletion does not remove a secret from prior commits.
+
+Added to `V1_1_RELEASE_READINESS.md`:
+
+- **§5.H.1 Repository Public-Release Sanitation** inside Rail H (executes in Sprint 13's security pass): read-only full-history audit (all commits/branches/tags/deleted files, env/config/scripts/workflows/fixtures/docs/dumps/backups/artifacts), the credential search list, the public-identifier vs real-secret distinction, the seven-step response to any historical secret (rotation first; history rewriting never sufficient alone, never automatic), current-tree public-release checks, and the gate states
+- A register row: current state **Not Audited**; blocks **repository publication only, not v1.1**
+- A back-burner trigger: **Public repository visibility** — fires when the owner intends private → public; requires the full audit, rotations, cleanup assessment, current-tree sanitation, CI scanning, final re-scan, and explicit owner approval
+
+Repository publication remains a separate owner decision, deliberately decoupled from the v1.1 release. No implementation, scanning, rotation, or history modification occurred in this task.
+
+---
+
 # Current v1.1.0-beta Goal
 
 The first DealerDOH-era production release is expected to become:
@@ -2312,6 +2329,24 @@ Trigger:
 source reports or generated artifacts begin living in Supabase Storage or another object store.
 
 Require private-by-default storage policy and authorized access.
+
+## Public Repository Visibility
+
+Trigger:
+
+Owner intends to change repository visibility from private → public.
+
+Required controls before the trigger may execute:
+
+- full-history secret audit (all reachable commits/branches/tags, deleted files included)
+- credential rotation for every historical exposure
+- history-cleanup assessment (rotation first; rewriting never automatic, never sufficient alone)
+- current-tree sanitation checks
+- CI secret/dependency scanning in place
+- final re-scan
+- explicit owner approval
+
+The audit itself is scheduled inside Sprint 13 — Security + Supply Chain (`V1_1_RELEASE_READINESS.md` §5.H.1). Current state: **Not Audited**.
 
 ---
 

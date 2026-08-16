@@ -112,12 +112,19 @@ live dev project). One test is engine-specific by construction and
 self-skips on postgres (SQLite file-reconnect idempotency;
 `tests/test_database_slice1.py`).
 
-### Seeding and reset (Sprint 03 reality)
+### Seeding and reset (Sprint 04 reality: the standing QA dealership)
 
-`seed_dev.py` is engine-aware and runs the unmodified reconciliation
-pipeline over the checked-in synthetic fixtures (17 vehicles, 31
-events, 3 tasks, 1 recommendation, 5 sync runs — all obviously fake:
-`1TESTVIN…`, "Test Sedan", `K*` stocks):
+`seed_dev.py` is engine-aware and seeds the **standing QA dealership**
+(`dev_seed/`, Sprint 04): 34 synthetic vehicles replayed as two
+deterministic sync days through the real pipeline path
+(`sync/pipeline.run_inventory_sync`), producing 98 events, 18 tasks
+(16 open, 1 honored, 1 moot), 2 recommendations, 3 pending identities,
+and 10 sync runs — every vehicle exercising a specific implemented
+rule, all obviously fake (`1QATEST…` VINs, `QA*` stocks). The scenario
+roster and expected outcomes live in `SYNTHETIC_QA_MATRIX.md` (human
+form) and `dev_seed/expected.py` (asserted form —
+`tests/test_qa_dataset.py` enforces it on both engines in CI). The
+operator walkthrough is `DEV_QA_GUIDE.md`:
 
 - SQLite (local default): `python seed_dev.py --reset` — same as ever.
 - PostgreSQL: with `DATABASE_ENGINE=postgres` and `DATABASE_URL` set,
@@ -173,8 +180,9 @@ rather than silently falling back to SQLite.
   disposable-per-boot. Still: do not store anything you care about in
   dev.
 - `oms_config.xlsx`-driven business config falls back to documented
-  defaults on the dev API (config path not provisioned — the seed uses
-  the synthetic test config at seed time only).
+  defaults on the dev API (config path not provisioned). The QA seed
+  reads the same canonical defaults directly from `rules/aging.py` —
+  one source of truth for the deployed API and the seed alike.
 - No authentication yet (same as production) — the dev URLs are
   unlisted, not private.
 - `dealerdoh.com` is not yet purchased/configured; dev runs on the

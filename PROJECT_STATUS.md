@@ -5,7 +5,7 @@ sprint. This is a snapshot, not a narrative — see `SPRINT_X_REVIEW.md`
 files for the story behind each entry, and `IMPLEMENTATION_PLAN.md`
 for the full plan this tracks progress against.
 
-**Last updated:** 2026-08-15 (Infrastructure Sprint 03 — Dev-Only SQLite → Supabase PostgreSQL Migration)
+**Last updated:** 2026-08-15 (Infrastructure Sprint 04 — Deterministic Synthetic QA Dataset)
 
 ## ⚠️ Production is live and locked (2026-08-15)
 
@@ -56,6 +56,20 @@ behavioral projections across engines from the same synthetic
 fixtures. **Production is untouched and stays on SQLite** — the
 engine split is intentional and temporary until production's own
 migration sprint. See [`DEV_ENVIRONMENT.md`](DEV_ENVIRONMENT.md).
+
+**Infrastructure Sprint 04:** DealerDOH DEV is now a deliberate **QA
+dealership**, not a demo dataset — 34 synthetic vehicles
+(`dev_seed/`), each exercising a specific implemented operational
+rule, replayed as two deterministic sync days through the real
+pipeline path and pinned to a fixed reference date (2026-07-21) so
+expected outcomes never decay. Standing state: 98 events, 18 tasks
+(16 open / 1 honored / 1 moot), 2 recommendations, 3 pending
+identities, 10 sync runs. The scenario roster is governed by
+[`SYNTHETIC_QA_MATRIX.md`](SYNTHETIC_QA_MATRIX.md), enforced
+scenario-by-scenario by `tests/test_qa_dataset.py` on **both** engines
+in the existing CI jobs (428/428 SQLite, 428/428 PostgreSQL, one
+documented skip), and documented for humans in
+[`DEV_QA_GUIDE.md`](DEV_QA_GUIDE.md). Production untouched.
 
 **Staleness note:** the sections below this one were last brought
 current at v0.7.4 (2026-08-03). Releases v0.8.0 → v1.0.0-beta.6

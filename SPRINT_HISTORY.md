@@ -50,7 +50,7 @@ Do not rewrite history when architecture changes later. Record what was true at 
 | **Current release target** | `v1.1.0-beta.1` |
 | **Open PRs** | tracked per sprint; see Git/PR records in each entry |
 | **Public domain** | `dealerdoh.com` owned; production domain cutover not yet performed |
-| **Immediate focus** | Sprint 10 — Inventory Ingestion Safety (Rail D): PR #14 green at the gate; thresholds owner-ratified; deployed-DEV smoke pending the owner's review-window switch; post-merge state = Implementation Paused — Awaiting Vendor Evidence (Keyper Event) |
+| **Immediate focus** | Sprint 10 — Inventory Ingestion Safety (Rail D): PR #14 green at the gate with deployed-DEV smoke PASSED on the branch; awaiting merge decision; post-merge state = Implementation Paused — Awaiting Vendor Evidence (Keyper Event); at /merge-dev closeout: return both DEV services to `dev` + reseed to clear smoke residue |
 
 **Production rule:** `master` is what real dealership users are allowed to depend on. Normal development belongs on task branches and `dev`; production remains frozen until an explicit release train is approved.
 
@@ -1812,6 +1812,67 @@ the PR: green (next section).
 Fully green on head `c818d23` (2026-08-16): Backend tests (SQLite) ·
 Backend tests (PostgreSQL) · Frontend production build · Vercel
 (dealerdoh-dev + lotsync + preview comments).
+
+## Deployed-DEV Smoke — branch review window (2026-08-16/17, PASSED)
+
+Owner switched Render `dealerdoh-api-dev` + Vercel `dealerdoh-dev` to
+the sprint branch; verified serving it before smoke (API `/health`
+ok/postgres + `/inventory-sync/validate` present (401 = auth-gated,
+would be 404 on old code); new frontend bundle carries the Sprint 10
+strings; deployed-bundle secret scan clean — the lone `sb_secret`
+grep hit is supabase-js's own key-format guard string; only the
+intentionally-public `sb_publishable_` key present). Run as the
+retained manager session against the live standing QA dealership:
+
+- **Valid set:** generated 40-row Tekion current (smoke-namespaced
+  `9SMOKEVIN…`/`S10SMK…`) → classified exact, preview Ready, "No
+  prior baseline" INFO → run → "Sync complete — 40 vehicles
+  processed"; history/last-sync updated; baseline recorded.
+- **Empty authoritative snapshot:** headers-only Tekion → Rejected
+  with the export-mistake message (incl. the "will not treat an empty
+  export as 'the lot has zero vehicles'" language), Run disabled;
+  direct-API `/run` → **422 `REPORT_VALIDATION_FAILED` /
+  `NO_DATA_ROWS`** with zero mutation.
+- **Wrong report type:** sold-shaped file in the Unsold slot →
+  Rejected, "Detected: Tekion — Sold Inventory", message names both
+  contracts.
+- **Missing column:** Status-less Tekion → Rejected, "required
+  column(s) missing: Status".
+- **Keyper variant:** stand-in in the Keyper slot → Rejected with the
+  "not the Full Key Inventory report… not yet supported… can never
+  substitute for the full inventory snapshot" language.
+- **Suspicious count:** 20-row follow-up → preview "20 rows vs 40 in
+  the previous comparable report (−20, −50.0%)", Review-needed chip,
+  acknowledgement present and UNCHECKED, Run disabled; **direct API
+  unacknowledged → 409 `WARNINGS_NOT_ACKNOWLEDGED` with
+  `SUSPICIOUS_COUNT_DROP` recomputed server-side; blind
+  `acknowledge_warnings=true` without fingerprint → 409
+  `STALE_VALIDATION`**; UI tick + run → "Sync complete — 20 vehicles
+  processed"; baseline advanced to 20.
+- **Authorization:** tokenless 401s on `/validate`, `/run`,
+  `/vehicles`, `/tasks`, `/inventory-sync/history`, `/dashboard`;
+  the entire manager path exercised live. Deployed lot-staff 403s
+  were not re-exercised this window (no lot_staff session available;
+  credentials live in the owner's password manager) — covered by the
+  CI negative matrix on this exact head (`/validate` + `/run` role
+  tests), the unchanged Sprint 05 auth layer, and Sprint 09's
+  deployed lot-staff 403 evidence.
+- **Existing product:** Dashboard matrix exact (16 open / 2 recs /
+  58.82% health), Vehicles list, Vehicle Detail QA1025 with
+  timeline, Tasks page dispatch queue grouped exactly
+  (7 checked-out-key / 4 recovr-install / 2 key-for-recovr / 3 mdd;
+  Closed 2), work-order PDF 200 `%PDF` (~5 KB), Profile & Settings.
+- **QA dealership intact:** 28 standing active QA vehicles and all
+  16 outstanding QA tasks unchanged; the smoke syncs generated
+  **zero** tasks (Tekion-only evidence — the missing-Keyper
+  restraint, live) and the run summary carried the "Keyper report
+  was not provided" warning. **Smoke residue, clearly namespaced for
+  cleanup:** 40 `9SMOKEVIN…` vehicles, 3 sync-run batches, 2
+  baseline rows, 0 tasks — recommend the standard `seed_dev.py
+  --reset` reseed at `/merge-dev` closeout to restore the exact
+  standing matrix.
+- **Console:** clean except the three deliberate probe responses
+  (409/409/422) logged natively by the browser.
 
 ## Local UI Verification (pre-PR, seeded dev API + Vite, this branch)
 

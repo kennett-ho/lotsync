@@ -40,17 +40,17 @@ Do not rewrite history when architecture changes later. Record what was true at 
 | **Production persistence** | SQLite on Render persistent disk |
 | **Production Auth** | Disabled / not yet rolled out |
 | **Development product** | DealerDOH |
-| **Development branch / current head** | `dev` / `dddbb5f` (Sprint 08 merge) |
+| **Development branch / current head** | `dev` / `b19a56a` (Sprint 09 close; Sprint 10 open on `feature/sprint-10-ingestion-safety`) |
 | **Development persistence** | Supabase PostgreSQL |
 | **Development Auth** | Supabase Auth + FastAPI server-side authorization (`AUTH_MODE=required`) |
-| **Current backend regression baseline** | 464/464 SQLite and 464/464 PostgreSQL |
+| **Current backend regression baseline** | 488/488 SQLite and 488/488 PostgreSQL on merged `dev` (548/548 both engines on the Sprint 10 branch, locally) |
 | **Standing DEV QA dataset** | 34 vehicles, 18 tasks, 2 recommendations, 98 events, 10 sync runs |
-| **Latest completed sprint** | Sprint 08 — v1.1.0-beta.1 Scope & Release Readiness Register |
+| **Latest completed sprint** | Sprint 09 — Account Lifecycle, Recovery & Functional Settings (Rail A Verified) |
 | **Migration readiness** | Technical rehearsal PASS / GO; real production cutover intentionally unscheduled |
 | **Current release target** | `v1.1.0-beta.1` |
 | **Open PRs** | tracked per sprint; see Git/PR records in each entry |
 | **Public domain** | `dealerdoh.com` owned; production domain cutover not yet performed |
-| **Immediate focus** | Execute the v1.1 rails per `V1_1_RELEASE_READINESS.md` (next: Sprint 09 — Account Lifecycle & Settings) |
+| **Immediate focus** | Sprint 10 — Inventory Ingestion Safety (Rail D): implementation complete on branch; PR gate, deployed-DEV smoke, and owner threshold ratification pending |
 
 **Production rule:** `master` is what real dealership users are allowed to depend on. Normal development belongs on task branches and `dev`; production remains frozen until an explicit release train is approved.
 
@@ -1670,6 +1670,181 @@ Repository publication remains a separate owner decision, deliberately decoupled
 
 ---
 
+# Sprint 10 — Inventory Ingestion Safety, Report Classification & Pre-Sync Validation
+
+**Status:** In Progress — implementation complete on `feature/sprint-10-ingestion-safety`; PR gate, deployed-DEV smoke, and owner threshold ratification pending
+**Date:** 2026-08-16
+**Rail:** D (operative register) / E (this catalog's lettering)
+
+## Objective
+
+Build the single trustworthy boundary between external dealership
+reports and the sync engine, so a wrong, empty, or mis-generated
+spreadsheet can never become false operational truth. *Missing
+evidence ≠ zero. Invalid evidence ≠ valid zero.*
+
+## Starting State
+
+`dev` = `b19a56a` (Sprint 09 closed, Rail A Verified). The audit
+found the reconciliation engine itself sound (presence-driven
+diff-before-write, no absence-based transitions, missing-Keyper
+skip+warn) — but the boundary treated "parsed" as "true": headers-only
+files became `complete` SyncRuns with 0 records and overwrote the
+day's operational report CSVs; slot labels were the only report
+identity (any VIN-bearing file ingested as RapidRecon); no zero-row,
+duplicate, row-shape, size, or count-sanity checks; no preview; a
+blank Tekion VIN could create a corrupt `vehicle` row.
+
+## Implementation
+
+One boundary, both endpoints, every future acquisition path
+(`INGESTION_ARCHITECTURE.md` is canonical):
+
+- **Contract registry** (`sync/report_contracts.py`): 7 contracts —
+  6 supported slots + Keyper Key Event recognized-but-UNSUPPORTED
+  with deliberately **zero invented column facts** (no sample exists;
+  vendor discovery §6.2 is the trigger). Ingestion modes:
+  authoritative/historical/exception/contextual snapshot +
+  incremental_event.
+- **Deterministic content classification**
+  (`sync/report_classifier.py`): headers are identity;
+  slot/filename/MIME are hints. Exact / ambiguous / vendor-variant /
+  unrecognized, never probabilistic, never guessed.
+- **Validation boundary** (`sync/ingestion.py`): file safety (20 MB
+  cap enforced at save, 50k-row cap, Excel/ZIP magic, BOM, duplicate
+  headers, undecodable bytes), wrong-slot rejection naming
+  expected+detected, structural (missing required columns named),
+  per-contract zero-row policy (authoritative snapshots hard-reject;
+  MDD/RapidRecon zero warns + requires acknowledgement), row-level
+  VIN checks (blank VIN in identity-originating Tekion reports
+  rejects the file — the recorded exit-5 decision; inert bad VINs
+  warn), per-contract duplicate semantics (sold-report VIN repeats
+  stay legitimate history), scoped comparable baselines with
+  suspicious-count warnings, ERROR/WARNING/INFO severities with
+  stable codes, dealership-language messages (no raw parser text),
+  SHA-256 fingerprints.
+- **API**: `POST /inventory-sync/validate` (zero-mutation preview,
+  same admin/manager gate, temp files deleted) and `/run` now
+  **revalidates everything server-side** — errors 422; warnings need
+  `acknowledge_warnings` + a fingerprint matching the exact uploaded
+  bytes (409 `WARNINGS_NOT_ACKNOWLEDGED`/`STALE_VALIDATION`);
+  structured rejection payloads carry the full validation DTO;
+  runtime failures return a dealership-language 500, never a trace.
+  Baselines recorded per accepted report after success.
+- **Migration 0010** `report_baseline` (both engine dialects), scoped
+  `(vendor, report_type)` — deliberately not derived from
+  `sync_run.records_processed` (the `tekion` run spans both Tekion
+  report types by design). Migration-drift guard satisfied:
+  `tools/migrate_sqlite_to_postgres.py` `EXPECTED_SCHEMA_VERSION`
+  9→10 + `TABLE_ORDER`/`IDENTITY_PKS`/`ORDER_BY`; seed-schema pin
+  updated; RC-freeze rehearsal refresh flagged in the migration
+  header and register.
+- **Frontend** (`InventorySync.tsx`): validate → preview
+  (per-report detected type, counts, baseline change, issues) →
+  acknowledgement (never pre-checked) → run; file changes invalidate
+  the preview; structured 422/409 render the server's fresh view.
+- Retired `sync/upload_validation.py` (absorbed; no second
+  column-requirements table).
+- Dev tooling: launch entries for parallel-session local
+  verification (alt ports), `run_dev_seed_api.py` honors `PORT`.
+
+## Decisions Recorded
+
+1. **Zero-row policy per contract** (registry table in
+   `INGESTION_ARCHITECTURE.md` §3): reject for Tekion
+   current/sold, Keyper full, RecovR; warn+acknowledge for MDD
+   not-paired and RapidRecon (a legitimately-empty exception list is
+   plausible; a human confirms, and the acknowledged zero is recorded
+   honestly as zero).
+2. **Invalid record shape = quarantine-file, never silent row drops**
+   (Rail D exit 5): blank VINs where rows originate Vehicle identity
+   reject the file with line numbers; malformed-but-present VINs
+   warn; identity-inert sources warn only. Evidence files are never
+   edited.
+3. **Duplicates = surfaced warnings, never silent dedupe** (exit 6):
+   per-contract keys; sold-report VIN repeats deliberately unflagged
+   (legitimate history owned by the existing conflicts machinery).
+4. **Suspicious-count thresholds — PROPOSED, PENDING OWNER
+   RATIFICATION** (exit 7): drop >15% AND ≥10 rows; increase >50%
+   AND ≥25 rows (the RecovR umbrella-file shape); grounding in
+   `INGESTION_ARCHITECTURE.md` §8. Mechanism + preview + gating are
+   complete either way; the numbers await the owner at the PR gate.
+5. **Keyper Event Report**: no sample exists → no schema invented;
+   recognized-variant rejection with explicit "not yet supported /
+   can never substitute for the full snapshot" language; boundary
+   test-pinned in every slot. Vendor discovery is the trigger to fill
+   the contract.
+6. **Unattended-ingestion HOLD rule** documented now (any WARNING →
+   HOLD, automation never auto-acknowledges) for the conditional
+   §6.2 rail to inherit.
+
+## Tests / CI
+
++60 tests: `tests/test_ingestion_validation.py` (47 — registry,
+classifier matrix incl. case-sensitivity evidence, wrong-slot incl.
+the RecovR→RapidRecon hole, Keyper boundary, file safety incl.
+parser-bomb caps and no-raw-parser-text sweep, zero-row matrix,
+row-level, duplicates, baseline scoping + exact threshold boundaries,
+fingerprints, no-mutation, production-scale perf), API-level
+revalidation/acknowledgement/stale-fingerprint/zero-mutation/
+baseline-recording/suspicious-count-E2E, `/validate` authz matrix in
+`test_auth.py`. Suites locally: **548/548 SQLite; 548/548
+PostgreSQL 17.5** (portable rehearsal cluster; 1 documented engine
+skip). Standing QA dealership regression untouched. Performance:
+validate 4,700-row Tekion ≈ **0.04 s**. Frontend build clean. CI on
+the PR: TBD at the gate.
+
+## Local UI Verification (pre-PR, seeded dev API + Vite, this branch)
+
+Empty snapshot → Rejected card with the export-mistake message, Run
+disabled; file swap → preview invalidated; clean 40-row file → Ready
+→ run → "Sync complete — 40 vehicles processed", baseline recorded;
+20-row follow-up → "20 rows vs 40 … (−20, −50.0%)" warning, ack box
+unchecked, Run gated until ticked, then success; 21-row (+5%) → Ready
+with comparison, no warning; Keyper file in Tekion slot → Rejected
+naming both contracts. All network calls 200 post-CORS-fix; no new
+console errors.
+
+## Production Impact
+
+None. `master` untouched at `13c4f815` / `v1.0.0-beta.6`; no
+production deploy, data, env, Supabase, or DNS change.
+
+## Git
+
+Task branch `feature/sprint-10-ingestion-safety`: `31753b0`
+(implementation), `dd7d868` (launch tooling), docs commit(s) TBD.
+PR: TBD (recorded at open). Merge: TBD.
+
+## Findings / Risks
+
+- Suspicious-count thresholds are the sprint's one open owner
+  decision (Rail D exit 7) — Rail D cannot be Verified before
+  ratification.
+- Keyper Event Report remains format-blocked pending vendor
+  discovery (§6.2) — safe rejection is in place; ingestion of the
+  report itself is NOT required for v1.1 unless discovery promotes
+  it.
+- Pre-Sprint-10 baselines don't exist (`records_processed` is
+  polluted by design) — first post-merge sync per report type shows
+  "No prior baseline" once, then comparisons begin. Honest, not a
+  defect.
+- The CLI (`main.py`) remains outside the boundary — documented
+  exclusion (`INGESTION_ARCHITECTURE.md` §12), future
+  retire-or-wire decision.
+- Rail J note: frontend bundle-size warning unchanged (pre-existing,
+  register-tracked).
+
+## What This Enables Next
+
+Sprint 11 (Observability & Structured Logging) instruments a sync
+flow that now has crisp, named states (validated / rejected /
+needs-review / executed / failed) and stable issue codes to count —
+and the conditional automated-ingestion rail inherits a boundary that
+already refuses to trust unattended evidence.
+
+---
+
 # Current v1.1.0-beta Goal
 
 The first DealerDOH-era production release is expected to become:
@@ -1836,6 +2011,13 @@ Deferred:
 # Rail E — Inventory Ingestion Safety
 
 **Priority:** REQUIRED
+
+**Status (2026-08-16):** implemented in Sprint 10 (this catalog's E =
+the operative register's Rail D — see the lettering note there). The
+pipeline below was built as specified; `INGESTION_ARCHITECTURE.md` is
+now canonical. Pending: PR gate, deployed-DEV smoke, owner
+ratification of the suspicious-count thresholds. See the Sprint 10
+entry for the full record.
 
 This is a major operational safety rail.
 
@@ -2639,7 +2821,8 @@ Never mark planned work as completed before it is actually merged and verified.
 # Current Immediate Next Actions
 
 1. ~~Run Sprint 08 to formalize the v1.1.0-beta scope/readiness register.~~ Done and merged (PR #10, `dddbb5f`) — `V1_1_RELEASE_READINESS.md` is operative, both Sprint 08 decisions ratified.
-2. Begin Sprint 09 — Account Lifecycle & Settings — when explicitly initiated (includes the REQUIRED SPA deep-link rewrite).
+2. ~~Begin Sprint 09 — Account Lifecycle & Settings.~~ Done and merged (PR #12 `02958f2`, PR #13 `b19a56a`) — Rail A Verified.
+2a. Land Sprint 10 — Inventory Ingestion Safety: PR review/merge, deployed-DEV smoke, and the owner's ratification (or adjustment) of the proposed suspicious-count thresholds (`INGESTION_ARCHITECTURE.md` §8).
 3. Complete dealership vendor research before committing automatic email/API ingestion to the release (answers targeted before Sprint 12 planning).
 4. Continue feature and production-readiness work only through task branch → PR → `dev`.
 5. Keep real production frozen on `v1.0.0-beta.6`.

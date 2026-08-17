@@ -7,7 +7,7 @@ for the full plan this tracks progress against. See
 [`SPRINT_HISTORY.md`](SPRINT_HISTORY.md) for the chronological
 DealerDOH infrastructure history and v1.1.0-beta release roadmap.
 
-**Last updated:** 2026-08-16 (Sprint 09 — Account Lifecycle, Recovery & Functional Settings)
+**Last updated:** 2026-08-16 (Sprint 10 — Inventory Ingestion Safety, Report Classification & Pre-Sync Validation)
 
 ## ⚠️ Production is live and locked (2026-08-15)
 
@@ -160,6 +160,29 @@ plus small reality corrections (stale smoke-test workflow note;
 `dealerdoh.com` now owned). Planning only — no rail implementation,
 production untouched.
 
+**Sprint 10 (2026-08-16):** Rail D — Inventory Ingestion Safety — is
+implemented on `feature/sprint-10-ingestion-safety` (PR gate pending).
+DealerDOH no longer trusts a spreadsheet merely because it can parse
+it: every upload is deterministically classified by content
+(slot/filename/MIME are hints, not identity), validated against its
+report contract, checked for dangerous incompleteness, previewed
+before mutation, and revalidated server-side at execution
+([`INGESTION_ARCHITECTURE.md`](INGESTION_ARCHITECTURE.md) is
+canonical). Empty/headers-only authoritative snapshots hard-reject;
+wrong report types are named and blocked (incl. the Keyper
+Full-vs-Event boundary — the Event report stays deliberately
+unsupported with **zero invented schema** pending vendor discovery);
+suspicious count changes vs the scoped comparable baseline
+(`report_baseline`, migration 0010, both engines) force explicit
+review — thresholds are **proposed defaults pending owner
+ratification**. Warning acknowledgement is fingerprint-bound to the
+exact uploaded bytes, so skipping the preview, swapping files, or
+asserting acknowledgement blind all fail closed with **zero
+operational mutation** (API-test-pinned). Suites **548/548 both
+engines** locally (+60 ingestion/authz/adversarial tests; standing
+QA dealership untouched); production-scale validation measured
+~40 ms/4,700 rows. Production untouched.
+
 **Sprint 09 (2026-08-16):** Rail A — Account Lifecycle — is
 **COMPLETE and Verified** (PR #12 merged as `02958f2`; CI green on the
 merged head; post-merge smoke on dev-tracking DEV re-passed the full
@@ -174,10 +197,11 @@ request, proven by test), a Profile & Settings surface with **zero
 decorative controls** (the prior page was entirely fake — disposition
 table in [`ACCOUNT_LIFECYCLE.md`](ACCOUNT_LIFECYCLE.md)), and
 post-reset global session revocation. Suites **488/488 both engines**
-(+24 authorization-matrix tests). Deployed-DEV smoke incl. the live
-emailed recovery test remains pending operator configuration — Rail A
-is not Verified until it passes. No schema change; production
-untouched.
+(+24 authorization-matrix tests). No schema change; production
+untouched. *(An earlier revision of this entry said deployed smoke was
+still pending — it passed on the merged head the same day, incl. the
+live emailed recovery loop; Rail A is Verified, per the register and
+PR #13.)*
 
 **Pre-Sprint-09 governance update (2026-08-16):** Sprint 13's
 Security + Supply Chain scope now includes **Repository

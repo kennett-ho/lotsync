@@ -161,7 +161,11 @@ plus small reality corrections (stale smoke-test workflow note;
 production untouched.
 
 **Sprint 09 (2026-08-16):** Rail A — Account Lifecycle — is
-**implemented and at the PR gate**: manager/admin user provisioning
+**COMPLETE and Verified** (PR #12 merged as `02958f2`; CI green on the
+merged head; post-merge smoke on dev-tracking DEV re-passed the full
+matrix incl. the real emailed recovery loop, a live `signup_disabled`
+probe, and a clean deployed-bundle secret scan — the first REQUIRED
+rail of `v1.1.0-beta.1` is done). As implemented: manager/admin user provisioning
 (no public signup; GoTrue invite flow; role policy server-enforced),
 enumeration-safe password recovery over a real `/auth/reset-password`
 direct link (Vercel SPA rewrite — the ratified Rail A requirement),

@@ -1604,7 +1604,7 @@ Sprints 09–17 execute against a frozen contract instead of a provisional idea 
 
 # Sprint 09 — Account Lifecycle, Recovery & Functional Settings
 
-**Status:** Implementation Complete — Awaiting Merge  
+**Status:** Complete  
 **Date:** 2026-08-16
 
 ## Objective
@@ -1637,7 +1637,19 @@ None. No schema change, no production env/config/user changes; the `/users` surf
 
 ## PR
 
-Recorded at the gate per the rolling-update procedure.
+**PR #12.** Task commits: `d1fe92c` (implementation), `5225c57` (display-name token refresh, found live), `c960ada` (admin-boundary error-class split, found live), `5831be8` (smoke record). Merge commit: **`02958f2`**. CI green on the merged head (488/488 SQLite, 488/488 PostgreSQL, frontend build, Vercel).
+
+## Post-Merge Verification (dev-tracking DEV)
+
+Both DEV services returned to tracking `dev` and redeployed the merged commit. Re-verified on the merged deployment: direct `/auth/reset-password` 200 from fresh navigation; tokenless 401s; deployed-bundle secret scan clean (no server key; only the public `sb_publishable_` anon key); **live signup probe → `signup_disabled`**; lot-staff session (the test account signing in with its recovery-set password — an end-to-end recheck in itself): shared reads + work-order 200, `/users` + sync-run 403, Settings shows no User Management; manager session: roster of 5 enriched members (Store B absent), deactivate→reactivate cycle on the synthetic lot-staff account, grant-manager and deactivate-admin both 403; display name set in Sprint 09 flowed through a fresh manager login. **Rail A: Verified** (register updated).
+
+## Result
+
+DealerDOH DEV has a complete dealership account lifecycle: authorized managers/admins provision users without public signup, users recover access through a real direct-link password-reset flow, dealership access revokes immediately through membership state, and Profile & Settings contains only real functionality — all privilege/store boundaries enforced server-side.
+
+## What This Enabled Next
+
+Sprint 10 — Inventory Ingestion Safety — starts against a DEV environment with real accounts, real recovery, and a user-administration surface; UAT (Sprint 16) can now onboard real testers without developer intervention.
 
 ---
 

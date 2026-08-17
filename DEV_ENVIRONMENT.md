@@ -67,7 +67,16 @@ environment has proven the behavior long enough to trust.
   `LOTSYNC_CORS_ORIGINS` (the dev frontend origin only), and —
   Sprint 05 — `AUTH_MODE=required` + `SUPABASE_URL` (public project
   URL; token verification fetches the public JWKS from it) +
-  optionally `DEALERDOH_DEALERSHIP_ID` (defaults to `qa-motors`).
+  optionally `DEALERDOH_DEALERSHIP_ID` (defaults to `qa-motors`); and
+  — Sprint 09 — `SUPABASE_SECRET_KEY` (SECRET: the service-role key
+  the user-administration endpoints use against the GoTrue Admin API;
+  server-side only, staged by the operator; without it `/users`
+  answers 503 and everything else works) + `DEALERDOH_FRONTEND_URL`
+  (invite-email redirect base — the dev frontend origin). Supabase
+  Auth config must allowlist
+  `https://dealerdoh-dev.vercel.app/auth/reset-password` as a
+  redirect URL (Sprint 09 recovery/invite landing). See
+  `ACCOUNT_LIFECYCLE.md`.
   Production sets none of the Sprint 05 variables: `AUTH_MODE`
   defaults to `disabled`, which is byte-for-byte pre-Sprint-05
   behavior — see `AUTH_ARCHITECTURE.md`.

@@ -26,7 +26,7 @@ from fastapi.middleware.cors import CORSMiddleware
 
 from lotsync.api.auth import AccessContext, auth_mode, get_access_context
 from lotsync.api.dependencies import get_db
-from lotsync.api.routers import activity, dashboard, inventory_sync, recommendations, reports, tasks, vehicles
+from lotsync.api.routers import activity, dashboard, inventory_sync, recommendations, reports, tasks, users, vehicles
 
 app = FastAPI(
     title="LotSync API",
@@ -94,6 +94,11 @@ def me(context: Optional[AccessContext] = Depends(get_access_context)) -> dict:
         "authenticated": True,
         "auth_mode": "required",
         "email": context.email,
+        # Sprint 09: the display name travels in the verified token's
+        # user_metadata (Supabase Auth owns profile identity -- see
+        # ACCOUNT_LIFECYCLE.md's display-name decision). Null until the
+        # person sets one in Settings.
+        "display_name": context.display_name,
         "role": context.role,
         "organization": {"id": context.organization_id, "name": context.organization_name},
         "dealership": {"id": context.dealership_id, "name": context.dealership_name},
@@ -114,6 +119,11 @@ def me(context: Optional[AccessContext] = Depends(get_access_context)) -> dict:
 _OPERATIONAL_ROUTERS = (
     dashboard.router, vehicles.router, tasks.router, recommendations.router,
     activity.router, reports.router, inventory_sync.router,
+    # Sprint 09: user administration. Same include-time protection;
+    # additionally answers 404 in disabled mode (see routers/users.py)
+    # so the unauthenticated production posture exposes no user-admin
+    # surface at all.
+    users.router,
 )
 for _router in _OPERATIONAL_ROUTERS:
     app.include_router(_router, dependencies=[Depends(get_access_context)])

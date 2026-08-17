@@ -1602,6 +1602,45 @@ Sprints 09–17 execute against a frozen contract instead of a provisional idea 
 
 ---
 
+# Sprint 09 — Account Lifecycle, Recovery & Functional Settings
+
+**Status:** Implementation Complete — Awaiting Merge  
+**Date:** 2026-08-16
+
+## Objective
+
+Rail A: manager/admin-provisioned users (no public signup), real password recovery over direct links, immediate membership-based offboarding, and a Profile & Settings surface containing only real functionality.
+
+## Major Work
+
+- **Backend:** `api/supabase_admin.py` (server-only GoTrue Admin boundary; `SUPABASE_SECRET_KEY` in Render env only, 503 when absent) · `api/routers/users.py` (roster / invite / deactivate / reactivate; role policy admin→all four, manager→lot_staff+sales_manager; dealership always derived from the caller's membership; self-deactivation and last-active-admin guards; 404-entire-surface under `AUTH_MODE=disabled`) · membership repo additions (any-state lookup, roster list, active toggle, admin count) · `AccessContext`/`GET /me` gain `display_name` from verified token `user_metadata`.
+- **Recovery & routing:** Forgot Password on login (enumeration-safe generic response) · `/auth/reset-password` page outside the auth gate (invite + recovery landings; invalid/expired links fail safely) · Vercel SPA rewrite (the Sprint 08-ratified Rail A requirement) pinned by `tests/test_frontend_config.py` · post-reset session policy: `updateUser` then global sign-out (all refresh tokens revoked — real, provider-supported revocation).
+- **Frontend:** `AccessProvider` (one shared `/me`, account-disabled screen on identity-level 403, global 401→clean sign-out; per-action 403s stay page-level) · honest Profile & Settings rewrite (every prior control was fake — full disposition table in `ACCOUNT_LIFECYCLE.md`) · User Management UI for admin/manager · fake header notification bell removed.
+- **Tests:** `tests/test_user_management.py` (the Phase 19 matrix: 401/403/cross-store/escalation/mass-assignment/idempotent-invite/deactivation-with-live-JWT/reactivation/self+last-admin guards/DTO-field allowlist/disabled-mode 404) + config guards. Suites now **488/488 SQLite and 488/488 PostgreSQL**.
+- **Docs:** `ACCOUNT_LIFECYCLE.md` (new canonical), `AUTH_ARCHITECTURE.md` addendum, `DEV_ENVIRONMENT.md`, `.env.example`.
+
+## Decisions
+
+Display name = Supabase `user_metadata` (Auth owns profile identity; **no migration 0010**, production-migration assumptions untouched). Offboarding = membership deactivation only (Auth ban/delete assessed, deferred — destroys identity/history for no added control). In-app direct change-password deferred (recovery flow is the password path; Supabase stays the authority). **Flagged-open:** manager→manager administration (smallest policy shipped).
+
+## Deployed DEV Smoke (performed pre-merge on the branch deployment)
+
+All green, including the full live loop with an operator-provided deliverable address: **invite (manager UI/API) → real Supabase invite email → direct link opened from fresh navigation (SPA rewrite live) → set first password → global sign-out → login with the new password → correct Lot Staff identity/store from `/me`**. Live authorization probes: manager granting admin → 403; manager deactivating admin → 403; self-deactivation → 403; duplicate invite → 409 (single email sent); lot_staff on `/users` and sync-run → 403; shared reads + work-order PDF → 200; roster enriched with emails + invited-state badge; deactivate→reactivate cycle on the invited account. Unauthenticated: every operational + user route 401; `/health` public; direct `/auth/reset-password` → 200 HTML from fresh navigation; console clean (only deliberate 403 probes). QA dealership intact (16 open tasks / 2 recs / matrix on the dashboard).
+
+Three live findings, each fixed on the branch during smoke: (1) display-name save invisible until token refresh → `refreshSession()` after `updateUser` (`5225c57`); (2) provider-refused vs credential-unavailable conflated in one 503 → distinguishable 422/503 classes (`c960ada`); (3) operator-side: a whitespace character inside the pasted `SUPABASE_SECRET_KEY` value on Render broke the credential (owner re-staged; the tool's local key test isolated it). Supabase's built-in email delivered to the team-member address after a delay — the provider limitation stands documented for non-member addresses.
+
+Cleanup note: the test account (`kennett20054@gmail.com`, lot_staff, qa-motors) remains active for owner disposition — deactivate via User Management or keep as a live test identity.
+
+## Production Impact
+
+None. No schema change, no production env/config/user changes; the `/users` surface does not exist under the production posture.
+
+## PR
+
+Recorded at the gate per the rolling-update procedure.
+
+---
+
 # Governance Update — Repository Public-Release Sanitation Gate (pre-Sprint 09)
 
 **Status:** Complete (docs-only)  

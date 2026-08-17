@@ -268,14 +268,10 @@ function Header({ onVehicleSelect, onOpenMobileNav }: { onVehicleSelect: (s: str
         </div>
       )}
 
-      <div className="hidden sm:block w-px h-5 bg-slate-200 mx-1" />
-
-      {/* Notifications -- slightly larger tap target below lg (36px vs. the
-          desktop 32px), still under the same rounded-lg treatment */}
-      <button className="relative w-9 h-9 lg:w-8 lg:h-8 flex items-center justify-center rounded-lg text-slate-500 hover:bg-slate-100 transition-colors flex-shrink-0">
-        <svg width="15" height="15" fill="none" viewBox="0 0 24 24"><path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9M13.73 21a2 2 0 0 1-3.46 0" stroke="currentColor" strokeWidth="1.75" strokeLinecap="round" strokeLinejoin="round"/></svg>
-        <span className="absolute top-1.5 right-1.5 w-2 h-2 bg-red-500 rounded-full border-2 border-white" />
-      </button>
+      {/* Sprint 09: the notification bell (with its permanent fake red
+          dot) is removed under the settings-honesty rule -- no
+          notification system exists yet (Rail E is CONDITIONAL in
+          V1_1_RELEASE_READINESS.md). It returns with the real feature. */}
     </header>
   )
 }

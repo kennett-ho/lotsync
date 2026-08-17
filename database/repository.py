@@ -1100,3 +1100,73 @@ def get_active_membership(conn: sqlite3.Connection, auth_user_id: str,
     columns = ["membership_id", "auth_user_id", "role", "organization_id",
                "organization_name", "dealership_id", "dealership_name"]
     return dict(zip(columns, row))
+
+
+# ─── Sprint 09: user administration (roster / lifecycle) ────────────────
+
+
+def get_membership_any_state(conn: sqlite3.Connection, auth_user_id: str,
+                              dealership_id: str):
+    """
+    Like get_active_membership but WITHOUT the active filter -- the
+    user-administration surface needs to see deactivated memberships
+    (to offer reactivation, and to refuse duplicate invites) that the
+    authorization lookup rightly ignores.
+    """
+    row = conn.execute(
+        "SELECT membership_id, auth_user_id, role, organization_id, "
+        "       dealership_id, active "
+        "FROM user_membership "
+        "WHERE auth_user_id = ? AND dealership_id = ?",
+        (auth_user_id, dealership_id),
+    ).fetchone()
+    if row is None:
+        return None
+    columns = ["membership_id", "auth_user_id", "role", "organization_id",
+               "dealership_id", "active"]
+    return dict(zip(columns, row))
+
+
+def list_memberships_for_dealership(conn: sqlite3.Connection,
+                                     dealership_id: str) -> list:
+    """
+    The serving dealership's full roster -- active AND deactivated
+    (deactivation is deliberately not deletion; the roster is where an
+    operator sees and reverses it). Ordered stably for display.
+    """
+    rows = conn.execute(
+        "SELECT membership_id, auth_user_id, role, organization_id, "
+        "       dealership_id, active "
+        "FROM user_membership WHERE dealership_id = ? "
+        "ORDER BY active DESC, role, membership_id",
+        (dealership_id,),
+    ).fetchall()
+    columns = ["membership_id", "auth_user_id", "role", "organization_id",
+               "dealership_id", "active"]
+    return [dict(zip(columns, row)) for row in rows]
+
+
+def set_membership_active(conn: sqlite3.Connection, auth_user_id: str,
+                           dealership_id: str, active: bool) -> bool:
+    """
+    Deactivate/reactivate one membership. Returns False when no such
+    membership row exists (the route turns that into 404). Never
+    deletes -- membership history is the audit trail of who ever had
+    access.
+    """
+    cur = conn.execute(
+        "UPDATE user_membership SET active = ? "
+        "WHERE auth_user_id = ? AND dealership_id = ?",
+        (1 if active else 0, auth_user_id, dealership_id),
+    )
+    return cur.rowcount > 0
+
+
+def count_active_admins(conn: sqlite3.Connection, dealership_id: str) -> int:
+    """How many active admin memberships the dealership has -- the
+    last-admin guard reads this before allowing a deactivation."""
+    return conn.execute(
+        "SELECT COUNT(*) FROM user_membership "
+        "WHERE dealership_id = ? AND role = 'admin' AND active = 1",
+        (dealership_id,),
+    ).fetchone()[0]

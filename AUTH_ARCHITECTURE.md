@@ -151,3 +151,20 @@ disabled in the Supabase project. Roster + usage: `DEV_QA_GUIDE.md`.
 
 The API never logs Authorization headers or token contents, and every
 401 body is the same generic message.
+
+## Sprint 09 addendum — account lifecycle
+
+Rail A added the user-administration surface (`api/routers/users.py`:
+roster, invite, deactivate, reactivate) on top of this architecture
+without changing any invariant: role policy is enforced from the
+caller's membership row; the target dealership is always the caller's
+own; the GoTrue Admin API is reached only through the server-side
+`api/supabase_admin.py` boundary (`SUPABASE_SECRET_KEY` — Render env
+only, never VITE_*, never logged); and under `AUTH_MODE=disabled` the
+entire surface answers 404, so the unauthenticated production posture
+gains no dormant admin endpoints. Deactivation is effective on the
+target's next request — authorization remains current membership
+state, never stale token claims. Display name rides the verified
+token's `user_metadata` into `AccessContext`/`GET /me` (Supabase Auth
+owns profile identity; no schema change). Password recovery and the
+full lifecycle model: `ACCOUNT_LIFECYCLE.md`.

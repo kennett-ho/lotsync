@@ -43,6 +43,26 @@ export class ApiError extends Error {
   }
 }
 
+/**
+ * Sprint 09 -- session-lifecycle signal (Phase 18): a 401 from the
+ * backend means the token is missing/expired/invalid BEYOND what
+ * supabase-js could silently refresh -- AuthGate listens and returns
+ * the user to a clean login rather than leaving dead screens. 403 is
+ * deliberately NOT globally handled here: authenticated-but-not-
+ * allowed is a per-action condition (e.g. lot staff hitting a
+ * manager-only action) that each screen surfaces in place; only
+ * AccessProvider's own /me probe treats a 403 as "this account has no
+ * access at all" (disabled/offboarded) and shows the dedicated
+ * screen.
+ */
+export const AUTH_EXPIRED_EVENT = 'dealerdoh:auth-expired'
+
+function signalStatus(status: number) {
+  if (status === 401) {
+    window.dispatchEvent(new Event(AUTH_EXPIRED_EVENT))
+  }
+}
+
 /** True when the backend was unreachable at all (network/CORS failure), not just a non-2xx response. */
 export function isBackendUnavailable(error: unknown): boolean {
   return error instanceof ApiError && error.status === 0
@@ -73,7 +93,48 @@ export async function apiGet<T>(
     throw new ApiError('Not found', 404)
   }
   if (!response.ok) {
+    signalStatus(response.status)
     throw new ApiError(`LotSync API returned ${response.status} for ${path}`, response.status)
+  }
+
+  return (await response.json()) as T
+}
+
+/**
+ * Sprint 09 -- JSON POST for the user-administration endpoints. Same
+ * transport-only philosophy as apiGet; FastAPI's HTTPException detail
+ * (always a plain, user-appropriate sentence on these routes) becomes
+ * the ApiError message so screens can show it directly.
+ */
+export async function apiPostJson<T>(path: string, body: unknown): Promise<T> {
+  const url = new URL(path, API_BASE_URL)
+
+  let response: Response
+  try {
+    response = await fetch(url.toString(), {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', ...(await authHeaders()) },
+      body: JSON.stringify(body ?? {}),
+    })
+  } catch {
+    throw new ApiError(
+      `Could not reach the LotSync API at ${API_BASE_URL}. Is the backend running?`,
+      0,
+    )
+  }
+
+  if (!response.ok) {
+    signalStatus(response.status)
+    let detail: unknown
+    try {
+      detail = (await response.json()).detail
+    } catch {
+      detail = undefined
+    }
+    const message = typeof detail === 'string'
+      ? detail
+      : `LotSync API returned ${response.status} for ${path}`
+    throw new ApiError(message, response.status)
   }
 
   return (await response.json()) as T
@@ -100,6 +161,7 @@ export async function apiGetBlob(path: string): Promise<{ blob: Blob; filename: 
   }
 
   if (!response.ok) {
+    signalStatus(response.status)
     throw new ApiError(`LotSync API returned ${response.status} for ${path}`, response.status)
   }
 
@@ -135,6 +197,7 @@ export async function apiPostForm<T>(path: string, formData: FormData): Promise<
   }
 
   if (!response.ok) {
+    signalStatus(response.status)
     let detail: unknown
     try {
       detail = (await response.json()).detail

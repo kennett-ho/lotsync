@@ -277,6 +277,25 @@ class RoleTest(AuthTestCase):
                 # succeeded without actually running a sync here.
                 self.assertNotIn(resp.status_code, (401, 403), name)
 
+    def test_validate_endpoint_shares_the_sync_role_gate(self):
+        # Sprint 10: the pre-sync preview is part of the sync surface
+        # -- same admin/manager restriction, same 401 unauthenticated.
+        resp = self.client.post("/inventory-sync/validate")
+        self.assertEqual(resp.status_code, 401, "unauthenticated")
+        for name, expected in (("admin", "allowed"), ("manager", "allowed"),
+                                ("lot_staff", "denied"), ("sales_manager", "denied"),
+                                ("outsider", "denied"), ("inactive", "denied"),
+                                ("nobody", "denied")):
+            resp = self.client.post("/inventory-sync/validate",
+                                     headers=bearer(self.token_for(name)))
+            if expected == "denied":
+                self.assertEqual(resp.status_code, 403, name)
+            else:
+                # Role gate passed; the route's own empty-upload 422
+                # proves authorization succeeded without validating
+                # anything real here.
+                self.assertNotIn(resp.status_code, (401, 403), name)
+
     def test_role_cannot_be_spoofed_from_token_claims(self):
         # A lot_staff member self-asserting admin in every plausible
         # claim location still gets the membership row's role.

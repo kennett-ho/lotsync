@@ -95,6 +95,32 @@ honored → **Completed**, moot → **No Longer Needed**, cancelled →
 the first three; cancelled/superseded have no product-reachable
 producer yet (unit-tested at the repository layer only).
 
+## Ingestion safety (Sprint 10 — Rail D)
+
+The Inventory Sync page is now a validate → preview → run flow:
+select files, **Validate Reports**, review the per-report preview
+(detected type, counts, previous-comparable change, issues), tick the
+acknowledgement if warnings exist (never pre-checked), then **Run
+Sync Now** (disabled until then). Changing any file clears the
+preview. Full behavior: `INGESTION_ARCHITECTURE.md`.
+
+QA tour, using `tests/fixtures/` copies as uploads (manager/admin
+login — lot staff correctly cannot see this work at all):
+
+| Behavior | Upload | Expect |
+|---|---|---|
+| Clean set previews Ready | `synthetic/tekion_master.csv` in Tekion Unsold (+ any others in their slots) | per-report **Ready**, counts shown, "No prior baseline" on first use; Run enables |
+| Empty snapshot rejected | `ingestion/tekion_headers_only.csv` in Tekion Unsold | **Rejected — No vehicle records were found…**; Run stays disabled; run attempt (direct API) 422s with zero mutation |
+| Wrong report type | `synthetic/tekion_sold.csv` in Tekion **Unsold** | **Rejected — Wrong report type**, message names Sold Inventory and the right slot |
+| Keyper variant boundary | `ingestion/keyper_variant_stand_in.csv` in Keyper | **Rejected** — "…not the Full Key Inventory report… not yet supported… never substitute" |
+| Missing column | `ingestion/tekion_missing_status.csv` in Tekion Unsold | **Rejected — required column(s) missing: Status** |
+| Acknowledged zero | `ingestion/mdd_headers_only.csv` in MDD | **Review needed** warning; Run disabled until the box is ticked; after run, MDD SyncRun records 0 honestly |
+| Suspicious count | two sequential syncs of generated Tekion files (e.g. 40 rows then 20) | second preview shows previous 40 / change −20 (−50%) + warning; unacknowledged run 409s |
+| Duplicates surfaced | `ingestion/tekion_duplicate_vins.csv` | warning names the repeated VIN |
+
+The standing 34-vehicle QA dealership is untouched by all of the
+above — rejected/previewed uploads mutate nothing (that's the rail).
+
 ## Work-order PDF
 
 Tasks page → Print Work Order (or `GET /tasks/work-order` on the dev

@@ -230,6 +230,29 @@ ARCHITECTURE.md, to avoid two sources of truth that can drift).
 | `records_processed`, `issues_found`, `tasks_generated` | |
 | `status` | "in_progress" / "complete" / "delayed" / "failed" -- "in_progress" added during Phase 2 Sprint 3 (Slice 4 implementation): the original three values had no way to describe a row between INSERT and completion, the same category of gap `Event.event_id`'s addition closed in Sprint 1 (a table that can't be correctly built and used as originally specified) |
 
+### ReportBaseline
+Sprint 10 (Rail D) addition — `migrations/0010_report_baseline.sql`.
+One row per report accepted by an executed sync: the per-report-type
+row-count history that pre-sync validation compares an incoming
+report against ("suspicious count change"). Written only by
+`POST /inventory-sync/run` *after* the sync succeeds; the validation
+endpoint only reads. Deliberately NOT derived from
+`SyncRun.records_processed`: the `tekion` SyncRun covers both Tekion
+report types in one number by design, and baselines must be scoped
+per `(vendor, report_type)` — a Tekion sold count must never judge a
+Tekion current file. SyncRun's own meaning ("one execution against
+one source") is unchanged. See `INGESTION_ARCHITECTURE.md` §8.
+
+| Field | Notes |
+|---|---|
+| `report_baseline_id` | |
+| `vendor`, `report_type` | The comparison scope — matches `sync/report_contracts.py` |
+| `slot` | Which upload slot carried it |
+| `dealership_id` | Nullable; same single-store posture as `SyncRun.dealership_id` (per-row store scoping is the governed Store #2 trigger) |
+| `total_rows`, `valid_rows` | Raw data rows vs rows carrying usable identity, as validation computed them |
+| `sync_started_at` | The run's shared `triggered_at` — correlates baseline rows to their SyncRun batch |
+| `recorded_at` | |
+
 ### EventFreshness
 Sprint 3.7 addition. One row per `(vin, event_type)`, recording when
 that claim was last reconfirmed — whether or not the reconfirmation

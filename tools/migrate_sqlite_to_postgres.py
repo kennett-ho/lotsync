@@ -54,7 +54,11 @@ from lotsync.database.engine import PostgresConnection  # noqa: E402
 
 MIGRATIONS_POSTGRES_DIR = os.path.join(_REPO, "database", "migrations_postgres")
 
-EXPECTED_SCHEMA_VERSION = 9
+# Sprint 10 bumped this 9 -> 10 (migrations/0010_report_baseline.sql,
+# additive table only) per the standing migration-drift guard
+# (V1_1_RELEASE_READINESS section 8): the RC-freeze rehearsal refresh
+# must re-run against a v10-shaped source.
+EXPECTED_SCHEMA_VERSION = 10
 
 # FK-safe insert order (parents before children; task before its
 # self-reference is handled by ordering rows on task_id ASC, since an
@@ -72,6 +76,13 @@ TABLE_ORDER = [
     "task_execution_event",
     "recommendation",
     "user_membership",
+    # Sprint 10 (migrations/0010): after dealership (its one FK
+    # parent). Empty on any pre-v1.1 production source -- the table
+    # only accumulates rows once the Rail D run endpoint records
+    # accepted reports -- but the copy/validation machinery treats it
+    # like every other table rather than special-casing "currently
+    # empty."
+    "report_baseline",
 ]
 
 # Identity (AUTOINCREMENT) tables and their PK columns -- sequences
@@ -84,6 +95,7 @@ IDENTITY_PKS = {
     "task_execution_event": "task_execution_event_id",
     "recommendation": "recommendation_id",
     "user_membership": "membership_id",
+    "report_baseline": "report_baseline_id",
 }
 
 # Deterministic per-row ORDER BY per table (PK), so batches and the
@@ -101,6 +113,7 @@ ORDER_BY = {
     "task_execution_event": "task_execution_event_id",
     "recommendation": "recommendation_id",
     "user_membership": "membership_id",
+    "report_baseline": "report_baseline_id",
 }
 
 # Domain-invariant breakdowns compared exactly between source and

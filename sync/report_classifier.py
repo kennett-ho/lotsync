@@ -15,9 +15,13 @@ registry this requires a file carrying both "Stocked In Date" and
 "Sold Date", which no real Tekion export does; if a future export
 does, that surfaces as a vendor-discovery question, never a silent
 guess). Zero matches = either a recognizable vendor VARIANT (some,
-but not all, of one vendor's signature evidence -- the Keyper
-Event-report case lands here by design, see report_contracts.
-KEYPER_KEY_EVENT) or UNRECOGNIZED.
+but not all, of one vendor's signature evidence -- nonmatching
+Keyper-shaped exports land here by design, see report_contracts.
+KEYPER_KEY_EVENT) or UNRECOGNIZED. Precision note (owner-corrected
+2026-08-16): a REAL Keyper Event Report's fate here is UNKNOWN until
+vendor evidence exists -- if its real columns happen to include the
+Full Inventory signature, it would classify as Full, not as a
+variant. See INGESTION_ARCHITECTURE.md section 6.
 
 Classification never reads data rows -- headers are the structural
 identity evidence. Row-level facts (counts, VIN validity, duplicates)

@@ -71,12 +71,14 @@ MAX_UPLOAD_BYTES = 20 * 1024 * 1024
 MAX_DATA_ROWS = 50_000
 
 # --- Suspicious count-change thresholds (Sprint 10 phase 14) --------
-# PROPOSED DEFAULTS -- PENDING OWNER RATIFICATION at the Sprint 10 PR
-# gate (V1_1_RELEASE_READINESS 5.D exit 7 assigns Sprint 10 the
-# default; the sprint brief requires the owner to ratify it before it
-# is treated as settled policy). Grounding for the proposal, absent
-# any pre-existing governed threshold (none exists in docs, config,
-# or code -- audited 2026-08-16):
+# OWNER-RATIFIED 2026-08-16 (Sprint 10 PR #14 gate) as the initial
+# BETA policy, explicitly subject to tuning from real operational
+# evidence. These are WARNING/REVIEW thresholds, never hard
+# rejection: a triggered condition requires explicit Manager/Admin
+# acknowledgement to proceed, and future unattended ingestion must
+# HOLD on it (never auto-acknowledge). Grounding for the ratified
+# numbers, absent any pre-existing governed threshold (none existed
+# in docs, config, or code -- audited 2026-08-16):
 # - The failure this catches is catastrophic-shrink (the register's
 #   own example: a 14-row export against 987 tracked vehicles, -98%).
 # - Ordinary day-over-day drift at this store's scale (tens of sales

@@ -50,7 +50,7 @@ Do not rewrite history when architecture changes later. Record what was true at 
 | **Current release target** | `v1.1.0-beta.1` |
 | **Open PRs** | tracked per sprint; see Git/PR records in each entry |
 | **Public domain** | `dealerdoh.com` owned; production domain cutover not yet performed |
-| **Immediate focus** | Sprint 10 — Inventory Ingestion Safety (Rail D): implementation complete on branch; PR gate, deployed-DEV smoke, and owner threshold ratification pending |
+| **Immediate focus** | Sprint 10 — Inventory Ingestion Safety (Rail D): PR #14 green at the gate; thresholds owner-ratified; deployed-DEV smoke pending the owner's review-window switch; post-merge state = Implementation Paused — Awaiting Vendor Evidence (Keyper Event) |
 
 **Production rule:** `master` is what real dealership users are allowed to depend on. Normal development belongs on task branches and `dev`; production remains frozen until an explicit release train is approved.
 
@@ -1672,7 +1672,7 @@ Repository publication remains a separate owner decision, deliberately decoupled
 
 # Sprint 10 — Inventory Ingestion Safety, Report Classification & Pre-Sync Validation
 
-**Status:** Implementation Complete — Awaiting Merge (**PR #14 CI fully green**: 548/548 SQLite · 548/548 PostgreSQL · frontend build · Vercel). Pending: merge on explicit approval · deployed-DEV smoke (owner review-window switch) · owner threshold ratification
+**Status:** Implementation Complete — Awaiting Merge (**PR #14 CI fully green**: 548/548 SQLite · 548/548 PostgreSQL · frontend build · Vercel). Pending: merge on explicit approval · deployed-DEV smoke (owner review-window switch). **Owner-directed post-merge state: Implementation Paused — Awaiting Vendor Evidence** — the known-evidence implementation merges, but the sprint does not close as Complete (and Rail D is not Verified) until real Keyper Event vendor evidence resolves the Full-vs-Event structural distinction (see Decisions 4–5).
 **Date:** 2026-08-16
 **Rail:** D (operative register) / E (this catalog's lettering)
 
@@ -1764,16 +1764,29 @@ One boundary, both endpoints, every future acquisition path
 3. **Duplicates = surfaced warnings, never silent dedupe** (exit 6):
    per-contract keys; sold-report VIN repeats deliberately unflagged
    (legitimate history owned by the existing conflicts machinery).
-4. **Suspicious-count thresholds — PROPOSED, PENDING OWNER
-   RATIFICATION** (exit 7): drop >15% AND ≥10 rows; increase >50%
-   AND ≥25 rows (the RecovR umbrella-file shape); grounding in
-   `INGESTION_ARCHITECTURE.md` §8. Mechanism + preview + gating are
-   complete either way; the numbers await the owner at the PR gate.
-5. **Keyper Event Report**: no sample exists → no schema invented;
-   recognized-variant rejection with explicit "not yet supported /
-   can never substitute for the full snapshot" language; boundary
-   test-pinned in every slot. Vendor discovery is the trigger to fill
-   the contract.
+4. **Suspicious-count thresholds — OWNER-RATIFIED at the PR gate
+   (2026-08-16)** as the initial beta policy, subject to tuning from
+   real operational evidence (exit 7): warn on decrease >15% AND ≥10
+   rows; warn on increase >50% AND ≥25 rows (the RecovR
+   umbrella-file shape). Warning/review thresholds, never hard
+   rejection; explicit Manager/Admin acknowledgement required;
+   future unattended ingestion HOLDs. Grounding in
+   `INGESTION_ARCHITECTURE.md` §8.
+5. **Keyper Event Report — evidence status corrected by the owner
+   (2026-08-16)**: no sample exists → no schema invented. What the
+   synthetic stand-in PROVES: the known Full Inventory contract
+   works, and unsupported/nonmatching Keyper-shaped evidence fails
+   safely (rejected in every slot, "can never substitute for the
+   full snapshot" language, test-pinned). What it does NOT prove: a
+   *real* Event report could plausibly satisfy the current Full
+   signature — the actual Full-vs-Event structural distinction is
+   **PENDING VENDOR EVIDENCE** and must not be claimed PASS
+   (`INGESTION_ARCHITECTURE.md` §6 evidence table). This is why the
+   sprint's post-merge state is Implementation Paused — Awaiting
+   Vendor Evidence. Vendor discovery (register §6.2) is the trigger;
+   when the real format arrives, re-verify the Full signature
+   actually discriminates and add discriminating columns if the real
+   formats overlap.
 6. **Unattended-ingestion HOLD rule** documented now (any WARNING →
    HOLD, automation never auto-acknowledges) for the conditional
    §6.2 rail to inherit.
@@ -1816,6 +1829,58 @@ console errors.
 None. `master` untouched at `13c4f815` / `v1.0.0-beta.6`; no
 production deploy, data, env, Supabase, or DNS change.
 
+## /data-migration record — migration 0010 (owner-directed closeout pass, 2026-08-16)
+
+Per `.claude/workflows/data-migration.md`, invoked explicitly:
+
+- **Target environments:** local SQLite + Supabase DEV only (both via
+  the existing auto-migration runner at connect/deploy). Production
+  is NOT a target; it receives 0010 only through the governed release
+  trains, never as a side effect.
+- **Branch/SHA:** `feature/sprint-10-ingestion-safety` (0010
+  introduced in `31753b0`).
+- **Schema state:** 9 → 10. **Change class: additive** (one new
+  table, `report_baseline`; no existing table/column/index touched;
+  no backfill — pre-Sprint-10 baselines are deliberately not
+  reconstructable; no destructive step). **Rollback:** `DROP TABLE
+  report_baseline`.
+- **Backup status:** the verified 2026-08-15 production backup is
+  untouched and unaffected (production schema unchanged at v9 until
+  Release A).
+- **Affected tables / data volume:** `report_baseline` only; zero
+  rows at creation, grows one row per accepted report per executed
+  sync.
+- **SQLite→Postgres checklist:** dual dialect files following the
+  0001–0009 port conventions (AUTOINCREMENT→IDENTITY,
+  `datetime('now')`→`now()::text` TEXT timestamps); `RETURNING` used
+  (no `lastrowid`); no booleans/JSON; FK to `dealership` nullable
+  (ordered after its parent in `TABLE_ORDER`); ordering/pagination via
+  integer PK `ORDER BY … LIMIT 1` (engine-neutral); qmark
+  translation as everywhere else.
+- **Production migration path understands v10 — PROVEN end-to-end**
+  on the Sprint 07 portable PG 17.5 cluster (started for this pass,
+  disposable DB, dropped + cluster stopped after):
+  `tools/generate_rehearsal_dataset.py --scale production` emitted a
+  **schema v10** source automatically (it applies the real runner) —
+  4,700 vehicles / 14,665 business rows; tool **dry-run** passed the
+  v10 preflight gate; tool **--execute** copied 13 tables incl.
+  `report_baseline` (0 rows, correctly) and **all four validation
+  layers passed exactly** (`schema_migrations 1..10`, 14 tables, 15
+  indexes, sequences, counts, breakdowns, orphans, time-ranges,
+  sampled rows) in **1.156 s** — in line with Sprint 07's 0.98 s;
+  focused `tests/test_migration_tool` re-run under PostgreSQL:
+  **10/10**.
+- **RC-rehearsal consequence:** the RC-freeze rehearsal refresh must
+  use a v10 source — which the generator now produces by
+  construction, and which this pass already exercised once
+  end-to-end. Dated amendment notes added to
+  `PRODUCTION_MIGRATION_PLAN.md` and
+  `PRODUCTION_MIGRATION_RUNBOOK.md` (read "0001–0009" as
+  "0001–0010"; Release A boot applies 0009+0010, both additive;
+  beta.6-rollback-over-newer-DB argument holds identically; final
+  pre-cutover backup will be v10). `PRODUCTION_MIGRATION_REHEARSAL.md`
+  is left as the accurate Sprint 07 historical record.
+
 ## Git
 
 Task branch `feature/sprint-10-ingestion-safety`: `31753b0`
@@ -1825,13 +1890,17 @@ approval gate).
 
 ## Findings / Risks
 
-- Suspicious-count thresholds are the sprint's one open owner
-  decision (Rail D exit 7) — Rail D cannot be Verified before
-  ratification.
-- Keyper Event Report remains format-blocked pending vendor
-  discovery (§6.2) — safe rejection is in place; ingestion of the
-  report itself is NOT required for v1.1 unless discovery promotes
-  it.
+- ~~Suspicious-count thresholds pending ratification~~ —
+  **owner-ratified at the gate (2026-08-16)** as initial beta
+  policy, subject to tuning from real operational evidence.
+- **Keyper Full-vs-Event residual risk (owner-corrected evidence
+  status):** the real structural distinction is PENDING VENDOR
+  EVIDENCE — if a real Event export happens to carry the Full
+  signature columns, the classifier would accept it as a snapshot.
+  Predates Sprint 10 (any superset passed before); narrowed but not
+  closable without the vendor format. Keyper stays manual-upload;
+  no Keyper acquisition automation before discovery. Ingestion of
+  the Event report itself is NOT required for v1.1.
 - Pre-Sprint-10 baselines don't exist (`records_processed` is
   polluted by design) — first post-merge sync per report type shows
   "No prior baseline" once, then comparisons begin. Honest, not a
@@ -2022,9 +2091,11 @@ Deferred:
 **Status (2026-08-16):** implemented in Sprint 10 (this catalog's E =
 the operative register's Rail D — see the lettering note there). The
 pipeline below was built as specified; `INGESTION_ARCHITECTURE.md` is
-now canonical. Pending: PR gate, deployed-DEV smoke, owner
-ratification of the suspicious-count thresholds. See the Sprint 10
-entry for the full record.
+now canonical; suspicious-count thresholds owner-ratified as initial
+beta policy. Pending: merge + deployed-DEV smoke; the real Keyper
+Full-vs-Event structural distinction is **PENDING VENDOR EVIDENCE**
+(post-merge sprint state: Implementation Paused — Awaiting Vendor
+Evidence). See the Sprint 10 entry for the full record.
 
 This is a major operational safety rail.
 
@@ -2829,7 +2900,7 @@ Never mark planned work as completed before it is actually merged and verified.
 
 1. ~~Run Sprint 08 to formalize the v1.1.0-beta scope/readiness register.~~ Done and merged (PR #10, `dddbb5f`) — `V1_1_RELEASE_READINESS.md` is operative, both Sprint 08 decisions ratified.
 2. ~~Begin Sprint 09 — Account Lifecycle & Settings.~~ Done and merged (PR #12 `02958f2`, PR #13 `b19a56a`) — Rail A Verified.
-2a. Land Sprint 10 — Inventory Ingestion Safety: PR review/merge, deployed-DEV smoke, and the owner's ratification (or adjustment) of the proposed suspicious-count thresholds (`INGESTION_ARCHITECTURE.md` §8).
+2a. Land Sprint 10 — Inventory Ingestion Safety: PR #14 review/merge and deployed-DEV smoke (thresholds owner-ratified 2026-08-16). Post-merge the sprint records as **Implementation Paused — Awaiting Vendor Evidence**: the real Keyper Event contract (discovery item, §6.2) is the remaining trigger to close it and to complete Rail D's exit-4 Keyper half.
 3. Complete dealership vendor research before committing automatic email/API ingestion to the release (answers targeted before Sprint 12 planning).
 4. Continue feature and production-readiness work only through task branch → PR → `dev`.
 5. Keep real production frozen on `v1.0.0-beta.6`.

@@ -21,7 +21,10 @@ PRODUCTION_MIGRATION_PLAN.md section 4:
 - EMPTY organization / dealership / employee / user_membership tables
   (exactly the production final-backup state -- those rows are created
   in PostgreSQL at auth-cutover prep, not migrated)
-- schema at migration 0009 (applied by the real runner via connect())
+- schema at the repo's current migration head (applied by the real
+  runner via connect() -- 0010 as of Sprint 10, so the emitted
+  database always matches what the migrate tool's
+  EXPECTED_SCHEMA_VERSION gate expects)
 
 Fully deterministic: fixed RNG seed, fixed base timestamps, no
 datetime.now() anywhere. Same arguments => byte-identical row content.
@@ -94,7 +97,7 @@ def generate(out_path: str, scale: str, force: bool) -> dict:
     n_veh = {"production": 4700, "small": 120}[scale]
     rng = random.Random(SEED)
 
-    conn = connect(out_path)  # applies migrations 0001-0009, real runner
+    conn = connect(out_path)  # applies ALL repo migrations (0010 head as of Sprint 10), real runner
     cur = conn.cursor() if hasattr(conn, "cursor") else conn
 
     # ---- vehicles ---------------------------------------------------

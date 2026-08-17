@@ -194,16 +194,43 @@ built and tested instead is the boundary itself:
   using an explicitly-labeled synthetic stand-in fixture — see
   `tests/fixtures/ingestion/README.md`.
 
+**What this evidence does and does not prove (owner-corrected status,
+2026-08-16):**
+
+| Claim | Status |
+|---|---|
+| The known Keyper Full Inventory contract classifies and ingests correctly | **PASS** |
+| Unsupported/nonmatching Keyper-shaped evidence fails safely (rejected, named, never a snapshot) | **PASS** |
+| A *real* Keyper Event Report is structurally distinguishable from Full Inventory by the current classifier | **PENDING VENDOR EVIDENCE** |
+| Keyper Event ingestion | Unsupported — not required for v1.1 |
+
+The stand-in proves the rejection boundary for evidence that does
+NOT match the Full contract. It cannot prove the converse: a real
+Event report could plausibly carry `name`, `System`, and a checkout
+timestamp — and if a real Event export happens to satisfy the Full
+signature, the current content classifier would accept it as a Full
+snapshot. That residual risk predates Sprint 10 (before it, ANY
+column-superset file passed); Sprint 10 narrows it (nonmatching
+variants are now rejected) but **cannot close it without the real
+vendor format — do not invent one to close it.** Until vendor
+evidence arrives, the real Full-vs-Event structural distinction is
+explicitly PENDING VENDOR EVIDENCE, the keyper slot remains a
+manual, operator-selected upload, and no Keyper acquisition may be
+automated (V1_1_RELEASE_READINESS §6.2 gates that on discovery
+regardless).
+
 **Remaining trigger:** vendor discovery
 (V1_1_RELEASE_READINESS §6.2, owner action). When the real format
 arrives: give `KEYPER_KEY_EVENT` its real columns from the real
-sample, decide its zero-event semantics from real vendor meaning
-(a zero-event window may be a *valid* empty event set — undecidable
-until then), flip `supported` only with an ingestion path that
-processes represented events exclusively, and never lets absence
-imply anything. The snapshot/event distinction is already priced into
-the architecture; supporting the report is contract-filling, not
-redesign.
+sample, re-verify the Full classifier's signature actually
+discriminates against it (adding discriminating columns if the real
+formats overlap), decide its zero-event semantics from real vendor
+meaning (a zero-event window may be a *valid* empty event set —
+undecidable until then), flip `supported` only with an ingestion
+path that processes represented events exclusively, and never lets
+absence imply anything. The snapshot/event distinction is already
+priced into the architecture; supporting the report is
+contract-filling, not redesign.
 
 ## 7. What accepted evidence means (source semantics, unchanged)
 
@@ -242,14 +269,16 @@ prior baseline` (INFO), never a blocker. (This is why
 deliberately covers both Tekion report types in one number, and
 SyncRun's governed meaning was not stretched.)
 
-**Suspicious-count thresholds — PROPOSED DEFAULTS, PENDING OWNER
-RATIFICATION at the Sprint 10 PR gate.** No governed threshold
-pre-existed anywhere in docs, config, or code (audited 2026-08-16),
-so per the sprint brief the mechanism ships with a documented
-proposal and the owner ratifies (or adjusts) it before Rail D can be
-Verified:
+**Suspicious-count thresholds — OWNER-RATIFIED 2026-08-16 (Sprint 10
+PR #14 gate) as the initial beta policy, explicitly subject to tuning
+from real operational evidence.** They are warning/review thresholds,
+never hard rejection: a triggered condition requires explicit
+Manager/Admin acknowledgement, and future unattended ingestion must
+HOLD on it. (No governed threshold pre-existed anywhere in docs,
+config, or code — audited 2026-08-16; these numbers were proposed by
+Sprint 10 and ratified by the owner at the gate.)
 
-| Condition | Proposed default | Grounding |
+| Condition | Ratified beta default | Grounding |
 |---|---|---|
 | Drop vs previous comparable | WARN when drop > **15%** AND ≥ **10 rows** | Catches the register's own catastrophic example (987→14 = −98%) with wide margin; day-over-day drift from tens of sales against hundreds-to-thousands of rows stays inside ±15%; the absolute floor keeps small sources (e.g. a 40-row MDD list dropping 9) from nagging |
 | Increase vs previous comparable | WARN when increase > **50%** AND ≥ **25 rows** | The real observed failure shape: the multi-brand RecovR "umbrella" export (importers/recovr.py's `MARK_AUTO` exclusion is the evidence) roughly doubles the store-specific count when uploaded by mistake |
@@ -260,8 +289,9 @@ preview with both counts and the delta, requiring acknowledgement,
 never silent processing and never silent rejection. Constants:
 `sync/ingestion.py` (`SUSPICIOUS_DROP_PCT`, `SUSPICIOUS_DROP_MIN_ROWS`,
 `SUSPICIOUS_INCREASE_PCT`, `SUSPICIOUS_INCREASE_MIN_ROWS`).
-Boundary-exact tests pin all four numbers, so a ratified change is a
-constants-plus-tests edit, not a design change.
+Boundary-exact tests pin all four numbers, so a future tuning from
+operational evidence is a constants-plus-tests edit plus a recorded
+owner decision, not a design change.
 
 ## 9. The acknowledgement contract (why a client cannot lie)
 

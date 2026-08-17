@@ -26,12 +26,18 @@ files deliberately deviate from).
 Keyper Event Report.** No sample of that report exists in this
 repository, and its schema is deliberately NOT invented
 (`sync/report_contracts.py`'s `KEYPER_KEY_EVENT` entry carries no
-column facts). This fixture only proves the *boundary*: a Keyper-ish
-file that is not the Full Key Inventory contract is rejected and can
-never masquerade as the full snapshot. When vendor discovery
+column facts). Be precise about what this fixture proves
+(owner-corrected evidence status, 2026-08-16): it proves
+**unsupported/nonmatching Keyper-shaped evidence fails safely** —
+rejected in every slot, never accepted as a snapshot. It does NOT
+prove a *real* Event report is structurally distinguishable from
+Full Inventory: a real Event export could plausibly carry the Full
+signature columns (`name`, `System`, `Checkout Date`) and would then
+classify as Full. That distinction is **PENDING VENDOR EVIDENCE**
+(`INGESTION_ARCHITECTURE.md` §6). When vendor discovery
 (V1_1_RELEASE_READINESS §6.2) supplies the real format, replace this
-stand-in with a genuine sample and give `KEYPER_KEY_EVENT` its real
-columns.
+stand-in with a genuine sample, give `KEYPER_KEY_EVENT` its real
+columns, and re-verify the Full signature actually discriminates.
 
 Byte-level cases with no meaningful text representation (fake .xlsx
 magic bytes, BOM-prefixed header, undecodable binary, oversized file,

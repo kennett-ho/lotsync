@@ -180,11 +180,17 @@ class WrongSlotTest(unittest.TestCase):
 
 
 class KeyperEventBoundaryTest(unittest.TestCase):
-    """Phase 22: the Full-vs-Event safety case. Event ingestion is
-    format-blocked (no real sample), so the provable half is the
-    boundary: Keyper-like evidence that is NOT the Full Inventory
-    contract is rejected explicitly and can never satisfy the keyper
-    slot's snapshot requirement."""
+    """Phase 22: the Full-vs-Event safety case — stated precisely
+    (owner-corrected evidence status, 2026-08-16). What these tests
+    PROVE: Keyper-like evidence that does NOT match the Full
+    Inventory contract is rejected explicitly, in every slot, and can
+    never satisfy the snapshot requirement. What they deliberately do
+    NOT prove: that a *real* Keyper Event Report is structurally
+    distinguishable from Full Inventory — no real sample exists, none
+    was invented, and a real Event export could plausibly carry the
+    Full signature columns. That distinction is PENDING VENDOR
+    EVIDENCE (INGESTION_ARCHITECTURE.md section 6); do not cite this
+    class as proof of it."""
 
     def test_keyper_variant_is_rejected_with_the_event_language(self):
         report = validate_one("keyper", adversarial("keyper_variant_stand_in.csv"))

@@ -169,13 +169,17 @@ report contract, checked for dangerous incompleteness, previewed
 before mutation, and revalidated server-side at execution
 ([`INGESTION_ARCHITECTURE.md`](INGESTION_ARCHITECTURE.md) is
 canonical). Empty/headers-only authoritative snapshots hard-reject;
-wrong report types are named and blocked (incl. the Keyper
-Full-vs-Event boundary — the Event report stays deliberately
-unsupported with **zero invented schema** pending vendor discovery);
-suspicious count changes vs the scoped comparable baseline
-(`report_baseline`, migration 0010, both engines) force explicit
-review — thresholds are **proposed defaults pending owner
-ratification**. Warning acknowledgement is fingerprint-bound to the
+wrong report types are named and blocked. Keyper: the Full Inventory
+contract works and nonmatching Keyper-shaped evidence fails safely —
+but the *real* Event-vs-Full structural distinction is **PENDING
+VENDOR EVIDENCE** (no Event sample exists; **zero invented schema**;
+owner-corrected status — post-merge sprint state: Implementation
+Paused — Awaiting Vendor Evidence). Suspicious count changes vs the
+scoped comparable baseline (`report_baseline`, migration 0010, both
+engines) force explicit review — thresholds **owner-ratified
+2026-08-16** as initial beta policy (drop >15% & ≥10 rows; increase
+>50% & ≥25 rows), warning/review only, subject to tuning from real
+operational evidence. Warning acknowledgement is fingerprint-bound to the
 exact uploaded bytes, so skipping the preview, swapping files, or
 asserting acknowledgement blind all fail closed with **zero
 operational mutation** (API-test-pinned). Suites **548/548 both

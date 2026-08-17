@@ -187,14 +187,23 @@ KEYPER_FULL = ReportContract(
 #
 # 1. The registry names the concept, so classification can say "a
 #    Keyper export that is NOT the Full Inventory report" in real
-#    product language (see classify_report's keyper-variant path).
+#    product language (the classifier's keyper-variant path).
 # 2. Its ingestion_mode is already "incremental_event", so the moment
 #    vendor discovery (V1_1_RELEASE_READINESS 6.2) supplies the real
 #    format, supporting it means filling in columns and flipping
-#    supported=True -- the snapshot/event boundary is already built
-#    and already tested (an event report can never satisfy the keyper
-#    slot's Full Inventory expectation; tests/test_ingestion_validation.py
-#    pins this).
+#    supported=True.
+#
+# Evidence status, stated precisely (owner-corrected 2026-08-16):
+# what IS proven is that nonmatching Keyper-shaped evidence fails
+# safely (tests/test_ingestion_validation.py::KeyperEventBoundaryTest
+# pins rejection in every slot). What is NOT proven -- and cannot be
+# without the vendor format -- is that a real Event report is
+# structurally distinguishable from Full Inventory: a real Event
+# export could plausibly carry name/System/Checkout Date and would
+# then satisfy the Full signature. PENDING VENDOR EVIDENCE
+# (INGESTION_ARCHITECTURE.md section 6); when the real format
+# arrives, re-verify the Full signature discriminates and add
+# discriminating columns if the real formats overlap.
 KEYPER_KEY_EVENT = ReportContract(
     contract_id="keyper_key_event",
     vendor="keyper", vendor_label="Keyper",

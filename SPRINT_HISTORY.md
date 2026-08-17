@@ -1672,7 +1672,7 @@ Repository publication remains a separate owner decision, deliberately decoupled
 
 # Sprint 10 — Inventory Ingestion Safety, Report Classification & Pre-Sync Validation
 
-**Status:** In Progress — implementation complete on `feature/sprint-10-ingestion-safety`; PR gate, deployed-DEV smoke, and owner threshold ratification pending
+**Status:** Implementation Complete — Awaiting Merge (**PR #14 CI fully green**: 548/548 SQLite · 548/548 PostgreSQL · frontend build · Vercel). Pending: merge on explicit approval · deployed-DEV smoke (owner review-window switch) · owner threshold ratification
 **Date:** 2026-08-16
 **Rail:** D (operative register) / E (this catalog's lettering)
 
@@ -1792,7 +1792,13 @@ baseline-recording/suspicious-count-E2E, `/validate` authz matrix in
 PostgreSQL 17.5** (portable rehearsal cluster; 1 documented engine
 skip). Standing QA dealership regression untouched. Performance:
 validate 4,700-row Tekion ≈ **0.04 s**. Frontend build clean. CI on
-the PR: TBD at the gate.
+the PR: green (next section).
+
+## CI on PR #14
+
+Fully green on head `c818d23` (2026-08-16): Backend tests (SQLite) ·
+Backend tests (PostgreSQL) · Frontend production build · Vercel
+(dealerdoh-dev + lotsync + preview comments).
 
 ## Local UI Verification (pre-PR, seeded dev API + Vite, this branch)
 

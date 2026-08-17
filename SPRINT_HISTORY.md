@@ -1813,8 +1813,9 @@ production deploy, data, env, Supabase, or DNS change.
 ## Git
 
 Task branch `feature/sprint-10-ingestion-safety`: `31753b0`
-(implementation), `dd7d868` (launch tooling), docs commit(s) TBD.
-PR: TBD (recorded at open). Merge: TBD.
+(implementation), `dd7d868` (launch tooling), `58545dd` (sprint
+record) + this PR-number fill. **PR #14.** Merge: TBD (explicit
+approval gate).
 
 ## Findings / Risks
 

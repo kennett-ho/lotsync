@@ -95,5 +95,37 @@ class SeedRunTest(unittest.TestCase):
             self.assertEqual(migrations, 10, "seed DB should be at migration 0010")
 
 
+class ResetDropListDriftGuardTest(unittest.TestCase):
+    """Sprint 10 closeout: seed_dev's postgres --reset drops exactly
+    _APP_TABLES -- a list that MUST cover every business table the
+    migrations create, or a reset silently leaves stale rows behind
+    (exactly what happened when 0010's report_baseline landed without
+    being added here: DROP ... CASCADE tolerated the dangling FK and
+    CREATE TABLE IF NOT EXISTS kept the survivor, so nothing failed).
+    The migrate tool's TABLE_ORDER is the maintained census of
+    business tables, so pin the two lists together: every TABLE_ORDER
+    table must be in _APP_TABLES. A new migration that updates one
+    list but not the other now fails here instead of corrupting the
+    next reseed."""
+
+    def test_every_migrated_business_table_is_dropped_by_reset(self):
+        import importlib.util
+
+        def load(name, path):
+            spec = importlib.util.spec_from_file_location(name, path)
+            module = importlib.util.module_from_spec(spec)
+            spec.loader.exec_module(module)
+            return module
+
+        seed = load("seed_dev_module", _SEED)
+        tool = load("migrate_tool_module",
+                    os.path.join(_REPO_ROOT, "tools", "migrate_sqlite_to_postgres.py"))
+        missing = [t for t in tool.TABLE_ORDER if t not in seed._APP_TABLES]
+        self.assertEqual(missing, [],
+                         "tables the migrations create but --reset would not drop")
+        self.assertIn("schema_migrations", seed._APP_TABLES,
+                      "reset must also drop the migration bookkeeping")
+
+
 if __name__ == "__main__":
     unittest.main()

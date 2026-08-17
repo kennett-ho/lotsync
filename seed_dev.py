@@ -56,7 +56,17 @@ _REPO_ROOT = os.path.dirname(os.path.abspath(__file__))
 # Sprint 03: everything the seed writes lives in these tables --
 # --reset's postgres path drops exactly this set (plus the migration
 # bookkeeping) so the next run starts from a clean, re-migrated schema.
+#
+# Sprint 10 closeout: report_baseline added (migrations/0010). It was
+# missed when 0010 landed, and because the reset's DROP ... CASCADE
+# tolerates the FK and 0010 is CREATE TABLE IF NOT EXISTS, the miss
+# was SILENT: a reseed would have left stale baseline rows behind,
+# and the next real sync would have compared against them (false
+# suspicious-count warnings). tests/test_seed_dev.py now pins this
+# list against tools/migrate_sqlite_to_postgres.py's TABLE_ORDER so
+# the next migration cannot repeat the drift.
 _APP_TABLES = (
+    "report_baseline",
     "event_freshness", "task_execution_event", "recommendation", "task",
     "event", "pending_identity", "sync_run", "user_membership", "employee",
     "dealership", "organization", "vehicle", "schema_migrations",

@@ -87,7 +87,12 @@ class SeedRunTest(unittest.TestCase):
             self.assertGreaterEqual(
                 sync_runs, 5, "expected one sync_run per persisted source"
             )
-            self.assertEqual(migrations, 9, "seed DB should be at migration 0009")
+            # Pinned to the repo's real migration count on purpose --
+            # a new migration must consciously bump this (the same
+            # drift guard tools/migrate_sqlite_to_postgres.py's
+            # EXPECTED_SCHEMA_VERSION carries). Sprint 10: 9 -> 10
+            # (0010_report_baseline).
+            self.assertEqual(migrations, 10, "seed DB should be at migration 0010")
 
 
 if __name__ == "__main__":

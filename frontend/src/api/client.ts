@@ -44,6 +44,30 @@ export class ApiError extends Error {
 }
 
 /**
+ * Sprint 10 (Rail D) -- a structured rejection from the ingestion
+ * boundary. POST /inventory-sync/run and /validate reject with
+ * detail: { code, validation } (see api/routers/inventory_sync.py's
+ * _reject); the validation payload is a full IngestionValidationDTO
+ * the screen renders as the preview, so the user sees exactly WHY the
+ * server said no -- never a flattened string. `code` is one of
+ * REPORT_VALIDATION_FAILED (422), WARNINGS_NOT_ACKNOWLEDGED (409), or
+ * STALE_VALIDATION (409).
+ */
+export class ValidationRejectedError extends ApiError {
+  readonly code: string
+  // Typed as unknown here (transport layer); inventorySync.ts narrows
+  // it to IngestionValidationDTO at its own boundary.
+  readonly validation: unknown
+
+  constructor(code: string, validation: unknown, status: number) {
+    super(`Report validation rejected (${code})`, status)
+    this.name = 'ValidationRejectedError'
+    this.code = code
+    this.validation = validation
+  }
+}
+
+/**
  * Sprint 09 -- session-lifecycle signal (Phase 18): a 401 from the
  * backend means the token is missing/expired/invalid BEYOND what
  * supabase-js could silently refresh -- AuthGate listens and returns
@@ -204,11 +228,23 @@ export async function apiPostForm<T>(path: string, formData: FormData): Promise<
     } catch {
       detail = undefined
     }
+    // Sprint 10: the ingestion boundary rejects with a structured
+    // { code, validation } object -- surface it as its own error type
+    // so the Inventory Sync screen can render the full preview instead
+    // of a flattened sentence.
+    if (detail && typeof detail === 'object' && !Array.isArray(detail)
+        && 'code' in detail && 'validation' in detail) {
+      const d = detail as { code: string; validation: unknown }
+      throw new ValidationRejectedError(d.code, d.validation, response.status)
+    }
     const message = Array.isArray(detail)
       ? detail.join('; ')
       : typeof detail === 'string'
         ? detail
-        : `LotSync API returned ${response.status} for ${path}`
+        : typeof detail === 'object' && detail !== null && 'message' in detail
+          && typeof (detail as { message: unknown }).message === 'string'
+          ? (detail as { message: string }).message
+          : `LotSync API returned ${response.status} for ${path}`
     throw new ApiError(message, response.status)
   }
 

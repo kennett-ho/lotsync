@@ -179,3 +179,55 @@ export interface SyncSummaryDTO {
   tasks_generated: number
   recommendations_generated: number
 }
+
+/**
+ * Sprint 10 (Rail D) -- pre-sync validation. Mirrors api/dtos.py's
+ * IngestionValidationDTO family field-for-field; sync/ingestion.py is
+ * the source of truth for shapes and severity/code vocabularies.
+ */
+export type IngestionSeverity = 'error' | 'warning' | 'info'
+
+export interface ReportContractRefDTO {
+  contract_id: string
+  vendor: string
+  report_type: string
+  ingestion_mode: string
+}
+
+export interface IngestionIssueDTO {
+  severity: IngestionSeverity
+  code: string
+  message: string
+}
+
+export interface ReportValidationDTO {
+  slot: string
+  slot_label: string
+  status: 'ready' | 'needs_review' | 'rejected'
+  fingerprint: string
+  expected: ReportContractRefDTO
+  detected: ReportContractRefDTO | null
+  classification: { confidence: string; reasons: string[] }
+  stats: {
+    total_rows: number
+    valid_rows: number
+    invalid_rows: number
+    duplicate_rows: number
+    duplicate_identifiers: number
+  }
+  baseline: {
+    previous_rows: number | null
+    previous_at: string | null
+    change: number | null
+    change_pct: number | null
+  } | null
+  issues: IngestionIssueDTO[]
+}
+
+export interface IngestionValidationDTO {
+  validated_at: string
+  fingerprint: string
+  status: 'ready' | 'needs_review' | 'rejected'
+  requires_acknowledgement: boolean
+  reports: ReportValidationDTO[]
+}

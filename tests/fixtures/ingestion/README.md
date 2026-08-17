@@ -1,0 +1,45 @@
+# Ingestion-Safety Fixtures (Sprint 10, Rail D)
+
+The committed adversarial inputs behind
+`tests/test_ingestion_validation.py` — one fixture per validation
+class V1_1_RELEASE_READINESS §5.D requires proven. Column shapes match
+the real importers exactly (same evidence base as
+`tests/fixtures/synthetic/`, which remains the *well-formed* set these
+files deliberately deviate from).
+
+| Fixture | Deviation it proves |
+|---|---|
+| `empty.csv` | Zero-byte file → `EMPTY_FILE` |
+| `tekion_headers_only.csv` | Headers, no data rows, authoritative snapshot → `NO_DATA_ROWS` (error) |
+| `mdd_headers_only.csv` | Headers, no data rows, exception list → `NO_DATA_ROWS` (warning + acknowledgement) |
+| `tekion_missing_status.csv` | Right report, required column absent → `MISSING_REQUIRED_COLUMN` |
+| `keyper_variant_stand_in.csv` | Keyper-like columns that are NOT the Full Inventory contract → `REPORT_VARIANT_UNSUPPORTED` (see below) |
+| `tekion_duplicate_vins.csv` | Same VIN under two stock numbers in a *current* snapshot → `DUPLICATE_VINS` |
+| `tekion_malformed_vin.csv` | 16-character VIN → `MALFORMED_VINS` |
+| `tekion_blank_vin.csv` | Blank VIN where rows originate Vehicle identity → `MISSING_VINS` (error) |
+| `tekion_duplicate_header.csv` | Same header twice → `DUPLICATE_HEADER` |
+| `unrecognized_report.csv` | No known contract's evidence → `UNRECOGNIZED_REPORT` |
+| `ambiguous_tekion.csv` | Both "Stocked In Date" and "Sold Date" → `AMBIGUOUS_REPORT_TYPE` |
+| `sold_exact_duplicate_rows.csv` | Exact duplicate rows in the sold report → `DUPLICATE_ROWS`; the same-VIN-different-stock pair is deliberately NOT flagged (legitimate sold history — see `rules/validation.py`'s conflict machinery) |
+
+**`keyper_variant_stand_in.csv` is a synthetic stand-in, not a real
+Keyper Event Report.** No sample of that report exists in this
+repository, and its schema is deliberately NOT invented
+(`sync/report_contracts.py`'s `KEYPER_KEY_EVENT` entry carries no
+column facts). Be precise about what this fixture proves
+(owner-corrected evidence status, 2026-08-16): it proves
+**unsupported/nonmatching Keyper-shaped evidence fails safely** —
+rejected in every slot, never accepted as a snapshot. It does NOT
+prove a *real* Event report is structurally distinguishable from
+Full Inventory: a real Event export could plausibly carry the Full
+signature columns (`name`, `System`, `Checkout Date`) and would then
+classify as Full. That distinction is **PENDING VENDOR EVIDENCE**
+(`INGESTION_ARCHITECTURE.md` §6). When vendor discovery
+(V1_1_RELEASE_READINESS §6.2) supplies the real format, replace this
+stand-in with a genuine sample, give `KEYPER_KEY_EVENT` its real
+columns, and re-verify the Full signature actually discriminates.
+
+Byte-level cases with no meaningful text representation (fake .xlsx
+magic bytes, BOM-prefixed header, undecodable binary, oversized file,
+row-bomb) are generated at test runtime in temp directories — see
+`FileSafetyTest` in the test module.

@@ -36,7 +36,7 @@ register.
 | A — Account Lifecycle & User Administration | REQUIRED | **Verified** (Sprint 09, 2026-08-16: PR #12 merged as `02958f2`; CI green on the merged head — 488/488 SQLite, 488/488 PostgreSQL, frontend build, Vercel; post-merge smoke on `dev`-tracking DEV re-passed the full matrix incl. the real emailed invite→fresh-link→set-password→global-signout→login loop, manager/lot-staff authorization probes, deactivate→reactivate cycle, deployed-bundle secret scan clean, and a live `signup_disabled` probe) | 09 | **Yes** | Password reset + provisioning + Profile/Settings + offboarding all pass their §5.A criteria on deployed DEV | Merged PR `02958f2` · CI green on merged head · deployed-DEV smoke (branch + post-merge) · `tests/test_user_management.py` matrix |
 | B — Onboarding & Contextual Help | REQUIRED | Planned | 12 | **Yes** | Tutorial, Help entry points, empty/loading/error states pass §5.B; UAT confirms no-coaching operation | Merged PR · CI · DEV smoke · Rail M UAT evidence |
 | C — Role-Aware Presentation | REQUIRED | Planned | 12 | **Yes** | Manager + Lot Staff presentations verified; zero authorization drift (§5.C) | Merged PR · CI · DEV smoke both roles · negative authz tests · UAT |
-| D — Inventory Ingestion Safety | REQUIRED (high operational priority) | Planned | 10 | **Yes** | All seven §5.D validation classes enforced + pre-sync preview; invalid evidence cannot reach the sync engine | Merged PR · CI (incl. adversarial fixtures) · DEV smoke · QA-dataset regression intact |
+| D — Inventory Ingestion Safety | REQUIRED (high operational priority) | **Implementation Complete — Awaiting Merge** (Sprint 10, 2026-08-16: **PR #14 CI fully green** — 548/548 SQLite, 548/548 PostgreSQL, frontend build, Vercel; all seven §5.D classes + preview + execution revalidation fixture-tested against known vendor evidence; local branch UI verification passed; suspicious-count thresholds **owner-ratified** as initial beta policy. **Deployed-DEV smoke PASSED on the branch review window (2026-08-16/17)** — accept + reject + suspicious-count/acknowledgement + direct-API bypass probes (422/409/409) + authz 401s + existing-product tour, QA dealership intact (full record in `SPRINT_HISTORY.md`'s Sprint 10 entry). Pending before Verified: merge on approval. **Keyper exception, owner-corrected:** the real Event-vs-Full structural distinction is **PENDING VENDOR EVIDENCE** — only safe rejection of nonmatching Keyper-shaped evidence is proven (§5.D exit-4 note); upon merge the sprint records as **Implementation Paused — Awaiting Vendor Evidence**, and Rail D is NOT Verified) | 10 | **Yes** | All seven §5.D validation classes enforced + pre-sync preview; invalid evidence cannot reach the sync engine | Merged PR · CI (incl. adversarial fixtures) · DEV smoke · QA-dataset regression intact · Keyper Event vendor evidence for the exit-4 Keyper half |
 | E — Notifications | **CONDITIONAL** (Sprint 08 decision — §6.1) | Deferred pending trigger | 12.5 if triggered | Only if triggered | Trigger fires (§6.1) → minimal in-app center passes its criteria | Trigger record · then B-style evidence |
 | F — Observability (Sentry + PostHog) | REQUIRED | Planned | 11 | **Yes** | §5.F: DEV/PROD separation, redaction verified, synthetic failure visible, events arriving, telemetry cannot break workflows | Merged PR · CI · DEV smoke incl. synthetic error · redaction test evidence |
 | G — Structured Logging & Monitoring | REQUIRED | Planned | 11 | **Yes** | §5.G: structured fields present, denylist enforced by test, alert conditions defined with owners | Merged PR · CI incl. redaction tests · DEV log samples |
@@ -300,6 +300,46 @@ language:**
 **Evidence:** merged PR; CI with fixture-driven tests for every
 class above; DEV smoke of preview accept AND reject paths; QA
 regression green.
+
+**Sprint 10 recorded decisions (2026-08-16 —
+`INGESTION_ARCHITECTURE.md` is the canonical detail):**
+- *Exit 5 (invalid VIN/record shape):* **quarantine-file, never
+  silent row drops** — blank VINs in identity-originating reports
+  (Tekion current/sold) reject the file with line numbers; malformed
+  VINs warn; identity-inert sources (RecovR/MDD/RapidRecon) warn
+  only. Evidence files are never edited.
+- *Exit 6 (duplicates):* surfaced as warnings with counts/samples
+  per contract semantics; sold-report VIN repeats deliberately
+  unflagged (legitimate history, owned by the existing
+  `tekion_sync_conflicts` machinery); never silently deduplicated.
+- *Exit 7 (suspicious count):* mechanism complete (scoped
+  `report_baseline` comparisons, migration 0010). **Thresholds
+  OWNER-RATIFIED 2026-08-16 as the initial beta policy, subject to
+  tuning from real operational evidence:** warn on decrease >15% AND
+  ≥10 rows; warn on increase >50% AND ≥25 rows (grounding:
+  `INGESTION_ARCHITECTURE.md` §8). Warning/review thresholds, never
+  hard rejection; explicit Manager/Admin acknowledgement required;
+  future unattended ingestion HOLDs on them.
+- *Exit 4 (wrong type / Keyper) — evidence status corrected by the
+  owner 2026-08-16:* the known **Keyper Full Inventory contract:
+  PASS.** **Unsupported/nonmatching Keyper-shaped evidence fails
+  safely: PASS** (rejected explicitly, never a snapshot; synthetic
+  stand-in — no real Event sample exists and none was invented).
+  **The actual Keyper Event-vs-Full structural distinction: PENDING
+  VENDOR EVIDENCE** — a real Event report could plausibly satisfy
+  the current Full signature, and that cannot be proven or disproven
+  without the vendor format (`INGESTION_ARCHITECTURE.md` §6). Keyper
+  Event ingestion: unsupported, not required for v1.1. This pending
+  item is why the sprint's post-merge state is **Implementation
+  Paused — Awaiting Vendor Evidence** rather than Complete.
+- *Zero-row policy per contract:* hard-reject for authoritative/
+  historical snapshots (Tekion current/sold, Keyper full, RecovR);
+  warn + explicit acknowledgement for the exception/contextual lists
+  (MDD not-paired, RapidRecon), whose empty state is plausible; the
+  acknowledged zero is then recorded honestly as zero.
+- *Standing rule for future unattended ingestion:* any WARNING
+  defaults to **HOLD** — automation never auto-acknowledges (the
+  §6.2 conditional rail inherits this boundary unchanged).
 
 ### 5.F — Rail F: Observability (Sentry + PostHog)
 - **Owner sprint:** 11 (deliberately before the UX build — §9) ·

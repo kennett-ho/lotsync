@@ -1170,3 +1170,55 @@ def count_active_admins(conn: sqlite3.Connection, dealership_id: str) -> int:
         "WHERE dealership_id = ? AND role = 'admin' AND active = 1",
         (dealership_id,),
     ).fetchone()[0]
+
+
+# ---------------------------------------------------------------------------
+# Sprint 10 (Rail D) -- report_baseline (migrations/0010).
+#
+# The per-report-type accepted-count history pre-sync validation
+# compares an incoming report against. Written ONLY by the run
+# endpoint after a successful sync; the validation endpoint only
+# reads. See migrations/0010_report_baseline.sql for why this is not
+# derived from sync_run.records_processed.
+# ---------------------------------------------------------------------------
+
+_REPORT_BASELINE_COLUMNS = ["report_baseline_id", "vendor", "report_type", "slot",
+                            "dealership_id", "total_rows", "valid_rows",
+                            "sync_started_at", "recorded_at"]
+
+
+def insert_report_baseline(conn: sqlite3.Connection, *, vendor: str, report_type: str,
+                            slot: str, total_rows: int, valid_rows: int,
+                            sync_started_at: str, dealership_id: str = None) -> int:
+    """
+    Records one accepted report's counts. Does not commit -- the
+    caller decides the transaction boundary (the run endpoint commits
+    all of a sync's baseline rows together, after the sync itself has
+    committed).
+    """
+    cur = conn.execute(
+        "INSERT INTO report_baseline (vendor, report_type, slot, dealership_id, "
+        "total_rows, valid_rows, sync_started_at, recorded_at) "
+        "VALUES (?, ?, ?, ?, ?, ?, ?, ?) RETURNING report_baseline_id",
+        (vendor, report_type, slot, dealership_id, total_rows, valid_rows,
+         sync_started_at, datetime.datetime.now().isoformat()),
+    )
+    return cur.fetchone()[0]
+
+
+def latest_report_baseline(conn: sqlite3.Connection, vendor: str, report_type: str):
+    """
+    The most recent accepted comparable report's counts for this
+    (vendor, report_type), or None when no comparable sync has ever
+    been accepted -- validation renders that as "No prior baseline"
+    (INFO), never a blocker.
+    """
+    row = conn.execute(
+        f"SELECT {', '.join(_REPORT_BASELINE_COLUMNS)} FROM report_baseline "
+        "WHERE vendor = ? AND report_type = ? "
+        "ORDER BY report_baseline_id DESC LIMIT 1",
+        (vendor, report_type),
+    ).fetchone()
+    if row is None:
+        return None
+    return dict(zip(_REPORT_BASELINE_COLUMNS, row))

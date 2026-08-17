@@ -6,6 +6,10 @@ found and fixed during this project's development. If you're adding a
 new business rule, the pattern is: add a row here for the new case,
 then a corresponding assertion in `tests/test_regression.py`.
 
+Adversarial ingestion inputs live in `ingestion/` (Sprint 10, Rail D)
+— deliberately *malformed* counterparts to this directory's
+well-formed set, one per validation class. See `ingestion/README.md`.
+
 Fixed sync date used throughout: **2026-07-21**.
 
 ## keyper.csv

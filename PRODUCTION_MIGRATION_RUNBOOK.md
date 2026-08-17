@@ -22,6 +22,16 @@ for the `lotsync-api` service. Never print or commit secrets.
 and `tools/migrate_sqlite_to_postgres.py` + its validation suite exist
 at a tagged commit. No rehearsal pass → nothing below is scheduled.
 
+> **Schema-drift amendment (Sprint 10, 2026-08-16):** migration
+> **0010 (`report_baseline`, additive)** now exists — read every
+> "0001–0009" below as **0001–0010**, expect the Release A boot log
+> to show 0009+0010 auto-applied, expect the final backup at schema
+> **v10**, and use the Sprint-10-updated
+> `tools/migrate_sqlite_to_postgres.py` (its version gate expects 10
+> and refuses anything else). The RC-freeze rehearsal refresh must
+> use a v10 source; the generator emits v10 automatically. Details:
+> the plan's matching amendment note.
+
 > **REHEARSED 2026-08-16 (Sprint 07): PASS.** The full Release B + C
 > sequence below was executed against a production-shaped disposable
 > environment — migration validated exactly, auth boundary proven,

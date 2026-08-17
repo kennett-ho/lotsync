@@ -230,6 +230,67 @@ class SyncSummaryDTO(BaseModel):
     warnings: List[str] = []
 
 
+# --- Sprint 10 (Rail D) -- pre-sync validation DTOs -----------------
+# POST /inventory-sync/validate's response, and the `validation`
+# payload inside /run's structured 422/409 rejections. Field shapes
+# mirror sync/ingestion.py's ReportSetValidation.to_dict() exactly --
+# that module is the source of truth; these classes only pin the
+# contract for API_CONTRACTS.md and the frontend.
+
+class ReportContractRefDTO(BaseModel):
+    contract_id: str
+    vendor: str
+    report_type: str
+    ingestion_mode: str
+
+
+class IngestionIssueDTO(BaseModel):
+    severity: str  # "error" | "warning" | "info"
+    code: str      # stable machine code, e.g. WRONG_REPORT_TYPE
+    message: str   # dealership-language explanation
+
+
+class ReportClassificationDTO(BaseModel):
+    confidence: str  # "exact" | "variant" | "ambiguous" | "none" | "" (not reached)
+    reasons: List[str]
+
+
+class ReportStatsDTO(BaseModel):
+    total_rows: int
+    valid_rows: int
+    invalid_rows: int
+    duplicate_rows: int
+    duplicate_identifiers: int
+
+
+class ReportBaselineDTO(BaseModel):
+    previous_rows: Optional[int] = None
+    previous_at: Optional[str] = None
+    change: Optional[int] = None
+    change_pct: Optional[float] = None
+
+
+class ReportValidationDTO(BaseModel):
+    slot: str
+    slot_label: str
+    status: str  # "ready" | "needs_review" | "rejected"
+    fingerprint: str
+    expected: ReportContractRefDTO
+    detected: Optional[ReportContractRefDTO] = None
+    classification: ReportClassificationDTO
+    stats: ReportStatsDTO
+    baseline: Optional[ReportBaselineDTO] = None
+    issues: List[IngestionIssueDTO]
+
+
+class IngestionValidationDTO(BaseModel):
+    validated_at: str
+    fingerprint: str
+    status: str  # "ready" | "needs_review" | "rejected"
+    requires_acknowledgement: bool
+    reports: List[ReportValidationDTO]
+
+
 class VehicleDetailDTO(VehicleDTO):
     """
     Superset of VehicleDTO, not a sibling -- API_CONTRACTS.md's own

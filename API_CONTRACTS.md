@@ -636,6 +636,37 @@ not speculative.
   }
   ```
 
+### IngestionValidationDTO family (new, Sprint 10 — Rail D)
+
+`POST /inventory-sync/validate`'s response, and the `validation`
+payload inside `/run`'s structured `422`/`409` rejections. Shapes are
+defined by `sync/ingestion.py`'s `ReportSetValidation.to_dict()`
+(the source of truth); `api/dtos.py` pins them as pydantic models.
+
+- **`IngestionValidationDTO`** — `{validated_at, fingerprint, status:
+  "ready"|"needs_review"|"rejected", requires_acknowledgement,
+  reports: ReportValidationDTO[]}`. `fingerprint` is derived from the
+  uploaded bytes (per-file SHA-256, combined per-set) — it is what a
+  subsequent `/run` must echo back when acknowledging warnings, so an
+  acknowledgement can only ever refer to the exact files the server
+  validated (see `INGESTION_ARCHITECTURE.md` §9).
+- **`ReportValidationDTO`** — per slot: `{slot, slot_label, status,
+  fingerprint, expected: ReportContractRefDTO, detected:
+  ReportContractRefDTO | null, classification: {confidence, reasons},
+  stats: {total_rows, valid_rows, invalid_rows, duplicate_rows,
+  duplicate_identifiers}, baseline: {previous_rows, previous_at,
+  change, change_pct} | null, issues: IngestionIssueDTO[]}`.
+- **`IngestionIssueDTO`** — `{severity: "error"|"warning"|"info",
+  code, message}`. Codes are stable machine identifiers
+  (`WRONG_REPORT_TYPE`, `NO_DATA_ROWS`, `SUSPICIOUS_COUNT_DROP`, …
+  — full vocabulary in `INGESTION_ARCHITECTURE.md` §5); messages are
+  dealership language, never raw parser text.
+- **Structured rejections:** `/run` rejects with
+  `detail: {code: "REPORT_VALIDATION_FAILED" (422) |
+  "WARNINGS_NOT_ACKNOWLEDGED" | "STALE_VALIDATION" (409),
+  validation: IngestionValidationDTO}` so the frontend renders the
+  full preview of WHY, never a flattened sentence.
+
 ### PendingIdentityDTO
 
 - **Purpose:** an observation that couldn't be resolved to a known
@@ -1030,7 +1061,47 @@ it implies, and what permission it should require.
   explicitly excluded authentication/authorization. `POST /inventory-sync/run`
   is this project's first write route with no permission model behind
   it at all; see Section 9 and `PHASE_3_SPRINT_4_REVIEW.md`'s
-  Recommendation #2.
+  Recommendation #2. *(Resolved later: Sprint 05 gated it to
+  admin/manager via `SYNC_RUN_ROLES`, inert under
+  `AUTH_MODE=disabled`.)*
+- **Sprint 10 update (Rail D — Inventory Ingestion Safety):** the
+  per-slot required-column check above grew into the full ingestion
+  boundary (`sync/ingestion.py` — classification, structural/row/
+  duplicate validation, per-contract zero-row policy, comparable-
+  baseline count sanity; `INGESTION_ARCHITECTURE.md` is canonical).
+  `/run` recomputes ALL of it server-side on every request —
+  previewing via `/validate` first is UX, not a prerequisite the
+  server trusts. Two new optional form fields:
+  `acknowledge_warnings` (bool) and `validation_fingerprint` (the
+  `/validate` response's fingerprint). Validation ERRORs → `422
+  {code: REPORT_VALIDATION_FAILED, validation}` with zero mutation of
+  any kind (no SyncRun, no events/tasks, no report CSVs, no baseline
+  row). WARNINGs without both a true acknowledgement AND a matching
+  fingerprint → `409` (`WARNINGS_NOT_ACKNOWLEDGED` /
+  `STALE_VALIDATION`), zero mutation. After a successful run, each
+  accepted report's counts are recorded to `report_baseline`
+  (`DATA_MODEL.md`) as the next comparable baseline. A runtime
+  failure after validation returns `500 {code:
+  SYNC_EXECUTION_FAILED, message}` in dealership language — never a
+  stack trace; per-source transactional integrity per
+  `database/repository.py`'s `sync_run()` contract.
+
+### Validate Inventory Reports — implemented, Sprint 10 (Rail D)
+
+- **Purpose:** the pre-sync preview — classify and validate the
+  selected report files with **zero operational mutation**, so the
+  operator answers "what am I about to tell DealerDOH is true?"
+  before anything runs.
+- **Route:** `POST /inventory-sync/validate` — same six optional
+  multipart file fields as `/run`, same admin/manager role gate
+  (the preview exposes the same operational surface).
+- **Resulting object:** `IngestionValidationDTO` (above). Always
+  `200` with the full per-report result — rejections included; it is
+  a preview, not a gate (the gate is `/run`'s own revalidation).
+- **Mutation contract:** no `SyncRun`, no Vehicle/Event/Task/
+  Recommendation writes, no report CSVs, no `report_baseline` write
+  (baselines are only *read* for comparison), and the uploaded bytes
+  are deleted before the response returns — all API-test-pinned.
 
 ### Resolve Exception
 - **Purpose:** named in the task brief, but **cannot be fully specified

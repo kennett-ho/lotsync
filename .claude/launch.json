@@ -12,6 +12,18 @@
       "runtimeExecutable": ".venv\\Scripts\\python.exe",
       "runtimeArgs": ["tools/run_dev_seed_api.py"],
       "port": 8000
+    },
+    {
+      "name": "frontend-alt-port",
+      "runtimeExecutable": "cmd",
+      "runtimeArgs": ["/c", "set PORT=8444&& set VITE_API_BASE_URL=http://localhost:8010&& npm run dev --prefix frontend"],
+      "port": 8444
+    },
+    {
+      "name": "backend-dev-seed-alt-port",
+      "runtimeExecutable": "cmd",
+      "runtimeArgs": ["/c", "set PORT=8010&& set LOTSYNC_CORS_ORIGINS=http://localhost:8444,http://127.0.0.1:8444&& .venv\\Scripts\\python.exe tools\\run_dev_seed_api.py"],
+      "port": 8010
     }
   ]
 }

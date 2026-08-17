@@ -28,6 +28,28 @@ Everything below was verified against the actual repository at `dev` =
 `a2f6322`, the live endpoints, and a read-only inspection of the
 verified production backup — not assumed from older documents.
 
+> **Schema-drift amendment (Sprint 10, 2026-08-16 — recorded per the
+> standing migration-drift guard, `V1_1_RELEASE_READINESS.md` §8):**
+> migration **0010 (`report_baseline`, additive table only, both
+> engine dialects)** now exists. Read every "0001–0009" range in this
+> plan as **0001–0010**: Release A's auto-apply on production SQLite
+> now applies 0009+0010 (both additive; the beta.6-rollback-over-
+> newer-DB safety argument in §14 holds identically — the old runner
+> sees nothing pending and never reads the new table), the final
+> pre-cutover backup will be schema **v10**, and
+> `tools/migrate_sqlite_to_postgres.py` was updated in the same
+> commit (`EXPECTED_SCHEMA_VERSION = 10`, `report_baseline` in
+> `TABLE_ORDER`/`IDENTITY_PKS`/`ORDER_BY` — its v-gate refuses
+> anything else). `report_baseline` is empty on any pre-v1.1
+> production source; it accumulates rows only once Rail D's run
+> endpoint records accepted reports. **RC-freeze consequence: the
+> §21-class rehearsal refresh must run against a v10-shaped source**
+> — `tools/generate_rehearsal_dataset.py` emits v10 automatically
+> (it applies the real migration runner), and a v10 generator →
+> dry-run → real-run → validation pass was executed on the Sprint 07
+> portable cluster during Sprint 10 (see `SPRINT_HISTORY.md`,
+> Sprint 10 entry, "/data-migration record").
+
 ---
 
 ## 1. Target production architecture

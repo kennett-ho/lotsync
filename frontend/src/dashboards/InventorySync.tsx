@@ -30,14 +30,33 @@
 //   recommendations_generated) -- not persisted, not reconstructed after
 //   a reload, exactly like every other ephemeral summary state in this
 //   app.
+//
+// Sprint 10 (Rail D, Inventory Ingestion Safety): the single-shot
+// upload flow became validate -> preview -> (acknowledge) -> run:
+// - "Validate Reports" calls POST /inventory-sync/validate (zero
+//   mutation server-side) and renders a per-report preview: detected
+//   type, row counts, duplicates, prior-comparable-baseline change,
+//   and every issue at its severity.
+// - Selecting/changing any file invalidates the preview immediately;
+//   the server would reject a stale fingerprint anyway
+//   (STALE_VALIDATION) -- the UI just doesn't pretend otherwise.
+// - Warnings require the operator to tick an acknowledgement box that
+//   is NEVER pre-checked. The run request carries the acknowledgement
+//   plus the validation fingerprint; the server revalidates everything
+//   itself, so this UI is UX, not the safety boundary.
+// - "Run Sync Now" stays disabled until a current validation exists
+//   with no errors and (if warnings) the acknowledgement is ticked.
 
 import { useMemo, useState } from 'react'
 import { getDashboard } from '../api/dashboard'
-import { getExceptions, getSyncHistory, runInventorySync } from '../api/inventorySync'
+import { getExceptions, getSyncHistory, runInventorySync, validateInventoryReports } from '../api/inventorySync'
 import { useApi } from '../api/useApi'
-import { isBackendUnavailable } from '../api/client'
+import { isBackendUnavailable, ValidationRejectedError } from '../api/client'
 import type { InventorySyncFiles } from '../api/inventorySync'
-import type { PendingIdentityDTO, SyncSummaryDTO } from '../api/types'
+import type {
+  IngestionIssueDTO, IngestionValidationDTO, PendingIdentityDTO,
+  ReportValidationDTO, SyncSummaryDTO,
+} from '../api/types'
 
 const UPLOAD_SLOTS: { field: keyof InventorySyncFiles; label: string }[] = [
   { field: 'tekion_unsold', label: 'Tekion Unsold Inventory' },
@@ -131,6 +150,31 @@ function WarningIcon({ className }: { className?: string }) {
   )
 }
 
+function CheckIcon({ className }: { className?: string }) {
+  return (
+    <svg className={className} width="13" height="13" viewBox="0 0 14 14" fill="none" xmlns="http://www.w3.org/2000/svg">
+      <path d="M2.5 7.5L5.5 10.5L11.5 3.5" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round" />
+    </svg>
+  )
+}
+
+function CrossIcon({ className }: { className?: string }) {
+  return (
+    <svg className={className} width="13" height="13" viewBox="0 0 14 14" fill="none" xmlns="http://www.w3.org/2000/svg">
+      <path d="M3.5 3.5L10.5 10.5M10.5 3.5L3.5 10.5" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" />
+    </svg>
+  )
+}
+
+function InfoIcon({ className }: { className?: string }) {
+  return (
+    <svg className={className} width="13" height="13" viewBox="0 0 14 14" fill="none" xmlns="http://www.w3.org/2000/svg">
+      <circle cx="7" cy="7" r="5.5" stroke="currentColor" strokeWidth="1.3" />
+      <path d="M7 6.5v3.5M7 4v.5" stroke="currentColor" strokeWidth="1.3" strokeLinecap="round" />
+    </svg>
+  )
+}
+
 const spinner = (
   <svg width="14" height="14" fill="none" viewBox="0 0 24 24" className="animate-spin">
     <circle cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="3" opacity="0.2" />
@@ -144,16 +188,117 @@ function formatTimestamp(iso: string): string {
   return d.toLocaleString(undefined, { month: 'short', day: 'numeric', hour: 'numeric', minute: '2-digit' })
 }
 
+function IssueLine({ issue }: { issue: IngestionIssueDTO }) {
+  const style = issue.severity === 'error'
+    ? { box: 'bg-red-50 border-red-100 text-red-700', icon: <CrossIcon className="text-red-500 mt-0.5 shrink-0" /> }
+    : issue.severity === 'warning'
+      ? { box: 'bg-amber-50 border-amber-100 text-amber-800', icon: <WarningIcon className="text-amber-500 mt-0.5 shrink-0" /> }
+      : { box: 'bg-slate-50 border-slate-100 text-slate-600', icon: <InfoIcon className="text-slate-400 mt-0.5 shrink-0" /> }
+  return (
+    <div className={`flex items-start gap-2 border rounded-lg px-2.5 py-2 text-[12px] leading-snug ${style.box}`}>
+      {style.icon}
+      <span>{issue.message}</span>
+    </div>
+  )
+}
+
+function ReportPreviewCard({ report }: { report: ReportValidationDTO }) {
+  const status = report.status === 'ready'
+    ? { chip: 'bg-emerald-50 text-emerald-700', icon: <CheckIcon className="text-emerald-500" />, label: 'Ready' }
+    : report.status === 'needs_review'
+      ? { chip: 'bg-amber-50 text-amber-700', icon: <WarningIcon className="text-amber-500" />, label: 'Review needed' }
+      : { chip: 'bg-red-50 text-red-700', icon: <CrossIcon className="text-red-500" />, label: 'Rejected' }
+
+  const baseline = report.baseline
+  const showStats = report.detected !== null && report.status !== 'rejected'
+
+  return (
+    <div className="border border-slate-100 rounded-xl p-3.5 flex flex-col gap-2.5 bg-white">
+      <div className="flex items-center justify-between gap-2">
+        <span className="text-[13px] font-semibold text-slate-800">{report.slot_label}</span>
+        <span className={`flex items-center gap-1.5 text-[11px] font-semibold px-2 py-0.5 rounded-full ${status.chip}`}>
+          {status.icon}
+          {status.label}
+        </span>
+      </div>
+
+      <div className="text-[12px] text-slate-500">
+        Detected:{' '}
+        {report.detected ? (
+          <span className="text-slate-700 font-medium">
+            {report.detected.vendor} — {report.detected.report_type}
+          </span>
+        ) : (
+          <span className="text-slate-400">not recognized</span>
+        )}
+      </div>
+
+      {showStats && (
+        <div className="grid grid-cols-4 gap-2 text-center">
+          {[
+            { label: 'Records', value: report.stats.total_rows },
+            { label: 'Valid', value: report.stats.valid_rows },
+            { label: 'Invalid', value: report.stats.invalid_rows },
+            { label: 'Duplicates', value: report.stats.duplicate_rows + report.stats.duplicate_identifiers },
+          ].map(s => (
+            <div key={s.label} className="bg-slate-50 rounded-lg py-1.5">
+              <div className="text-[14px] font-bold text-slate-800 leading-tight">{s.value.toLocaleString()}</div>
+              <div className="text-[10px] text-slate-400 uppercase tracking-wide">{s.label}</div>
+            </div>
+          ))}
+        </div>
+      )}
+
+      {showStats && baseline && (
+        <div className="text-[12px] text-slate-500">
+          {baseline.previous_rows === null ? (
+            <span>No prior comparable report to compare against.</span>
+          ) : (
+            <span>
+              Previous comparable: <span className="font-medium text-slate-700">{baseline.previous_rows.toLocaleString()}</span>
+              {baseline.change !== null && (
+                <>
+                  {' '}· Change:{' '}
+                  <span className={`font-medium ${(baseline.change ?? 0) < 0 ? 'text-amber-700' : 'text-slate-700'}`}>
+                    {(baseline.change ?? 0) >= 0 ? '+' : ''}{baseline.change?.toLocaleString()}
+                    {baseline.change_pct !== null && ` (${(baseline.change_pct ?? 0) >= 0 ? '+' : ''}${baseline.change_pct}%)`}
+                  </span>
+                </>
+              )}
+            </span>
+          )}
+        </div>
+      )}
+
+      {report.issues.length > 0 && (
+        <div className="flex flex-col gap-1.5">
+          {report.issues.map((issue, i) => (
+            <IssueLine key={`${issue.code}-${i}`} issue={issue} />
+          ))}
+        </div>
+      )}
+    </div>
+  )
+}
+
 type RunState =
   | { status: 'idle' }
   | { status: 'running' }
   | { status: 'error'; message: string }
   | { status: 'success'; summary: SyncSummaryDTO }
 
+type ValidationState =
+  | { status: 'idle' }
+  | { status: 'validating' }
+  | { status: 'done'; result: IngestionValidationDTO; note?: string }
+  | { status: 'error'; message: string }
+
 export default function InventorySync(): JSX.Element {
   const [search, setSearch] = useState('')
   const [files, setFiles] = useState<InventorySyncFiles>({})
   const [runState, setRunState] = useState<RunState>({ status: 'idle' })
+  const [validation, setValidation] = useState<ValidationState>({ status: 'idle' })
+  const [ack, setAck] = useState(false)
   const [refreshKey, setRefreshKey] = useState(0)
 
   const dashboardState = useApi(() => getDashboard(), [refreshKey])
@@ -178,20 +323,68 @@ export default function InventorySync(): JSX.Element {
   const selectedCount = Object.values(files).filter(Boolean).length
   const summary = runState.status === 'success' ? runState.summary : null
 
+  // The run gate, mirrored from the server's own rules (which are the
+  // real boundary -- the server revalidates and would reject anyway):
+  // a current validation, no errors, and warnings acknowledged.
+  const canRun =
+    validation.status === 'done' &&
+    validation.result.status !== 'rejected' &&
+    (!validation.result.requires_acknowledgement || ack)
+
   const handleFileChange = (field: keyof InventorySyncFiles, file: File | undefined) => {
     setFiles(prev => ({ ...prev, [field]: file }))
+    // Any file change invalidates the preview (Sprint 10 phase 20) --
+    // the acknowledgement box resets with it, never surviving a file
+    // swap.
+    setValidation({ status: 'idle' })
+    setAck(false)
+    if (runState.status === 'error') setRunState({ status: 'idle' })
+  }
+
+  const handleValidate = async () => {
+    if (selectedCount === 0 || validation.status === 'validating') return
+    setValidation({ status: 'validating' })
+    setAck(false)
+    try {
+      const result = await validateInventoryReports(files)
+      setValidation({ status: 'done', result })
+    } catch (err) {
+      setValidation({
+        status: 'error',
+        message: err instanceof Error ? err.message : 'Unexpected error',
+      })
+    }
   }
 
   const handleRunSync = async () => {
-    if (selectedCount === 0 || runState.status === 'running') return
+    if (!canRun || runState.status === 'running' || validation.status !== 'done') return
     setRunState({ status: 'running' })
     try {
-      const result = await runInventorySync(files)
+      const result = await runInventorySync(files, {
+        acknowledgeWarnings: ack,
+        validationFingerprint: validation.result.fingerprint,
+      })
       setRunState({ status: 'success', summary: result })
       setFiles({})
+      setValidation({ status: 'idle' })
+      setAck(false)
       setRefreshKey(k => k + 1)
     } catch (err) {
-      setRunState({ status: 'error', message: err instanceof Error ? err.message : 'Unexpected error' })
+      if (err instanceof ValidationRejectedError) {
+        // The server revalidated (it always does) and said no -- show
+        // ITS fresh view of the reports, not our stale one.
+        setValidation({
+          status: 'done',
+          result: err.validation as IngestionValidationDTO,
+          note: err.code === 'STALE_VALIDATION'
+            ? 'The selected files changed after they were validated — review the fresh results below and acknowledge again.'
+            : 'The server re-checked the reports and found conditions that need review below.',
+        })
+        setAck(false)
+        setRunState({ status: 'idle' })
+      } else {
+        setRunState({ status: 'error', message: err instanceof Error ? err.message : 'Unexpected error' })
+      }
     }
   }
 
@@ -214,7 +407,7 @@ export default function InventorySync(): JSX.Element {
             )}
             <button
               onClick={handleRunSync}
-              disabled={selectedCount === 0 || runState.status === 'running'}
+              disabled={!canRun || runState.status === 'running'}
               className="flex items-center gap-2 bg-blue-600 hover:bg-blue-700 disabled:bg-slate-200 disabled:text-slate-400 text-white text-[13px] font-medium px-4 py-2 rounded-xl transition-colors"
             >
               {runState.status === 'running' ? spinner : <RefreshIcon />}
@@ -258,6 +451,31 @@ export default function InventorySync(): JSX.Element {
               )
             })}
           </div>
+
+          {/* Sprint 10: validation is the step between selecting files
+              and being allowed to run. */}
+          <div className="mt-3 flex items-center gap-3 flex-wrap">
+            <button
+              onClick={handleValidate}
+              disabled={selectedCount === 0 || validation.status === 'validating'}
+              className="flex items-center gap-2 bg-slate-800 hover:bg-slate-900 disabled:bg-slate-100 disabled:text-slate-400 text-white text-[13px] font-medium px-4 py-2 rounded-xl transition-colors"
+            >
+              {validation.status === 'validating' ? spinner : <SearchIcon />}
+              {validation.status === 'validating' ? 'Validating…' : 'Validate Reports'}
+            </button>
+            <span className="text-[12px] text-slate-400">
+              {validation.status === 'done'
+                ? `Validated ${formatTimestamp(validation.result.validated_at)} — nothing has been changed yet.`
+                : 'Reports are validated and previewed before anything is synced.'}
+            </span>
+          </div>
+
+          {validation.status === 'error' && (
+            <div className="mt-3 flex items-start gap-2 bg-red-50 border border-red-100 rounded-xl px-3 py-2.5 text-[12px] text-red-700">
+              <WarningIcon className="text-red-500 mt-0.5 shrink-0" />
+              <span>{validation.message}</span>
+            </div>
+          )}
           {runState.status === 'error' && (
             <div className="mt-3 flex items-start gap-2 bg-red-50 border border-red-100 rounded-xl px-3 py-2.5 text-[12px] text-red-700">
               <WarningIcon className="text-red-500 mt-0.5 shrink-0" />
@@ -273,6 +491,53 @@ export default function InventorySync(): JSX.Element {
             </div>
           )}
         </div>
+
+        {/* Pre-Sync Preview (Sprint 10) */}
+        {validation.status === 'done' && (
+          <div className="bg-white rounded-2xl border border-slate-100 p-4">
+            <p className="text-[11px] font-semibold text-slate-400 uppercase tracking-wider mb-3">
+              Pre-Sync Preview
+            </p>
+
+            {validation.note && (
+              <div className="mb-3 flex items-start gap-2 bg-amber-50 border border-amber-100 rounded-xl px-3 py-2.5 text-[12px] text-amber-800">
+                <WarningIcon className="text-amber-500 mt-0.5 shrink-0" />
+                <span>{validation.note}</span>
+              </div>
+            )}
+
+            <div className="grid grid-cols-1 lg:grid-cols-2 gap-3">
+              {validation.result.reports.map(report => (
+                <ReportPreviewCard key={report.slot} report={report} />
+              ))}
+            </div>
+
+            {validation.result.status === 'rejected' && (
+              <div className="mt-3 flex items-start gap-2 bg-red-50 border border-red-100 rounded-xl px-3 py-2.5 text-[12px] text-red-700">
+                <CrossIcon className="text-red-500 mt-0.5 shrink-0" />
+                <span>
+                  Rejected reports never reach the sync engine. Fix the export (or choose the right
+                  file), reselect it, and validate again.
+                </span>
+              </div>
+            )}
+
+            {validation.result.requires_acknowledgement && validation.result.status !== 'rejected' && (
+              <label className="mt-3 flex items-start gap-2.5 bg-amber-50 border border-amber-100 rounded-xl px-3 py-2.5 cursor-pointer">
+                <input
+                  type="checkbox"
+                  checked={ack}
+                  onChange={e => setAck(e.target.checked)}
+                  className="mt-0.5 accent-amber-600"
+                />
+                <span className="text-[12px] text-amber-900 leading-snug">
+                  I reviewed the warnings above and confirm these reports reflect reality — run the
+                  sync with them.
+                </span>
+              </label>
+            )}
+          </div>
+        )}
 
         {/* Recent Sync Runs */}
         <div className="bg-white rounded-2xl border border-slate-100 p-4">

@@ -29,4 +29,8 @@ sys.path.insert(0, os.path.dirname(_REPO_ROOT))
 import uvicorn  # noqa: E402  (env must be final before app import chain)
 
 if __name__ == "__main__":
-    uvicorn.run("lotsync.api.app:app", host="127.0.0.1", port=8000)
+    # PORT is honored so a second working session can run its own
+    # instance beside the default-8000 one (a real recurring
+    # situation: two agent sessions in this checkout at once).
+    uvicorn.run("lotsync.api.app:app", host="127.0.0.1",
+                port=int(os.environ.get("PORT", "8000")))

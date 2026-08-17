@@ -1966,15 +1966,33 @@ reseed-drop-list fix (below).
   `tests/test_seed_dev.py::ResetDropListDriftGuardTest` now pins
   `_APP_TABLES ⊇ tools/migrate_sqlite_to_postgres.TABLE_ORDER` so the
   next migration cannot repeat the drift.
-- **DEV restoration to `dev` tracking (owner):** Render
-  `dealerdoh-api-dev` — TBD; Vercel `dealerdoh-dev` (production
-  deployment rebuilt from `dev`) — TBD.
-- **Standard reseed (clears `9SMOKEVIN…` smoke residue, restores the
-  exact standing matrix, then membership re-provision):** TBD.
-- **Post-restoration health verification (both services on `dev`):**
-  TBD.
-- Sprint-branch deletion (remote + local): TBD after both services
-  are confirmed off the branch.
+- **DEV restoration to `dev` tracking (owner, 2026-08-17):** DONE —
+  Render `dealerdoh-api-dev` back on `dev`; Vercel `dealerdoh-dev`
+  production deployment rebuilt from `dev`.
+- **Standard reseed (2026-08-17):** DONE, from the fixed checkout,
+  credentials via the owner-staged file (Sprint 04 pattern; file
+  deleted afterward, absence verified, no values printed).
+  `seed_dev.py --reset` dropped **14** application tables (the fixed
+  list incl. `report_baseline`) and replayed the QA days:
+  **vehicle=34, event=98, task=18, recommendation=2,
+  pending_identity=3, sync_run=10** — the exact standing matrix.
+  `tools/provision_dev_auth.py` re-provisioned all **5** synthetic
+  memberships (every Supabase identity "existing" — relinked, not
+  recreated). Post-reseed verification: `report_baseline` **empty**
+  (stale smoke baselines gone), **zero** `9SMOKEVIN…` vehicles or
+  events, 28 active / 6 sold. NOTE: the reset also removed the Sprint
+  09 test account's membership (kennett20054@gmail.com — its Supabase
+  Auth identity survives, but it holds no dealership access until
+  re-granted via User Management; flagged to the owner).
+- **Post-restoration health verification (2026-08-17):** DEV API
+  `/health` ok/development/postgres; `/inventory-sync/validate`
+  present + auth-gated (401 tokenless) — Sprint 10 code now served
+  FROM `dev`; frontend 200; live pane check as the re-provisioned
+  manager membership: DEV banner, dashboard at the exact standing
+  matrix (16 open tasks / 2 recommendations / 58.82% health).
+- **Sprint-branch deletion:** DONE — `feature/sprint-10-ingestion-safety`
+  deleted remote + local (was `a999af9`) after both services were
+  confirmed off it.
 
 ## Findings / Risks
 

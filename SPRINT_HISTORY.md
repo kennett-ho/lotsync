@@ -40,17 +40,17 @@ Do not rewrite history when architecture changes later. Record what was true at 
 | **Production persistence** | SQLite on Render persistent disk |
 | **Production Auth** | Disabled / not yet rolled out |
 | **Development product** | DealerDOH |
-| **Development branch / current head** | `dev` / `b19a56a` (Sprint 09 close; Sprint 10 open on `feature/sprint-10-ingestion-safety`) |
+| **Development branch / current head** | `dev` / `b389072` (PR #14 merged — Sprint 10 ingestion boundary) |
 | **Development persistence** | Supabase PostgreSQL |
 | **Development Auth** | Supabase Auth + FastAPI server-side authorization (`AUTH_MODE=required`) |
-| **Current backend regression baseline** | 488/488 SQLite and 488/488 PostgreSQL on merged `dev` (548/548 both engines on the Sprint 10 branch, locally) |
+| **Current backend regression baseline** | 548/548 SQLite and 548/548 PostgreSQL (CI green on merged `dev` = `b389072`) |
 | **Standing DEV QA dataset** | 34 vehicles, 18 tasks, 2 recommendations, 98 events, 10 sync runs |
 | **Latest completed sprint** | Sprint 09 — Account Lifecycle, Recovery & Functional Settings (Rail A Verified) |
 | **Migration readiness** | Technical rehearsal PASS / GO; real production cutover intentionally unscheduled |
 | **Current release target** | `v1.1.0-beta.1` |
 | **Open PRs** | tracked per sprint; see Git/PR records in each entry |
 | **Public domain** | `dealerdoh.com` owned; production domain cutover not yet performed |
-| **Immediate focus** | Sprint 10 — Inventory Ingestion Safety (Rail D): PR #14 green at the gate with deployed-DEV smoke PASSED on the branch; awaiting merge decision; post-merge state = Implementation Paused — Awaiting Vendor Evidence (Keyper Event); at /merge-dev closeout: return both DEV services to `dev` + reseed to clear smoke residue |
+| **Immediate focus** | Sprint 10 MERGED (`b389072`); sprint state: **Implementation Paused — Awaiting Vendor Evidence** (Keyper Event contract, §6.2 discovery); Rail D NOT Verified. Closeout in progress: DEV services back to `dev` (owner), reseed + membership re-provision, health verification. Sprint 11 not begun (owner directive). |
 
 **Production rule:** `master` is what real dealership users are allowed to depend on. Normal development belongs on task branches and `dev`; production remains frozen until an explicit release train is approved.
 
@@ -1672,8 +1672,8 @@ Repository publication remains a separate owner decision, deliberately decoupled
 
 # Sprint 10 — Inventory Ingestion Safety, Report Classification & Pre-Sync Validation
 
-**Status:** Implementation Complete — Awaiting Merge (**PR #14 CI fully green**: 548/548 SQLite · 548/548 PostgreSQL · frontend build · Vercel). Pending: merge on explicit approval · deployed-DEV smoke (owner review-window switch). **Owner-directed post-merge state: Implementation Paused — Awaiting Vendor Evidence** — the known-evidence implementation merges, but the sprint does not close as Complete (and Rail D is not Verified) until real Keyper Event vendor evidence resolves the Full-vs-Event structural distinction (see Decisions 4–5).
-**Date:** 2026-08-16
+**Status:** **Implementation Paused — Awaiting Vendor Evidence** (owner-directed closeout state). The known-evidence implementation is **MERGED** — PR #14 → `dev` as **`b389072`**, owner-approved 2026-08-17, **CI green on the merged head**, deployed-DEV smoke passed pre-merge on the branch review window. The sprint deliberately does not close as Complete (and Rail D is **not** Verified): the real Keyper Event contract remains pending vendor evidence, and resolving the actual Full-vs-Event structural distinction is the un-pause trigger (see Decisions 4–5).
+**Date:** 2026-08-16 → merged 2026-08-17
 **Rail:** D (operative register) / E (this catalog's lettering)
 
 ## Objective
@@ -1946,8 +1946,53 @@ Per `.claude/workflows/data-migration.md`, invoked explicitly:
 
 Task branch `feature/sprint-10-ingestion-safety`: `31753b0`
 (implementation), `dd7d868` (launch tooling), `58545dd` (sprint
-record) + this PR-number fill. **PR #14.** Merge: TBD (explicit
-approval gate).
+record), `c818d23` (PR fill), `f5a368b` (gate state), `9a03329`
+(owner closeout passes), `a999af9` (deployed smoke record).
+**PR #14, owner-approved, MERGED as `b389072`** (merge commit = `dev`
+head), **CI green on the merged head.** Closeout branch
+`docs/sprint-10-merge-closeout` carries this record plus the
+reseed-drop-list fix (below).
+
+## Merge & Closeout (2026-08-17)
+
+- **Merged:** PR #14 → `b389072`; CI on merged `dev`: success.
+- **Closeout finding (fixed before the reseed ran):** `seed_dev.py`'s
+  postgres `--reset` drop list `_APP_TABLES` was missing
+  `report_baseline` — 0010 landed without updating it, and the miss
+  was silent (`DROP … CASCADE` tolerates the dangling FK; `CREATE
+  TABLE IF NOT EXISTS` keeps the survivor), so a reseed would have
+  left the smoke-era baseline rows behind and the next real sync
+  would have false-warned against them. Fixed on the closeout branch;
+  `tests/test_seed_dev.py::ResetDropListDriftGuardTest` now pins
+  `_APP_TABLES ⊇ tools/migrate_sqlite_to_postgres.TABLE_ORDER` so the
+  next migration cannot repeat the drift.
+- **DEV restoration to `dev` tracking (owner, 2026-08-17):** DONE —
+  Render `dealerdoh-api-dev` back on `dev`; Vercel `dealerdoh-dev`
+  production deployment rebuilt from `dev`.
+- **Standard reseed (2026-08-17):** DONE, from the fixed checkout,
+  credentials via the owner-staged file (Sprint 04 pattern; file
+  deleted afterward, absence verified, no values printed).
+  `seed_dev.py --reset` dropped **14** application tables (the fixed
+  list incl. `report_baseline`) and replayed the QA days:
+  **vehicle=34, event=98, task=18, recommendation=2,
+  pending_identity=3, sync_run=10** — the exact standing matrix.
+  `tools/provision_dev_auth.py` re-provisioned all **5** synthetic
+  memberships (every Supabase identity "existing" — relinked, not
+  recreated). Post-reseed verification: `report_baseline` **empty**
+  (stale smoke baselines gone), **zero** `9SMOKEVIN…` vehicles or
+  events, 28 active / 6 sold. NOTE: the reset also removed the Sprint
+  09 test account's membership (kennett20054@gmail.com — its Supabase
+  Auth identity survives, but it holds no dealership access until
+  re-granted via User Management; flagged to the owner).
+- **Post-restoration health verification (2026-08-17):** DEV API
+  `/health` ok/development/postgres; `/inventory-sync/validate`
+  present + auth-gated (401 tokenless) — Sprint 10 code now served
+  FROM `dev`; frontend 200; live pane check as the re-provisioned
+  manager membership: DEV banner, dashboard at the exact standing
+  matrix (16 open tasks / 2 recommendations / 58.82% health).
+- **Sprint-branch deletion:** DONE — `feature/sprint-10-ingestion-safety`
+  deleted remote + local (was `a999af9`) after both services were
+  confirmed off it.
 
 ## Findings / Risks
 
@@ -2961,7 +3006,8 @@ Never mark planned work as completed before it is actually merged and verified.
 
 1. ~~Run Sprint 08 to formalize the v1.1.0-beta scope/readiness register.~~ Done and merged (PR #10, `dddbb5f`) — `V1_1_RELEASE_READINESS.md` is operative, both Sprint 08 decisions ratified.
 2. ~~Begin Sprint 09 — Account Lifecycle & Settings.~~ Done and merged (PR #12 `02958f2`, PR #13 `b19a56a`) — Rail A Verified.
-2a. Land Sprint 10 — Inventory Ingestion Safety: PR #14 review/merge and deployed-DEV smoke (thresholds owner-ratified 2026-08-16). Post-merge the sprint records as **Implementation Paused — Awaiting Vendor Evidence**: the real Keyper Event contract (discovery item, §6.2) is the remaining trigger to close it and to complete Rail D's exit-4 Keyper half.
+2a. ~~Land Sprint 10 — Inventory Ingestion Safety.~~ **MERGED** (PR #14 → `b389072`, CI green on merged head; smoke passed pre-merge). Sprint state: **Implementation Paused — Awaiting Vendor Evidence** — the real Keyper Event contract (discovery item, §6.2) is the trigger to close it and complete Rail D's exit-4 Keyper half. Rail D NOT Verified until then.
+2b. Sprint 11 (Observability & Structured Logging) starts only on explicit owner initiation — not begun (owner directive at the Sprint 10 gate).
 3. Complete dealership vendor research before committing automatic email/API ingestion to the release (answers targeted before Sprint 12 planning).
 4. Continue feature and production-readiness work only through task branch → PR → `dev`.
 5. Keep real production frozen on `v1.0.0-beta.6`.

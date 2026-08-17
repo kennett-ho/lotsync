@@ -160,8 +160,13 @@ plus small reality corrections (stale smoke-test workflow note;
 `dealerdoh.com` now owned). Planning only — no rail implementation,
 production untouched.
 
-**Sprint 10 (2026-08-16):** Rail D — Inventory Ingestion Safety — is
-implemented on `feature/sprint-10-ingestion-safety` (PR gate pending).
+**Sprint 10 (2026-08-16, merged 2026-08-17):** Rail D — Inventory
+Ingestion Safety — is **MERGED** (PR #14 → `b389072`, owner-approved,
+CI green on the merged head; deployed-DEV smoke passed pre-merge on
+the branch review window). Sprint state: **Implementation Paused —
+Awaiting Vendor Evidence** — Rail D is deliberately NOT Verified; the
+real Keyper Event-vs-Full structural distinction awaits the vendor
+format (§6.2 discovery), which is the un-pause trigger.
 DealerDOH no longer trusts a spreadsheet merely because it can parse
 it: every upload is deterministically classified by content
 (slot/filename/MIME are hints, not identity), validated against its

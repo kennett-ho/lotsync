@@ -245,6 +245,19 @@ class EnvironmentReleaseTest(unittest.TestCase):
         self.assertTrue(observability.observability_release())
 
 
+class CorsExposureTest(ObservabilityTestCase):
+    """Found live in the deployed DEV verification: a browser cannot
+    READ non-safelisted response headers cross-origin unless CORS
+    exposes them -- without this, ApiError.requestId silently stays
+    empty in real use while curl sees the header fine."""
+
+    def test_request_id_header_is_cors_exposed(self):
+        resp = self.client.get(
+            "/health", headers={"Origin": "http://localhost:5173"})
+        exposed = resp.headers.get("Access-Control-Expose-Headers", "")
+        self.assertIn("X-Request-ID", exposed)
+
+
 class HealthMetadataTest(ObservabilityTestCase):
     def test_health_reports_release_and_no_secrets(self):
         body = self.client.get("/health").json()

@@ -161,6 +161,12 @@ app.add_middleware(
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
+    # Sprint 11: without this the BROWSER cannot read the request id
+    # from cross-origin responses (found live in the deployed DEV
+    # verification -- the header was set but invisible to fetch), and
+    # ApiError.requestId would silently stay empty. Response headers
+    # other than the CORS-safelisted ones must be exposed explicitly.
+    expose_headers=[observability.REQUEST_ID_HEADER],
 )
 
 # Sprint 05: who the verified caller is, per the access model -- the

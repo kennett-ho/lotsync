@@ -1725,13 +1725,82 @@ overhead: `log_event` ≈ 0.07 ms; full local request round-trip
 ≈ 7 ms through TestClient (middleware share sub-ms); Sprint 10's
 4,700-row validation benchmark unchanged (≈ 0.04 s).
 
-**Pending toward Rails F/G verification:** owner DEV provider setup
-(Sentry project + PostHog project; consolidated request at the
-setup gate) · review-window deploy · deployed structured-log +
-correlation + live Sentry/PostHog event evidence · the 15-question
-telemetry privacy review against real payloads · merge · CI on
-merged `dev`. Rail D remains untouched (Merged — NOT Verified;
-Awaiting Vendor Evidence).
+## Deployed-DEV Verification — branch review window (2026-08-17/18, PASSED)
+
+**Provider setup (agent-driven in the pane at the owner's request;
+zero secrets handled):** Sentry org `dealerdoh` — projects
+`dealerdoh-dev-api` (FastAPI; email alerts on high-priority issues →
+owner) + `dealerdoh-dev-frontend` (renamed from the auto-created
+react project; DSN unchanged); `SENTRY_DSN` added on Render (all 11
+existing vars verified intact) and `VITE_SENTRY_DSN` +
+`VITE_POSTHOG_KEY` + `VITE_POSTHOG_HOST` on Vercel (4 originals
+intact). PostHog project created under the owner's login (the
+account login itself was owner-performed). The **branch switches
+were owner-performed** — the permission classifier reserves
+deploy-source controls for the owner, same boundary as Sprint 10.
+
+**Live evidence, all against the deployed branch:**
+
+- **Release/environment identity:** `/health` →
+  `{environment: development, database_engine: postgres, release:
+  8e4f0f46…}`. Frontend bundle carries its own build's SHA and the
+  byte-verified posture (`autocapture:!1 · capture_pageview:!1 ·
+  capture_pageleave:!1 · disable_session_recording:!0 · rageclick:!1
+  · person_profiles:'identified_only'`).
+- **Structured logs:** one-line JSON records streaming on Render with
+  the full schema; Render's own 5s health checks measure ~7 ms
+  end-to-end with middleware+logging.
+- **Request correlation:** a curl's `X-Request-ID`
+  (`c52fe4c8…`) found verbatim in its deployed record (`/vehicles`
+  template, 401, INFO — the severity policy live).
+- **Tri-correlation on the deliberate failure:** ONE deployed record —
+  ERROR `http_request`, route `/_observability/raise-test-error`,
+  `error_type: ObservabilityVerificationError`, `request_id:
+  7e4fe881…` matching BOTH the API response body and the Sentry
+  event's `request_id` tag, and carrying `auth_user_id`/`role`/
+  `organization_id`/`dealership_id` via the request.state design.
+- **Sentry, both runtimes:** frontend event (environment
+  development, release `1e291bab…` = its build, service
+  `dealerdoh-frontend`, runtime browser) via a dev-tooling thrown
+  error — no code change, `__sentry_captured__` seen in console;
+  backend event via the double-gated trigger (release `8e4f0f46…`,
+  service `dealerdoh-api`); no token/email/VIN in either event.
+- **PostHog:** `app_loaded`, `page_viewed`, `vehicle_detail_opened`,
+  `work_order_generated`, `inventory_validation_completed` all
+  arrived (`inventory_validation_blocked` fired seconds before the
+  check — same code path — and was still in ingestion lag); **zero
+  `$autocapture` and zero `$pageview` events exist in the project**;
+  identity switched from an anonymous UUID to exactly the Supabase
+  `auth_user_id` on login with person properties
+  `{role, dealership_id, organization_id, environment}` and no email.
+- **Product smoke (manager):** Dashboard matrix, Vehicles, Vehicle
+  Detail (QA1025), Tasks dispatch queue, work-order PDF, Inventory
+  Sync page; Sprint 10 checks validation-only (valid preview Ready ·
+  headers-only Rejected with the zero-claim message) — **zero smoke
+  residue, no reseed needed**. Console: only the two deliberate
+  verification artifacts. The known sidebar-vs-Vehicle-Detail
+  dismissal finding behaved exactly as its register entry describes
+  (worked around via the breadcrumb; still Sprint 12's).
+
+**Two real findings fixed from live verification:** (1)
+`X-Request-ID` was invisible to cross-origin fetch — added CORS
+`expose_headers` (without it `ApiError.requestId` stayed empty in
+real browsers while curl saw the header; test-pinned); (2) posthog-js
+fetched its surveys module from the CDN by default —
+`disable_surveys: true` added (posture-test-pinned).
+
+**Telemetry privacy review (phase 40) against REAL payloads — the
+deployed log record, both Sentry event pages, PostHog events/person
+state, and the deployed bundle:** password NO · JWT/access token NO ·
+Authorization header NO · cookie/session token NO · recovery token
+NO · email NO · display name NO · VIN NO · uploaded report body/rows
+NO · DATABASE_URL/DB credentials NO · server secrets NO · broad DOM
+text capture NO · form capture NO · PostHog session replay NO ·
+Sentry session replay NO. **15/15 PASS.**
+
+**Remaining toward Rails F/G Verified:** merge on approval · CI green
+on merged `dev` · post-merge DEV redeploy from `dev`. Rail D remains
+untouched (Merged — NOT Verified; Awaiting Vendor Evidence).
 
 ---
 

@@ -52,6 +52,7 @@ class PostHogPostureTest(unittest.TestCase):
                         "capture_pageview: false",
                         "capture_pageleave: false",
                         "disable_session_recording: true",
+                        "disable_surveys: true",
                         "person_profiles: 'identified_only'"):
             self.assertIn(required, analytics, required)
 

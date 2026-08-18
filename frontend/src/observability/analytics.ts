@@ -51,6 +51,10 @@ export function initAnalytics(): void {
       capture_pageleave: false,
       disable_session_recording: true,
       rageclick: false,
+      // Found in deployed DEV verification: the SDK fetches its
+      // surveys module from the PostHog CDN by default. No surveys
+      // are used -- keep the collection surface (and network) minimal.
+      disable_surveys: true,
       person_profiles: 'identified_only',
     })
     posthog.register({ environment: OBS_ENVIRONMENT, release: OBS_RELEASE })

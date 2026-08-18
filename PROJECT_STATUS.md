@@ -166,8 +166,11 @@ model (structured JSON logs / Sentry / PostHog — `OBSERVABILITY.md`
 canonical), `X-Request-ID` correlation through logs→SyncRun→Sentry,
 env/release identity, central redaction, React Error Boundary,
 explicit-events-only analytics with internal-id identity. All layers
-no-op unconfigured; 586/586 both engines on the branch; awaiting
-owner DEV provider setup + deployed verification. Rail D untouched.
+no-op unconfigured; 589/589 SQLite (586/586 PostgreSQL pre-hardening
+head) on the branch. Deployed-DEV verification PASSED: live Sentry
+events both runtimes, PostHog events with autocapture/replay
+provably off, tri-correlated request ids, 15/15 privacy review.
+Rails F+G: Implementation Complete — Awaiting Merge. Rail D untouched.
 
 **Sprint 10 (2026-08-16, merged 2026-08-17):** Rail D — Inventory
 Ingestion Safety — is **MERGED** (PR #14 → `b389072`, owner-approved,

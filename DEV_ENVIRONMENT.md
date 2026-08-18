@@ -36,7 +36,12 @@ environment has proven the behavior long enough to trust.
   Sprint 02 task branch on 2026-08-15 after PR #3 merged; the setting
   lives under Settings → Environments → Production → Branch Tracking).
 - Env vars (names; values in the Vercel dashboard): `VITE_API_BASE_URL`
-  (→ the dev API below), `VITE_ENVIRONMENT=development` (renders the
+  (→ the dev API below), Sprint 11 observability (browser-public
+  identifiers, pending owner setup — see `OBSERVABILITY.md` §9):
+  `VITE_SENTRY_DSN`, `VITE_POSTHOG_KEY`, `VITE_POSTHOG_HOST`; the
+  backend side adds `SENTRY_DSN` on the Render service. All bake at
+  build time on Vercel (redeploy after changing). No production
+  project sets any of these. `VITE_ENVIRONMENT=development` (renders the
   permanent "DealerDOH DEV" banner — see `frontend/src/App.tsx`),
   and — Sprint 05 — `VITE_SUPABASE_URL` + `VITE_SUPABASE_ANON_KEY`
   (public anon key ONLY, never service-role), which activate the

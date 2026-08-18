@@ -1670,6 +1670,71 @@ Repository publication remains a separate owner decision, deliberately decoupled
 
 ---
 
+# Sprint 11 — Observability, Structured Logging & Product Analytics
+
+**Status:** In Progress on `feature/sprint-11-observability` (from `dev` = `61f9def`).
+**Date:** 2026-08-17
+**Rails:** F (Sentry + PostHog) + G (Structured Logging & Monitoring) — operative register lettering.
+
+## Scope delivered on the branch (evidence grows toward the gate)
+
+Three deliberately separate layers (`OBSERVABILITY.md` is canonical):
+structured JSON application logs ("what happened, in which request,
+how long"), Sentry ("what is breaking unexpectedly" — backend +
+frontend, DSN-gated no-ops otherwise), PostHog ("what are users
+doing" — explicit events only, autocapture/replay/form-capture OFF,
+identity = internal `auth_user_id`, sign-out resets). Server-generated
+`X-Request-ID` on every response, propagated through structured
+records, Sentry tags, and the sync-completion record's
+`sync_run_ids` (no schema change — no migration 0011). Environment
+model local/test/ci/development/production reusing the existing
+`ENVIRONMENT`/`VITE_ENVIRONMENT` variables; release = git SHA from
+`RENDER_GIT_COMMIT` / build-baked `VERCEL_GIT_COMMIT_SHA`. Central
+redaction (key-pattern + value-shape, wholesale cookies) applied to
+logs and Sentry events; severity policy pins expected 4xx as
+INFO/WARNING and never Sentry material; React Error Boundary gives
+render failures an honest fallback. Sprint 10's ingestion boundary is
+instrumented end to end (validation outcomes with codes/counts,
+sync lifecycle with correlated run ids) with report contents/VINs/
+filenames provably absent from telemetry.
+
+**Design findings recorded while building (both caught by this
+sprint's own tests):** (1) sync FastAPI dependencies run in
+threadpool-copied contexts, so the authenticated log context rides
+`request.state` rather than a contextvar (a contextvar set there is
+invisible to the middleware task); (2) Sentry's default
+LoggingIntegration would double-report every ERROR record as a second
+event — the `dealerdoh` logger is ignored and
+`auto_enabling_integrations=False` keeps `capture_unexpected()` the
+single capture path.
+
+**Deferred deliberately:** source-map upload (production builds emit
+no source maps; secure upload needs `SENTRY_AUTH_TOKEN` as a build
+secret — disproportionate this window; recorded diagnostic
+limitation in `OBSERVABILITY.md` §10). Production activation of any
+provider (future release train). Backend PostHog (frontend explicit
+events only).
+
+**Tests:** 37 new (26 backend observability incl. fake-transport
+Sentry matrix + 11 frontend posture assertions following the
+`test_frontend_config.py` precedent). Suites on the branch:
+**586/586 SQLite · 586/586 PostgreSQL** (10/1 pre-existing skips).
+Frontend production build green; bundle 538→848 kB raw (142→243 kB
+gzip) from the two SDKs — recorded as a Rail J finding. Measured
+overhead: `log_event` ≈ 0.07 ms; full local request round-trip
+≈ 7 ms through TestClient (middleware share sub-ms); Sprint 10's
+4,700-row validation benchmark unchanged (≈ 0.04 s).
+
+**Pending toward Rails F/G verification:** owner DEV provider setup
+(Sentry project + PostHog project; consolidated request at the
+setup gate) · review-window deploy · deployed structured-log +
+correlation + live Sentry/PostHog event evidence · the 15-question
+telemetry privacy review against real payloads · merge · CI on
+merged `dev`. Rail D remains untouched (Merged — NOT Verified;
+Awaiting Vendor Evidence).
+
+---
+
 # Sprint 10 — Inventory Ingestion Safety, Report Classification & Pre-Sync Validation
 
 **Status:** **Implementation Paused — Awaiting Vendor Evidence** (owner-directed closeout state). The known-evidence implementation is **MERGED** — PR #14 → `dev` as **`b389072`**, owner-approved 2026-08-17, **CI green on the merged head**, deployed-DEV smoke passed pre-merge on the branch review window. The sprint deliberately does not close as Complete (and Rail D is **not** Verified): the real Keyper Event contract remains pending vendor evidence, and resolving the actual Full-vs-Event structural distinction is the un-pause trigger (see Decisions 4–5).

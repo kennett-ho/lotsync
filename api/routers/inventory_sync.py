@@ -38,14 +38,17 @@ either -- sync/ingestion.py is the single boundary both endpoints
 """
 
 import datetime
+import logging
 import os
 import shutil
 import sqlite3
 import tempfile
+import time
 from typing import Optional
 
 from fastapi import APIRouter, Depends, File, Form, HTTPException, UploadFile
 
+from lotsync.api import observability
 from lotsync.api.auth import SYNC_RUN_ROLES, require_roles
 from lotsync.api.dependencies import get_db
 from lotsync.api.dtos import (
@@ -109,6 +112,33 @@ def _reject(status_code: int, code: str, validation) -> HTTPException:
     )
 
 
+def _log_validation(validation, duration_ms: float) -> None:
+    """
+    Sprint 11 (phase 20): one structured record per validation pass,
+    from BOTH the preview endpoint and /run's revalidation. Carries
+    classification/outcome facts only -- issue codes, report types,
+    row counts, duration. Never filenames, report contents, rows,
+    VINs, or raw parser text (sync/ingestion.py already normalizes
+    parser failures into codes before anything reaches here).
+    """
+    event = ("inventory_validation_blocked" if validation.has_errors
+             else "inventory_validation_warning" if validation.has_warnings
+             else "inventory_validation_completed")
+    level = logging.INFO if event == "inventory_validation_completed" else logging.WARNING
+    observability.log_event(
+        level, event,
+        duration_ms=round(duration_ms, 1),
+        reports=[{
+            "slot": r.slot,
+            "detected": r.detected_contract_id or None,
+            "status": r.status,
+            "total_rows": r.total_rows,
+            "valid_rows": r.valid_rows,
+            "codes": sorted({i.code for i in r.issues}),
+        } for r in validation.reports],
+    )
+
+
 # Sprint 05: role-restricted -- running a sync mutates dealership
 # state, and the governed role model gives that to admin/manager only
 # (see api/auth.py's SYNC_RUN_ROLES note). Inert under
@@ -146,7 +176,9 @@ async def run_sync(
     # report CSVs) -- the uploaded files themselves remain in
     # UPLOADS_DIR as evidence of what was rejected, exactly like the
     # pre-Sprint-10 behavior for header failures.
+    validation_started = time.perf_counter()
     validation = validate_report_set(file_paths, db_conn=conn)
+    _log_validation(validation, (time.perf_counter() - validation_started) * 1000)
     if validation.has_errors:
         raise _reject(422, "REPORT_VALIDATION_FAILED", validation)
     if validation.has_warnings:
@@ -155,6 +187,12 @@ async def run_sync(
         if validation_fingerprint != validation.fingerprint:
             raise _reject(409, "STALE_VALIDATION", validation)
 
+    observability.log_event(
+        logging.INFO, "inventory_sync_started",
+        slots=sorted(file_paths),
+        warnings_acknowledged=bool(validation.has_warnings),
+    )
+    sync_started = time.perf_counter()
     settings = load_settings()
     try:
         summary = run_inventory_sync(
@@ -168,15 +206,27 @@ async def run_sync(
             db_conn=conn,
             out_dir=OUT_DIR,
         )
-    except Exception:
+    except Exception as exc:
         # Sprint 10 phase 25: a runtime failure AFTER validation passed
         # is reported in dealership language, never as a raw traceback.
         # Per-source transactional integrity is database/repository.py's
         # sync_run() contract: the failing source rolled back and is
         # marked failed; sources that completed before it kept their
-        # results and say so in Recent Sync Runs. (Structured capture of
-        # the underlying exception is Rail F/G's sprint, deliberately
-        # not improvised here.)
+        # results and say so in Recent Sync Runs.
+        # Sprint 11: THE structured/Sentry moment for the sync engine --
+        # an unexpected failure mid-sync is exactly what Rail F exists
+        # to surface. Type name only in the log (exception messages can
+        # carry report data); full stack goes to Sentry, which runs
+        # with local variables disabled for the same reason.
+        event_id = observability.capture_unexpected(exc)
+        failure_fields = {
+            "slots": sorted(file_paths),
+            "duration_ms": round((time.perf_counter() - sync_started) * 1000, 1),
+            "error_type": type(exc).__name__,
+        }
+        if event_id:
+            failure_fields["sentry_event_id"] = event_id
+        observability.log_event(logging.ERROR, "inventory_sync_failed", **failure_fields)
         raise HTTPException(
             status_code=500,
             detail={
@@ -188,6 +238,7 @@ async def run_sync(
                     "failed. Check Recent Sync Runs for per-source status, "
                     "then run the sync again."
                 ),
+                "request_id": observability.current_request_id(),
             },
         )
 
@@ -209,6 +260,22 @@ async def run_sync(
             sync_started_at=summary["triggered_at"],
         )
     conn.commit()
+
+    # Sprint 11 (phase 23): the request_id -> sync_run_id correlation
+    # record. The browser operation, this log line, the SyncRun rows,
+    # and any Sentry event now share ids without any schema change --
+    # SyncRun's business meaning is untouched.
+    observability.log_event(
+        logging.INFO, "inventory_sync_completed",
+        slots=sorted(file_paths),
+        sync_run_ids=[r["sync_run_id"] for r in summary["sync_runs"]],
+        vehicles_processed=summary["vehicles_processed"],
+        exceptions_found=summary["exceptions_found"],
+        tasks_generated=summary["tasks_generated"],
+        recommendations_generated=summary["recommendations_generated"],
+        pipeline_warnings=len(summary["warnings"]),
+        duration_ms=round((time.perf_counter() - sync_started) * 1000, 1),
+    )
 
     return summary
 
@@ -243,7 +310,9 @@ async def validate_reports(
     batch_dir = tempfile.mkdtemp(prefix="validate-", dir=UPLOADS_DIR)
     try:
         file_paths = await _save_uploads(provided, batch_dir)
+        started = time.perf_counter()
         validation = validate_report_set(file_paths, db_conn=conn)
+        _log_validation(validation, (time.perf_counter() - started) * 1000)
         return validation.to_dict()
     finally:
         shutil.rmtree(batch_dir, ignore_errors=True)

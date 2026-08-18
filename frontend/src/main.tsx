@@ -4,7 +4,18 @@ import App from './App'
 import AuthGate from './auth/AuthGate'
 import ResetPassword from './auth/ResetPassword'
 import { isAuthEnabled } from './auth/supabase'
+import ErrorBoundary from './observability/ErrorBoundary'
+import { initAnalytics, track } from './observability/analytics'
+import { initSentry } from './observability/sentry'
 import './index.css'
+
+// Sprint 11 (Rails F+G): both initialize BEFORE first render and both
+// are silent no-ops without their build-time config (VITE_SENTRY_DSN /
+// VITE_POSTHOG_KEY) -- unconfigured builds, including the current
+// production LotSync build, behave exactly as before this sprint.
+initSentry()
+initAnalytics()
+track('app_loaded')
 
 // Sprint 09: the one deliberate route outside the auth gate. Emailed
 // recovery/invite links must work from a fresh browser navigation, so
@@ -22,12 +33,16 @@ const isResetRoute =
 
 ReactDOM.createRoot(document.getElementById('root')!).render(
   <React.StrictMode>
-    {isResetRoute ? (
-      <ResetPassword />
-    ) : (
-      <AuthGate>
-        <App />
-      </AuthGate>
-    )}
+    {/* Sprint 11: the boundary sits OUTSIDE the auth gate so login/
+        gate render failures get the honest fallback too. */}
+    <ErrorBoundary>
+      {isResetRoute ? (
+        <ResetPassword />
+      ) : (
+        <AuthGate>
+          <App />
+        </AuthGate>
+      )}
+    </ErrorBoundary>
   </React.StrictMode>,
 )

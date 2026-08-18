@@ -15,6 +15,7 @@
 
 import { useEffect, useState } from 'react'
 import type { Session } from '@supabase/supabase-js'
+import { resetAnalyticsIdentity } from '../observability/analytics'
 import AccessProvider from './AccessProvider'
 import Login from './Login'
 import { isAuthEnabled, supabase } from './supabase'
@@ -58,6 +59,12 @@ export default function AuthGate({ children }: { children: React.ReactNode }) {
 }
 
 export async function signOut(): Promise<void> {
+  // Sprint 11: every sign-out path funnels through here (user click,
+  // 401 expiry, post-reset global sign-out), so this is THE place
+  // analytics identity is severed -- User B on this browser never
+  // inherits User A's identity. Reset happens even if the Supabase
+  // call fails.
+  resetAnalyticsIdentity()
   if (supabase) await supabase.auth.signOut()
   // onAuthStateChange above flips the gate back to Login; no manual
   // navigation or reload needed.

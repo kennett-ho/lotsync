@@ -597,6 +597,27 @@ mechanism behind `execution_status`.
   }
   ```
 
+### Observability surface (new, Sprint 11 — Rails F+G)
+
+Transport-level additions every consumer may rely on (full design in
+`OBSERVABILITY.md`):
+
+- **`X-Request-ID` response header** — on every API response, a
+  server-generated uuid4 hex. Client-supplied values are never the
+  authority. The frontend `ApiError` retains it (`requestId`) as the
+  safe support reference tying a failure to the backend's structured
+  log records.
+- **Unexpected-failure 500 shape** — `{"detail": {"code":
+  "INTERNAL_ERROR", "message": <plain language>, "request_id": ...}}`
+  (the Sprint 10 `SYNC_EXECUTION_FAILED` detail also gained
+  `request_id`). Never a traceback.
+- **`GET /health`** additionally reports `release` (deployed git SHA
+  — non-secret; no hostnames/DSNs/provider config).
+- **`GET /me`** (authenticated shape) additionally reports
+  `auth_user_id` — the stable internal Supabase user UUID the
+  frontend uses as its analytics identity (deliberately the internal
+  id; email/display name never go to telemetry).
+
 ### SyncRunBatchDTO and SyncSummaryDTO (new, Phase 3 Sprint 4)
 
 Not among this document's original twelve DTOs — added when

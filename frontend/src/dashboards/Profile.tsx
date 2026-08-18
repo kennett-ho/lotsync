@@ -33,6 +33,7 @@ import { useEffect, useState } from 'react'
 import { ROLE_LABELS, useAccess, useMe } from '../auth/AccessProvider'
 import { signOut } from '../auth/AuthGate'
 import { isAuthEnabled, supabase } from '../auth/supabase'
+import { track } from '../observability/analytics'
 import UserManagement from './UserManagement'
 
 const USER_ADMIN_ROLES = ['admin', 'manager']
@@ -75,6 +76,9 @@ function AccountSection() {
     await supabase.auth.refreshSession()
     setBusy(false)
     setNotice({ kind: 'ok', text: 'Saved.' })
+    // Sprint 11 (analytics): the fact the name changed -- never the
+    // name itself.
+    track('profile_display_name_updated')
     refresh()
   }
 

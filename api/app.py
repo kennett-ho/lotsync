@@ -31,7 +31,10 @@ from fastapi.responses import JSONResponse
 from lotsync.api import observability
 from lotsync.api.auth import AccessContext, auth_mode, get_access_context
 from lotsync.api.dependencies import get_db
-from lotsync.api.routers import activity, dashboard, inventory_sync, recommendations, reports, tasks, users, vehicles
+from lotsync.api.routers import (
+    activity, dashboard, inventory_sync, observability_dev, recommendations,
+    reports, tasks, users, vehicles,
+)
 
 app = FastAPI(
     title="LotSync API",
@@ -207,6 +210,11 @@ _OPERATIONAL_ROUTERS = (
     # so the unauthenticated production posture exposes no user-admin
     # surface at all.
     users.router,
+    # Sprint 11: the DEV-only Sentry verification trigger -- 404
+    # outside ENVIRONMENT=development, admin/manager only (see
+    # routers/observability_dev.py for why this is not a "/crash"
+    # endpoint).
+    observability_dev.router,
 )
 for _router in _OPERATIONAL_ROUTERS:
     app.include_router(_router, dependencies=[Depends(get_access_context)])

@@ -130,8 +130,12 @@ DataFrame in a stack frame IS the uploaded report),
 bodies and querystrings, scrubs breadcrumbs/extra/contexts, stamps
 `service` + `request_id` tags). The ONLY capture sites are the
 middleware's unhandled-exception path and the sync-execution failure
-handler — there is no `/crash` route and none may be added; tests
-create a temporary in-process route instead.
+handler. There is no public crash endpoint: the sanctioned
+verification trigger (`POST /_observability/raise-test-error`,
+`api/routers/observability_dev.py`) answers **404 outside
+`ENVIRONMENT=development`** and requires admin/manager inside it —
+on the production posture the surface does not exist. Tests pin both
+gates; unit tests otherwise use a temporary in-process route.
 
 `/health` additionally reports `release` (non-secret by definition;
 no hostnames, DSNs, or provider config are ever exposed there).
@@ -284,6 +288,10 @@ production observability activation.
 - *Sentry silent?* `SENTRY_DSN` unset (intended default) or invalid —
   init fails closed as disabled. Check `/health`'s `release` to
   confirm which code is deployed.
+- *Verify backend Sentry delivery (DEV only):* as a Manager/Admin,
+  `POST /_observability/raise-test-error` — expect a 500 whose
+  `request_id` appears on a new Sentry event within a minute. The
+  route 404s anywhere but the development environment.
 - *PostHog silent?* `VITE_POSTHOG_KEY` absent from the BUILD (Vercel
   env vars bake at build time — redeploy after adding).
 - *A log field shows `[REDACTED]`:* the redactor matched a sensitive

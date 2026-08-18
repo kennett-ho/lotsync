@@ -407,6 +407,37 @@ class AuthObservabilityTest(unittest.TestCase):
             logging.getLogger("dealerdoh").removeHandler(capture)
 
 
+class DevVerificationTriggerTest(ObservabilityTestCase):
+    """The double-gated Sentry verification route
+    (api/routers/observability_dev.py): nonexistent outside
+    ENVIRONMENT=development; a genuine captured 500 inside it."""
+
+    def test_404_outside_development(self):
+        with mock.patch.dict(os.environ, {"ENVIRONMENT": ""}):
+            resp = self.client.post("/_observability/raise-test-error")
+        self.assertEqual(resp.status_code, 404)
+
+    def test_raises_and_captures_inside_development(self):
+        import sentry_sdk
+
+        with mock.patch.dict(os.environ,
+                              {"SENTRY_DSN": "https://key@o0.ingest.invalid/1"}):
+            self.assertTrue(observability.init_backend_sentry())
+        transport = _FakeTransport()
+        sentry_sdk.get_client().transport = transport
+        try:
+            with mock.patch.dict(os.environ, {"ENVIRONMENT": "development"}):
+                resp = self.client.post("/_observability/raise-test-error")
+            self.assertEqual(resp.status_code, 500)
+            self.assertEqual(resp.json()["detail"]["code"], "INTERNAL_ERROR")
+            self.assertEqual(len(transport.events), 1)
+            record = self.capture.events("http_request")[-1]
+            self.assertEqual(record["error_type"], "ObservabilityVerificationError")
+        finally:
+            sentry_sdk.init(dsn="")
+            observability._SENTRY_ENABLED = False
+
+
 class SyncCorrelationTest(ObservabilityTestCase):
     def test_sync_completion_links_request_id_to_sync_run_ids(self):
         fixtures = os.path.join(os.path.dirname(__file__), "fixtures", "synthetic")

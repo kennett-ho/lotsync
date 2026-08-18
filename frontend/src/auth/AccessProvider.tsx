@@ -26,11 +26,15 @@
 
 import { createContext, useCallback, useContext, useEffect, useState } from 'react'
 import { ApiError, apiGet, AUTH_EXPIRED_EVENT } from '../api/client'
+import { identifyAnalyticsUser } from '../observability/analytics'
 import { signOut } from './AuthGate'
 
 export interface Me {
   authenticated: boolean
   auth_mode: string
+  // Sprint 11: the stable internal Supabase user UUID -- the analytics
+  // identity (non-PII; email/display name are never sent to telemetry).
+  auth_user_id?: string
   email?: string | null
   display_name?: string | null
   role?: string
@@ -97,7 +101,19 @@ export default function AccessProvider({ children }: { children: React.ReactNode
   const load = useCallback(() => {
     setState({ status: 'loading' })
     apiGet<Me>('/me')
-      .then(me => setState({ status: 'ready', me }))
+      .then(me => {
+        // Sprint 11: identify analytics AFTER the server confirms the
+        // membership -- internal UUID + safe ids only, no-op when
+        // PostHog is unconfigured. signOut() resets it.
+        if (me.authenticated && me.auth_user_id) {
+          identifyAnalyticsUser(me.auth_user_id, {
+            role: me.role,
+            dealership_id: me.dealership?.id,
+            organization_id: me.organization?.id,
+          })
+        }
+        setState({ status: 'ready', me })
+      })
       .catch((error: unknown) => {
         if (error instanceof ApiError && error.status === 403) {
           setState({ status: 'denied' })

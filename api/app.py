@@ -17,22 +17,99 @@ PHASE_3_SPRINT_2_REVIEW.md / PHASE_3_SPRINT_4_REVIEW.md for scope and
 reasoning.
 """
 
+import logging
 import os
 import sqlite3
+import time
+import uuid
 from typing import Optional
 
-from fastapi import Depends, FastAPI
+from fastapi import Depends, FastAPI, Request
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.responses import JSONResponse
 
+from lotsync.api import observability
 from lotsync.api.auth import AccessContext, auth_mode, get_access_context
 from lotsync.api.dependencies import get_db
-from lotsync.api.routers import activity, dashboard, inventory_sync, recommendations, reports, tasks, users, vehicles
+from lotsync.api.routers import (
+    activity, dashboard, inventory_sync, recommendations,
+    reports, tasks, users, vehicles,
+)
 
 app = FastAPI(
     title="LotSync API",
     description="See API_CONTRACTS.md for the DTOs this serves.",
     version="0.2.0",
 )
+
+# Sprint 11 (Rails F+G): structured logging is always on (JSON records
+# on the "dealerdoh" logger -- see api/observability.py); Sentry
+# initializes only when SENTRY_DSN is present and is a silent no-op
+# otherwise. Neither can fail app startup.
+observability.configure_logging()
+observability.init_backend_sentry()
+
+
+# Sprint 11: request correlation + the one place unexpected failures
+# become responses. Registered BEFORE the CORS middleware below so
+# CORS wraps it (later add_middleware = outer layer) and even this
+# handler's 500s carry CORS headers a browser may read.
+#
+# Every request gets a SERVER-generated id (client input is never the
+# authority), a structured "http_request" record with the ROUTE
+# TEMPLATE (never the raw path -- /vehicles/{vin} carries a real VIN
+# raw), and the X-Request-ID response header. An exception escaping
+# the routers is captured to Sentry (when enabled), logged with type
+# name only (exception MESSAGES can carry report data), and answered
+# with a generic 500 that includes the request id as a support
+# reference -- no traceback, no internals. Expected HTTPExceptions
+# (401/403/404/409/422) are turned into responses by FastAPI before
+# reaching this except path, so they are never Sentry material.
+@app.middleware("http")
+async def observability_middleware(request: Request, call_next):
+    rid = uuid.uuid4().hex
+    rid_token = observability.request_id_var.set(rid)
+    started = time.perf_counter()
+    try:
+        response = await call_next(request)
+        route = request.scope.get("route")
+        observability.log_event(
+            logging.ERROR if response.status_code >= 500 else logging.INFO,
+            "http_request",
+            route=route.path if route is not None else "(unmatched)",
+            method=request.method,
+            status_code=response.status_code,
+            duration_ms=round((time.perf_counter() - started) * 1000, 1),
+            **observability.auth_log_context(request),
+        )
+        response.headers[observability.REQUEST_ID_HEADER] = rid
+        return response
+    except Exception as exc:
+        route = request.scope.get("route")
+        event_id = observability.capture_unexpected(exc)
+        fields = {
+            "route": route.path if route is not None else "(unmatched)",
+            "method": request.method,
+            "status_code": 500,
+            "duration_ms": round((time.perf_counter() - started) * 1000, 1),
+            "error_type": type(exc).__name__,
+            **observability.auth_log_context(request),
+        }
+        if event_id:
+            fields["sentry_event_id"] = event_id
+        observability.log_event(logging.ERROR, "http_request", **fields)
+        return JSONResponse(
+            status_code=500,
+            content={"detail": {
+                "code": "INTERNAL_ERROR",
+                "message": "DealerDOH hit an unexpected internal error. "
+                           "Share the reference below if this keeps happening.",
+                "request_id": rid,
+            }},
+            headers={observability.REQUEST_ID_HEADER: rid},
+        )
+    finally:
+        observability.request_id_var.reset(rid_token)
 
 
 # Deployment health check (Render's health check path, and a quick
@@ -59,6 +136,11 @@ def health(conn: sqlite3.Connection = Depends(get_db)) -> dict:
         "status": "ok",
         "environment": os.environ.get("ENVIRONMENT", "unspecified"),
         "database_engine": get_engine(),
+        # Sprint 11: the deployed code's identity (git SHA via
+        # DEALERDOH_RELEASE/RENDER_GIT_COMMIT -- see
+        # api/observability.py). Non-secret by definition; no host,
+        # DSN, or provider configuration is ever exposed here.
+        "release": observability.observability_release(),
     }
 
 # Phase 3, Sprint 3 -- the frontend (Vite dev server, a different origin)
@@ -79,6 +161,12 @@ app.add_middleware(
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
+    # Sprint 11: without this the BROWSER cannot read the request id
+    # from cross-origin responses (found live in the deployed DEV
+    # verification -- the header was set but invisible to fetch), and
+    # ApiError.requestId would silently stay empty. Response headers
+    # other than the CORS-safelisted ones must be exposed explicitly.
+    expose_headers=[observability.REQUEST_ID_HEADER],
 )
 
 # Sprint 05: who the verified caller is, per the access model -- the
@@ -93,6 +181,10 @@ def me(context: Optional[AccessContext] = Depends(get_access_context)) -> dict:
     return {
         "authenticated": True,
         "auth_mode": "required",
+        # Sprint 11: the stable internal Supabase user UUID -- the
+        # frontend's analytics identity (deliberately the internal id,
+        # never email/display name; see OBSERVABILITY.md).
+        "auth_user_id": context.auth_user_id,
         "email": context.email,
         # Sprint 09: the display name travels in the verified token's
         # user_metadata (Supabase Auth owns profile identity -- see

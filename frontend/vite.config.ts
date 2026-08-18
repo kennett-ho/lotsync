@@ -12,6 +12,17 @@ export default defineConfig(({ mode }) => {
 
   return {
     base: process.env.FIGMA_PUBLIC_URL ? `${process.env.FIGMA_PUBLIC_URL}/` : '/',
+    // Sprint 11 (observability): the immutable release identity, baked
+    // at build time -- Vercel supplies VERCEL_GIT_COMMIT_SHA, CI
+    // supplies GITHUB_SHA, anything else is a local build. Consumed by
+    // src/observability/config.ts; never a secret.
+    define: {
+      __DEALERDOH_RELEASE__: JSON.stringify(
+        process.env.VERCEL_GIT_COMMIT_SHA
+        ?? process.env.GITHUB_SHA
+        ?? 'local-build',
+      ),
+    },
     build: {
       sourcemap: emitSourcemaps ? 'inline' : false,
       minify: !emitSourcemaps,

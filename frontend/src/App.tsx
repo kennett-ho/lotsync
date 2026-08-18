@@ -1,4 +1,5 @@
-import { useState, useCallback } from 'react'
+import { useState, useCallback, useEffect } from 'react'
+import { track } from './observability/analytics'
 import VehicleDetailPage from './VehicleDetail'
 import Dashboard from './dashboards/Dashboard'
 import VehiclesList from './dashboards/VehiclesList'
@@ -296,6 +297,16 @@ export default function App() {
   const [activeNav, setActiveNav] = useState('dashboard')
   const [selectedVehicle, setSelectedVehicle] = useState<string | null>(null)
   const [mobileNavOpen, setMobileNavOpen] = useState(false)
+
+  // Sprint 11 (analytics): explicit page_viewed with CONTROLLED page
+  // identifiers -- navigation here is state-based, so this effect is
+  // the app's single "page changed" seam. Never a raw URL, never the
+  // selected VIN; vehicle detail reports the page id only, with a
+  // separate deliberate vehicle_detail_opened event.
+  useEffect(() => {
+    track('page_viewed', { page: selectedVehicle ? 'vehicle-detail' : activeNav })
+    if (selectedVehicle) track('vehicle_detail_opened', { source: activeNav })
+  }, [activeNav, selectedVehicle])
 
   const handleVehicleSelect = useCallback((stock: string) => {
     setSelectedVehicle(stock)

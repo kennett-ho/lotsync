@@ -160,6 +160,21 @@ plus small reality corrections (stale smoke-test workflow note;
 `dealerdoh.com` now owned). Planning only — no rail implementation,
 production untouched.
 
+**Sprint 11 (2026-08-17, in progress):** Rails F+G — Observability &
+Structured Logging on `feature/sprint-11-observability`. Three-layer
+model (structured JSON logs / Sentry / PostHog — `OBSERVABILITY.md`
+canonical), `X-Request-ID` correlation through logs→SyncRun→Sentry,
+env/release identity, central redaction, React Error Boundary,
+explicit-events-only analytics with internal-id identity. All layers
+no-op unconfigured; 588/588 SQLite · 588/588 PostgreSQL on the final
+head. Deployed-DEV verification PASSED: live Sentry
+events both runtimes, PostHog events with autocapture/replay
+provably off, tri-correlated request ids, 15/15 privacy review. The
+DEV-only verification trigger route was removed pre-merge (owner
+direction) after its evidence was recorded — the permanent app ships
+no raising endpoint; capture verification is offline (fake transport).
+Rails F+G: Implementation Complete — Awaiting Merge. Rail D untouched.
+
 **Sprint 10 (2026-08-16, merged 2026-08-17):** Rail D — Inventory
 Ingestion Safety — is **MERGED** (PR #14 → `b389072`, owner-approved,
 CI green on the merged head; deployed-DEV smoke passed pre-merge on

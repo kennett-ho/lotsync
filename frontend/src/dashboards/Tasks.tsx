@@ -49,6 +49,7 @@ import { useApi } from '../api/useApi'
 import { isBackendUnavailable } from '../api/client'
 import type { TaskDTO } from '../api/types'
 import { commitmentStandingLabel, taskStatusDisplay, type StatusTone } from '../taskStatus'
+import { track } from '../observability/analytics'
 
 // Placeholder for "the current user" until Phase 3 authentication
 // exists -- matches the rest of this prototype's hardcoded identity.
@@ -525,6 +526,9 @@ export default function Tasks({ onVehicleSelect }: { onVehicleSelect: (s: string
       const { blob, filename } = await getWorkOrderPdf()
       downloadBlob(blob, filename)
       setWorkOrderStatus('idle')
+      // Sprint 11 (analytics): observed server outcome -- the PDF
+      // actually arrived. No filename/contents attached.
+      track('work_order_generated')
     } catch {
       setWorkOrderStatus('error')
     }

@@ -10,6 +10,7 @@
 
 import { useState } from 'react'
 import { supabase } from './supabase'
+import { track } from '../observability/analytics'
 
 // Sprint 09: the recovery request is deliberately enumeration-safe --
 // the SAME generic confirmation renders whether or not an account
@@ -68,6 +69,9 @@ export default function Login() {
       )
       return
     }
+    // Sprint 11 (analytics): the fact a recovery was requested --
+    // deliberately WITHOUT the entered email (taxonomy rule).
+    track('password_recovery_requested')
     setMode('forgot-sent')
   }
 

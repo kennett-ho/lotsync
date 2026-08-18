@@ -35,12 +35,22 @@ export const API_BASE_URL: string =
 
 export class ApiError extends Error {
   readonly status: number
+  // Sprint 11: the server-generated X-Request-ID from the failed
+  // response ('' when unreachable). Lets the UI show a safe support
+  // reference that matches the backend's structured log record --
+  // never a traceback or internal detail.
+  readonly requestId: string
 
-  constructor(message: string, status: number) {
+  constructor(message: string, status: number, requestId = '') {
     super(message)
     this.name = 'ApiError'
     this.status = status
+    this.requestId = requestId
   }
+}
+
+function requestIdOf(response: Response): string {
+  return response.headers.get('X-Request-ID') ?? ''
 }
 
 /**
@@ -59,8 +69,8 @@ export class ValidationRejectedError extends ApiError {
   // it to IngestionValidationDTO at its own boundary.
   readonly validation: unknown
 
-  constructor(code: string, validation: unknown, status: number) {
-    super(`Report validation rejected (${code})`, status)
+  constructor(code: string, validation: unknown, status: number, requestId = '') {
+    super(`Report validation rejected (${code})`, status, requestId)
     this.name = 'ValidationRejectedError'
     this.code = code
     this.validation = validation
@@ -114,11 +124,11 @@ export async function apiGet<T>(
   }
 
   if (response.status === 404) {
-    throw new ApiError('Not found', 404)
+    throw new ApiError('Not found', 404, requestIdOf(response))
   }
   if (!response.ok) {
     signalStatus(response.status)
-    throw new ApiError(`LotSync API returned ${response.status} for ${path}`, response.status)
+    throw new ApiError(`LotSync API returned ${response.status} for ${path}`, response.status, requestIdOf(response))
   }
 
   return (await response.json()) as T
@@ -158,7 +168,7 @@ export async function apiPostJson<T>(path: string, body: unknown): Promise<T> {
     const message = typeof detail === 'string'
       ? detail
       : `LotSync API returned ${response.status} for ${path}`
-    throw new ApiError(message, response.status)
+    throw new ApiError(message, response.status, requestIdOf(response))
   }
 
   return (await response.json()) as T
@@ -186,7 +196,7 @@ export async function apiGetBlob(path: string): Promise<{ blob: Blob; filename: 
 
   if (!response.ok) {
     signalStatus(response.status)
-    throw new ApiError(`LotSync API returned ${response.status} for ${path}`, response.status)
+    throw new ApiError(`LotSync API returned ${response.status} for ${path}`, response.status, requestIdOf(response))
   }
 
   const disposition = response.headers.get('Content-Disposition') ?? ''
@@ -235,7 +245,7 @@ export async function apiPostForm<T>(path: string, formData: FormData): Promise<
     if (detail && typeof detail === 'object' && !Array.isArray(detail)
         && 'code' in detail && 'validation' in detail) {
       const d = detail as { code: string; validation: unknown }
-      throw new ValidationRejectedError(d.code, d.validation, response.status)
+      throw new ValidationRejectedError(d.code, d.validation, response.status, requestIdOf(response))
     }
     const message = Array.isArray(detail)
       ? detail.join('; ')
@@ -245,7 +255,7 @@ export async function apiPostForm<T>(path: string, formData: FormData): Promise<
           && typeof (detail as { message: unknown }).message === 'string'
           ? (detail as { message: string }).message
           : `LotSync API returned ${response.status} for ${path}`
-    throw new ApiError(message, response.status)
+    throw new ApiError(message, response.status, requestIdOf(response))
   }
 
   return (await response.json()) as T

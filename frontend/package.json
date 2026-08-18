@@ -13,7 +13,9 @@
     "format": "oxfmt"
   },
   "dependencies": {
+    "@sentry/react": "^10.70.0",
     "@supabase/supabase-js": "^2.112.3",
+    "posthog-js": "^1.417.4",
     "react": "^19.0.0",
     "react-dom": "^19.0.0"
   },

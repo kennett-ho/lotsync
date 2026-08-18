@@ -50,3 +50,10 @@ pypdf
 # Inert under the default AUTH_MODE=disabled (the production path).
 PyJWT
 cryptography
+
+# Sprint 11 (DealerDOH, Rails F+G) -- backend error monitoring.
+# Initialized ONLY when SENTRY_DSN is set (api/observability.py);
+# without it every capture is a silent no-op, so local/CI runs never
+# contact Sentry. The [fastapi] extra brings the Starlette/FastAPI
+# integration used for request context.
+sentry-sdk[fastapi]

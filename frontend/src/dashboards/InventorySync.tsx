@@ -49,9 +49,10 @@
 
 import { useMemo, useState } from 'react'
 import { getDashboard } from '../api/dashboard'
+import { track } from '../observability/analytics'
 import { getExceptions, getSyncHistory, runInventorySync, validateInventoryReports } from '../api/inventorySync'
 import { useApi } from '../api/useApi'
-import { isBackendUnavailable, ValidationRejectedError } from '../api/client'
+import { ApiError, isBackendUnavailable, ValidationRejectedError } from '../api/client'
 import type { InventorySyncFiles } from '../api/inventorySync'
 import type {
   IngestionIssueDTO, IngestionValidationDTO, PendingIdentityDTO,
@@ -293,6 +294,24 @@ type ValidationState =
   | { status: 'done'; result: IngestionValidationDTO; note?: string }
   | { status: 'error'; message: string }
 
+// Sprint 11 (analytics): validation outcome events fire on the
+// OBSERVED SERVER RESPONSE -- the DTO in hand IS the server's verdict
+// (client-vs-server authority rule, OBSERVABILITY.md). Safe properties
+// only: slots, issue codes, aggregate counts. Never filenames, VINs,
+// or report contents.
+function trackValidationOutcome(result: IngestionValidationDTO) {
+  const event =
+    result.status === 'rejected' ? 'inventory_validation_blocked'
+    : result.status === 'needs_review' ? 'inventory_validation_warning'
+    : 'inventory_validation_completed'
+  track(event, {
+    slots: result.reports.map(r => r.slot),
+    codes: [...new Set(result.reports.flatMap(r => r.issues.map(i => i.code)))],
+    total_rows: result.reports.reduce((n, r) => n + r.stats.total_rows, 0),
+    valid_rows: result.reports.reduce((n, r) => n + r.stats.valid_rows, 0),
+  })
+}
+
 export default function InventorySync(): JSX.Element {
   const [search, setSearch] = useState('')
   const [files, setFiles] = useState<InventorySyncFiles>({})
@@ -348,6 +367,7 @@ export default function InventorySync(): JSX.Element {
     try {
       const result = await validateInventoryReports(files)
       setValidation({ status: 'done', result })
+      trackValidationOutcome(result)
     } catch (err) {
       setValidation({
         status: 'error',
@@ -359,10 +379,22 @@ export default function InventorySync(): JSX.Element {
   const handleRunSync = async () => {
     if (!canRun || runState.status === 'running' || validation.status !== 'done') return
     setRunState({ status: 'running' })
+    // USER INTENT event (the click); completion below is the observed
+    // server outcome -- deliberately separate authorities.
+    track('inventory_sync_started', {
+      slots: Object.entries(files).filter(([, f]) => f).map(([slot]) => slot),
+      warnings_acknowledged: ack,
+    })
     try {
       const result = await runInventorySync(files, {
         acknowledgeWarnings: ack,
         validationFingerprint: validation.result.fingerprint,
+      })
+      track('inventory_sync_completed', {
+        sources: result.sync_runs.map(r => r.source),
+        vehicles_processed: result.vehicles_processed,
+        tasks_generated: result.tasks_generated,
+        recommendations_generated: result.recommendations_generated,
       })
       setRunState({ status: 'success', summary: result })
       setFiles({})
@@ -370,6 +402,9 @@ export default function InventorySync(): JSX.Element {
       setAck(false)
       setRefreshKey(k => k + 1)
     } catch (err) {
+      if (err instanceof ApiError && err.status >= 500) {
+        track('inventory_sync_failed', { status: err.status })
+      }
       if (err instanceof ValidationRejectedError) {
         // The server revalidated (it always does) and said no -- show
         // ITS fresh view of the reports, not our stale one.

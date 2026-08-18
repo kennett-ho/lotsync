@@ -46,6 +46,7 @@ against the retired legacy secret, or "none" -- fails closed.
 """
 
 import json
+import logging
 import os
 from dataclasses import dataclass
 from typing import Optional
@@ -53,6 +54,7 @@ from typing import Optional
 import jwt
 from fastapi import Depends, HTTPException, Request
 
+from lotsync.api import observability
 from lotsync.api.dependencies import get_db
 from lotsync.database.repository import get_active_membership
 
@@ -141,7 +143,22 @@ def _signing_key_for(token: str):
         _jwks_clients[jwks_url] = client
     try:
         return client.get_signing_key_from_jwt(token).key
+    except jwt.exceptions.PyJWKClientConnectionError as exc:
+        # Sprint 11 (phase 21): the Auth PROVIDER being unreachable is
+        # an infrastructure failure, not a credential failure -- the
+        # caller still gets the same non-leaking 401 (behavior
+        # unchanged), but telemetry must distinguish the two. Never
+        # logs the token; type name only.
+        observability.log_event(
+            logging.ERROR, "auth_infrastructure_failure",
+            reason="jwks_unreachable", error_type=type(exc).__name__,
+        )
+        raise _unauthorized()
     except jwt.PyJWTError:
+        # Ordinary credential/kid failures: expected, quiet -- the
+        # request record's 401 is the trace (phase 21: normal
+        # credential failure creates neither log spam nor Sentry
+        # incidents).
         raise _unauthorized()
 
 
@@ -217,6 +234,14 @@ def get_access_context(request: Request, conn=Depends(get_db)) -> Optional[Acces
         # Authenticated but not authorized for THIS dealership's data
         # -- covers "no membership anywhere," "membership only in a
         # different store," and "membership deactivated" identically.
+        # Sprint 11: WARNING (an expected denial, operationally worth
+        # seeing -- offboarded users still holding valid tokens land
+        # here), never a Sentry event. auth_user_id is a stable
+        # internal id, safe by the observability vocabulary.
+        observability.log_event(
+            logging.WARNING, "auth_denied",
+            reason="no_active_membership", auth_user_id=auth_user_id,
+        )
         raise HTTPException(
             status_code=403,
             detail="No active membership for this dealership",
@@ -225,6 +250,18 @@ def get_access_context(request: Request, conn=Depends(get_db)) -> Optional[Acces
         # Unreachable while the schema CHECK holds; fail closed anyway
         # rather than authorize an unknown role.
         raise HTTPException(status_code=403, detail="Membership role not recognized")
+
+    # Sprint 11: publish the safe id-only context (on request.state --
+    # see observability.py for why not a contextvar) so the finished
+    # http_request record carries who/where. Stable internal ids only
+    # -- email and display name are deliberately NOT part of the
+    # logging context.
+    observability.set_auth_log_context(
+        request,
+        auth_user_id=auth_user_id, role=membership["role"],
+        organization_id=membership["organization_id"],
+        dealership_id=membership["dealership_id"],
+    )
 
     metadata = claims.get("user_metadata") or {}
     display_name = metadata.get("display_name")
@@ -249,6 +286,15 @@ def require_roles(*roles: str):
     """
     def _dependency(context: Optional[AccessContext] = Depends(get_access_context)) -> None:
         if context is not None and context.role not in roles:
+            # Sprint 11: expected authorization denial -- WARNING with
+            # explicit safe ids (this sync dependency runs in its own
+            # threadpool context, so nothing implicit carries here),
+            # never a Sentry event.
+            observability.log_event(
+                logging.WARNING, "auth_denied", reason="role_not_permitted",
+                auth_user_id=context.auth_user_id, role=context.role,
+                dealership_id=context.dealership_id,
+            )
             raise HTTPException(
                 status_code=403,
                 detail="Your role does not permit this action",

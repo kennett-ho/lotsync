@@ -17,6 +17,7 @@
 import { useCallback, useEffect, useState } from 'react'
 import { ApiError, apiGet, apiPostJson } from '../api/client'
 import { ROLE_LABELS, useMe } from '../auth/AccessProvider'
+import { track } from '../observability/analytics'
 
 interface RosterEntry {
   auth_user_id: string
@@ -56,6 +57,10 @@ export default function UserManagement() {
   }, [])
 
   useEffect(() => { load() }, [load])
+
+  // Sprint 11 (analytics): a Manager/Admin opened the roster -- once
+  // per mount, no user data attached.
+  useEffect(() => { track('user_management_opened') }, [])
 
   async function handleInvite(e: React.FormEvent) {
     e.preventDefault()

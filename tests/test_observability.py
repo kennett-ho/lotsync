@@ -420,17 +420,14 @@ class AuthObservabilityTest(unittest.TestCase):
             logging.getLogger("dealerdoh").removeHandler(capture)
 
 
-class DevVerificationTriggerTest(ObservabilityTestCase):
-    """The double-gated Sentry verification route
-    (api/routers/observability_dev.py): nonexistent outside
-    ENVIRONMENT=development; a genuine captured 500 inside it."""
+class RemovedVerificationSurfaceTest(ObservabilityTestCase):
+    """Sprint 11's live-verification trigger route was removed before
+    merge (owner direction): the permanent application ships NO
+    deliberately raising endpoint in ANY environment. Sentry capture
+    verification is offline-only -- SentryBackendTest's fake transport
+    plus the test-local exploding route this harness adds per test."""
 
-    def test_404_outside_development(self):
-        with mock.patch.dict(os.environ, {"ENVIRONMENT": ""}):
-            resp = self.client.post("/_observability/raise-test-error")
-        self.assertEqual(resp.status_code, 404)
-
-    def test_raises_and_captures_inside_development(self):
+    def test_trigger_route_does_not_exist_even_in_development(self):
         import sentry_sdk
 
         with mock.patch.dict(os.environ,
@@ -441,11 +438,8 @@ class DevVerificationTriggerTest(ObservabilityTestCase):
         try:
             with mock.patch.dict(os.environ, {"ENVIRONMENT": "development"}):
                 resp = self.client.post("/_observability/raise-test-error")
-            self.assertEqual(resp.status_code, 500)
-            self.assertEqual(resp.json()["detail"]["code"], "INTERNAL_ERROR")
-            self.assertEqual(len(transport.events), 1)
-            record = self.capture.events("http_request")[-1]
-            self.assertEqual(record["error_type"], "ObservabilityVerificationError")
+            self.assertEqual(resp.status_code, 404)
+            self.assertEqual(transport.events, [])
         finally:
             sentry_sdk.init(dsn="")
             observability._SENTRY_ENABLED = False

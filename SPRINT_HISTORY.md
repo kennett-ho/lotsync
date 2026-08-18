@@ -1715,12 +1715,13 @@ limitation in `OBSERVABILITY.md` §10). Production activation of any
 provider (future release train). Backend PostHog (frontend explicit
 events only).
 
-**Tests:** 37 new (26 backend observability incl. fake-transport
+**Tests:** 39 new (28 backend observability incl. fake-transport
 Sentry matrix + 11 frontend posture assertions following the
-`test_frontend_config.py` precedent). Suites on the branch:
-**586/586 SQLite · 586/586 PostgreSQL** (10/1 pre-existing skips).
-Frontend production build green; bundle 538→848 kB raw (142→243 kB
-gzip) from the two SDKs — recorded as a Rail J finding. Measured
+`test_frontend_config.py` precedent). Suites on the final head:
+**588/588 SQLite · 588/588 PostgreSQL** (10/1 pre-existing skips).
+Frontend production build green; bundle 538→869 kB raw (142→251 kB
+gzip) from the two SDKs (final-head measurement; an earlier
+mid-sprint build had read 849/243) — recorded as a Rail J finding. Measured
 overhead: `log_event` ≈ 0.07 ms; full local request round-trip
 ≈ 7 ms through TestClient (middleware share sub-ms); Sprint 10's
 4,700-row validation benchmark unchanged (≈ 0.04 s).
@@ -1801,6 +1802,19 @@ Sentry session replay NO. **15/15 PASS.**
 **Remaining toward Rails F/G Verified:** merge on approval · CI green
 on merged `dev` · post-merge DEV redeploy from `dev`. Rail D remains
 untouched (Merged — NOT Verified; Awaiting Vendor Evidence).
+
+**Pre-merge hardening (owner direction, 2026-08-18):** the DEV-only
+verification trigger route (`POST /_observability/raise-test-error`,
+`api/routers/observability_dev.py`) was **removed** before merge. It
+had served its single purpose — the live backend-capture evidence
+above, which stands as historical verification — and the permanent
+application ships no deliberately raising endpoint, even
+double-gated. A test now pins the path answering 404 with zero
+Sentry events under `ENVIRONMENT=development`; automated capture
+verification remains offline-only (fake transport + a per-test
+route in `tests/test_observability.py`). Any future live delivery
+proof repeats the pattern: a short-lived branch-local trigger during
+a review window, removed before merge.
 
 ---
 

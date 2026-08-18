@@ -130,12 +130,16 @@ DataFrame in a stack frame IS the uploaded report),
 bodies and querystrings, scrubs breadcrumbs/extra/contexts, stamps
 `service` + `request_id` tags). The ONLY capture sites are the
 middleware's unhandled-exception path and the sync-execution failure
-handler. There is no public crash endpoint: the sanctioned
-verification trigger (`POST /_observability/raise-test-error`,
-`api/routers/observability_dev.py`) answers **404 outside
-`ENVIRONMENT=development`** and requires admin/manager inside it —
-on the production posture the surface does not exist. Tests pin both
-gates; unit tests otherwise use a temporary in-process route.
+handler. There is no crash or verification endpoint of ANY kind — the
+application ships no deliberately raising route, in any environment.
+Capture-path verification is automated offline: the suite drives a
+genuine unhandled exception through the middleware via a test-local
+route (added and torn down per test) against an in-process fake
+transport (`tests/test_observability.py`). The DEV-only trigger route
+that produced Sprint 11's live deployed evidence was removed before
+merge (owner direction) once that evidence was recorded; a test pins
+its path answering 404 even under `ENVIRONMENT=development`, and the
+evidence stands in `SPRINT_HISTORY.md` as historical verification.
 
 `/health` additionally reports `release` (non-secret by definition;
 no hostnames, DSNs, or provider config are ever exposed there).
@@ -288,10 +292,14 @@ production observability activation.
 - *Sentry silent?* `SENTRY_DSN` unset (intended default) or invalid —
   init fails closed as disabled. Check `/health`'s `release` to
   confirm which code is deployed.
-- *Verify backend Sentry delivery (DEV only):* as a Manager/Admin,
-  `POST /_observability/raise-test-error` — expect a 500 whose
-  `request_id` appears on a new Sentry event within a minute. The
-  route 404s anywhere but the development environment.
+- *Verify backend Sentry capture:* run
+  `tests/test_observability.py` — it drives a real unhandled
+  exception through the middleware against a fake transport, no
+  vendor contact. There is no in-app trigger route (removed
+  pre-merge in Sprint 11). For a live end-to-end delivery proof,
+  add a short-lived raising route on a review branch and remove it
+  before merge — the Sprint 11 pattern; its recorded evidence is in
+  `SPRINT_HISTORY.md`.
 - *PostHog silent?* `VITE_POSTHOG_KEY` absent from the BUILD (Vercel
   env vars bake at build time — redeploy after adding).
 - *A log field shows `[REDACTED]`:* the redactor matched a sensitive

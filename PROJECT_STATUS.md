@@ -166,10 +166,13 @@ model (structured JSON logs / Sentry / PostHog — `OBSERVABILITY.md`
 canonical), `X-Request-ID` correlation through logs→SyncRun→Sentry,
 env/release identity, central redaction, React Error Boundary,
 explicit-events-only analytics with internal-id identity. All layers
-no-op unconfigured; 589/589 SQLite (586/586 PostgreSQL pre-hardening
-head) on the branch. Deployed-DEV verification PASSED: live Sentry
+no-op unconfigured; 588/588 SQLite · 588/588 PostgreSQL on the final
+head. Deployed-DEV verification PASSED: live Sentry
 events both runtimes, PostHog events with autocapture/replay
-provably off, tri-correlated request ids, 15/15 privacy review.
+provably off, tri-correlated request ids, 15/15 privacy review. The
+DEV-only verification trigger route was removed pre-merge (owner
+direction) after its evidence was recorded — the permanent app ships
+no raising endpoint; capture verification is offline (fake transport).
 Rails F+G: Implementation Complete — Awaiting Merge. Rail D untouched.
 
 **Sprint 10 (2026-08-16, merged 2026-08-17):** Rail D — Inventory

@@ -157,9 +157,12 @@ function Sidebar({ items, activeNav, onNav, mobileOpen, onCloseMobile }: {
             in unauthenticated builds (production). */}
         {IS_AUTH_ENABLED && <IdentityFooter />}
 
-        {/* Sprint 12 (Rail B): Help & Getting Started -- always present,
-            every role. Sits with Profile below the divider: reference
-            surfaces, not operational navigation. */}
+        {/* Sprint 12 (Rail B): Help & Getting Started -- every
+            AUTHENTICATED role, beneath the operational nav. Gated like
+            IdentityFooter: the unauthenticated production posture keeps
+            its pre-Sprint-12 shell byte-for-byte (the invariant), and
+            Help's copy assumes accounts/roles exist. */}
+        {IS_AUTH_ENABLED && (
         <div className="px-3 pt-2 border-t border-white/10">
           <button onClick={() => handleNav('help')}
             className="w-full flex items-center gap-2.5 px-2.5 py-2 rounded-md transition-all text-left"
@@ -174,10 +177,11 @@ function Sidebar({ items, activeNav, onNav, mobileOpen, onCloseMobile }: {
             </div>
           </button>
         </div>
+        )}
 
         {/* Profile & Settings entry point -- no user identity displayed here,
             just a generic icon/label; see Profile.tsx for the page itself. */}
-        <div className="px-3 pb-4 pt-1">
+        <div className={`px-3 pb-4 ${IS_AUTH_ENABLED ? 'pt-1' : 'pt-2 border-t border-white/10'}`}>
           <button onClick={() => handleNav('profile')}
             className="w-full flex items-center gap-2.5 px-2.5 py-2 rounded-md transition-all text-left"
             style={{ backgroundColor: activeNav === 'profile' ? '#1D4ED8' : 'transparent' }}

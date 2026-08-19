@@ -304,8 +304,10 @@ what it is, what it shows, who decides.
 
 ## 6. Help model (implemented)
 
-`help/Help.tsx`, reachable from the sidebar for every role, beneath
-the operational nav. Sections: What is DealerDOH · Understanding
+`help/Help.tsx`, reachable from the sidebar for every
+**authenticated** role, beneath the operational nav (gated like
+IdentityFooter — the unauthenticated production shell is unchanged,
+and Help's copy assumes accounts exist). Sections: What is DealerDOH · Understanding
 Tasks · Understanding Recommendations · Vehicles & the evidence
 timeline · Inventory Sync (**rendered only for sync-authorized
 roles**) · Account & access (admin flavor for user admins, standard

@@ -143,6 +143,15 @@ class RoleSourceTest(unittest.TestCase):
         gate = strip_comments(read(os.path.join("auth", "AuthGate.tsx")))
         self.assertIn("if (!isAuthEnabled) return <>{children}</>", gate)
 
+    def test_help_is_absent_from_the_unauthenticated_production_shell(self):
+        # The Help entry (like IdentityFooter) renders only in
+        # auth-enabled builds -- production's pre-Sprint-12 sidebar is
+        # unchanged, and onboarding (replayable only from Help) has no
+        # entry point there either.
+        app = strip_comments(read("App.tsx"))
+        help_block = app[app.index("handleNav('help')") - 200:app.index("handleNav('help')")]
+        self.assertIn("IS_AUTH_ENABLED && (", help_block)
+
 
 class AuditHonestyRegressionTest(unittest.TestCase):
     """The Phase 1 audit's dead/fake controls stay dead."""

@@ -95,8 +95,13 @@ export default function Onboarding({ role, onFinish, onSkip }: {
 }) {
   const steps = stepsForRole(role)
   const [index, setIndex] = useState(0)
-  const step = steps[index]
-  const last = index === steps.length - 1
+  // Clamp BOTH the read and the advance: rapid double-clicks queue
+  // multiple functional setIndex updates against one render's stale
+  // `last`, which can push index past the final step -- steps[index]
+  // then renders undefined and crashes the boundary (found live in
+  // the Sprint 12 deployed smoke; Sentry ref 9f338b8d).
+  const step = steps[Math.max(0, Math.min(index, steps.length - 1))]
+  const last = index >= steps.length - 1
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center px-4"
@@ -130,13 +135,13 @@ export default function Onboarding({ role, onFinish, onSkip }: {
               Skip for now
             </button>
             {index > 0 && (
-              <button onClick={() => setIndex(i => i - 1)}
+              <button onClick={() => setIndex(i => Math.max(i - 1, 0))}
                 className="text-[12px] font-semibold text-slate-600 bg-white border border-slate-200 hover:border-slate-300 px-4 py-2 rounded-lg transition-colors">
                 Back
               </button>
             )}
             <button
-              onClick={() => (last ? onFinish() : setIndex(i => i + 1))}
+              onClick={() => (last ? onFinish() : setIndex(i => Math.min(i + 1, steps.length - 1)))}
               className="text-[12px] font-bold text-white bg-blue-600 hover:bg-blue-700 px-4 py-2 rounded-lg transition-colors">
               {last ? 'Get started' : 'Next'}
             </button>

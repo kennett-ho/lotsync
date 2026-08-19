@@ -289,6 +289,16 @@ class OnboardingTest(unittest.TestCase):
         help_src = read(os.path.join("help", "Help.tsx"))
         self.assertIn("Replay the Getting Started tour", help_src)
 
+    def test_step_index_is_clamped_against_rapid_clicks(self):
+        # Deployed-smoke finding (Sentry ref 9f338b8d): rapid Next
+        # clicks compound functional setIndex updates past the last
+        # step and crash the render. Both the read and both advance
+        # directions stay clamped.
+        code = strip_comments(self.modal)
+        self.assertIn("Math.max(0, Math.min(index, steps.length - 1))", code)
+        self.assertIn("Math.min(i + 1, steps.length - 1)", code)
+        self.assertIn("Math.max(i - 1, 0)", code)
+
 
 class HelpTest(unittest.TestCase):
     def setUp(self):

@@ -160,20 +160,23 @@ plus small reality corrections (stale smoke-test workflow note;
 `dealerdoh.com` now owned). Planning only — no rail implementation,
 production untouched.
 
-**Sprint 11 (2026-08-17, in progress):** Rails F+G — Observability &
-Structured Logging on `feature/sprint-11-observability`. Three-layer
-model (structured JSON logs / Sentry / PostHog — `OBSERVABILITY.md`
-canonical), `X-Request-ID` correlation through logs→SyncRun→Sentry,
-env/release identity, central redaction, React Error Boundary,
-explicit-events-only analytics with internal-id identity. All layers
-no-op unconfigured; 588/588 SQLite · 588/588 PostgreSQL on the final
-head. Deployed-DEV verification PASSED: live Sentry
-events both runtimes, PostHog events with autocapture/replay
-provably off, tri-correlated request ids, 15/15 privacy review. The
-DEV-only verification trigger route was removed pre-merge (owner
-direction) after its evidence was recorded — the permanent app ships
-no raising endpoint; capture verification is offline (fake transport).
-Rails F+G: Implementation Complete — Awaiting Merge. Rail D untouched.
+**Sprint 11 (2026-08-17, merged + Complete 2026-08-18):** Rails F+G —
+Observability & Structured Logging — **MERGED** (PR #16 → `dev` =
+`5ae6c79`, CI green on the merged head; sprint branch deleted).
+Three-layer model (structured JSON logs / Sentry / PostHog —
+`OBSERVABILITY.md` canonical), `X-Request-ID` correlation through
+logs→SyncRun→Sentry, env/release identity, central redaction, React
+Error Boundary, explicit-events-only analytics with internal-id
+identity. All layers no-op unconfigured; 588/588 SQLite · 588/588
+PostgreSQL. The DEV-only verification trigger route was removed
+pre-merge (owner direction) after its evidence was recorded — the
+permanent app ships no raising endpoint; capture verification is
+offline (fake transport). Post-merge verification PASSED on both DEV
+services redeployed from `dev` (serving-revision proof, fresh log
+correlation, Sentry receipt with clean payload, explicit-only
+PostHog events, signup disabled, QA dataset intact — no reseed).
+**Rails F+G: Verified. Sprint 11 Complete.** Rail D untouched. Next:
+Sprint 12 (Role-Aware UX + Onboarding) on explicit owner go.
 
 **Sprint 10 (2026-08-16, merged 2026-08-17):** Rail D — Inventory
 Ingestion Safety — is **MERGED** (PR #14 → `b389072`, owner-approved,

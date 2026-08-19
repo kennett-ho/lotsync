@@ -50,7 +50,7 @@ Do not rewrite history when architecture changes later. Record what was true at 
 | **Current release target** | `v1.1.0-beta.1` |
 | **Open PRs** | tracked per sprint; see Git/PR records in each entry |
 | **Public domain** | `dealerdoh.com` owned; production domain cutover not yet performed |
-| **Immediate focus** | Sprint 10 MERGED (`b389072`); sprint state: **Implementation Paused — Awaiting Vendor Evidence** (Keyper Event contract, §6.2 discovery); Rail D NOT Verified. Closeout in progress: DEV services back to `dev` (owner), reseed + membership re-provision, health verification. Sprint 11 not begun (owner directive). |
+| **Immediate focus** | Sprint 11 **Complete** — PR #16 merged (`5ae6c79`), post-merge verification PASSED, **Rails F + G Verified**; DEV services back on `dev`. Sprint 10 remains **Implementation Paused — Awaiting Vendor Evidence** (Keyper Event contract, §6.2 discovery); Rail D NOT Verified. Next: Sprint 12 (Role-Aware UX + Onboarding) on explicit owner go. |
 
 **Production rule:** `master` is what real dealership users are allowed to depend on. Normal development belongs on task branches and `dev`; production remains frozen until an explicit release train is approved.
 
@@ -1672,8 +1672,8 @@ Repository publication remains a separate owner decision, deliberately decoupled
 
 # Sprint 11 — Observability, Structured Logging & Product Analytics
 
-**Status:** In Progress on `feature/sprint-11-observability` (from `dev` = `61f9def`).
-**Date:** 2026-08-17
+**Status:** **Complete** — PR #16 owner-approved and **MERGED** as `5ae6c79` = `dev` head (merge commit, parents `61f9def` + `f890650`; CI green on the merged head), post-merge verification PASSED on both DEV services redeployed from `dev`, **Rails F and G → Verified** (register updated via the closeout docs PR).
+**Date:** 2026-08-17 → merged + closed 2026-08-18
 **Rails:** F (Sentry + PostHog) + G (Structured Logging & Monitoring) — operative register lettering.
 
 ## Scope delivered on the branch (evidence grows toward the gate)
@@ -1815,6 +1815,53 @@ verification remains offline-only (fake transport + a per-test
 route in `tests/test_observability.py`). Any future live delivery
 proof repeats the pattern: a short-lived branch-local trigger during
 a review window, removed before merge.
+
+## Merge + Post-Merge Verification (2026-08-18, PASSED) — Rails F/G Verified
+
+PR #16 merged as **`5ae6c79`** (merge commit, parents `61f9def` +
+`f890650`; zero review threads; CI green on the merged head — both
+backend engines + frontend build). Owner restored Render
+`dealerdoh-api-dev` and the Vercel `dealerdoh-dev` Production Branch
+to `dev` with a fresh Production deployment. Merged-head evidence,
+all against services verified serving `5ae6c79`:
+
+- **Serving-revision proof:** API `/health` → release = the merge
+  SHA; deployed bundle byte-carries the same SHA plus all seven
+  PostHog posture flags; Sentry Replay provably absent
+  (`replayIntegration`/`getReplay` 0 hits; posthog recorder engine
+  not bundled — only its never-loaded lazy accessor).
+- **Structured logging + correlation:** JSON records streaming with
+  the full schema and merged release; a fresh curl's `X-Request-ID`
+  (`ff9b69a8…`) found verbatim in its deployed record (`/vehicles`
+  template, 401 = INFO — severity policy live); header CORS-exposed.
+- **Sentry receipt without any endpoint:** a dev-tooling
+  `setTimeout` throw on the deployed app captured by the merged
+  bundle's global handler → event in `dealerdoh-dev-frontend`
+  (release = merge SHA, environment development, service
+  dealerdoh-frontend, **User `?` / no identity**, no email/VIN/token,
+  Replay unconfigured). Backend capture path stands on the
+  fake-transport suite (588/588 on this tree) + unchanged Render
+  DSN config + the recorded pre-merge live event.
+- **PostHog:** last-hour stream = explicit taxonomy events only
+  (`app_loaded` anonymous → `Identify` → `page_viewed` ×2 →
+  `vehicle_detail_opened`), identity flipped to exactly the Supabase
+  `auth_user_id`, event properties carry
+  `release = 5ae6c79…`/`environment = development`/`Source:
+  vehicles` (controlled vocabulary), **zero `$autocapture` / zero
+  `$pageview`**, zero `@`-signs across inspected payloads.
+- **Access + data posture:** `signup_disabled` live-probed (422,
+  nothing created, browser-public key from the bundle); standing QA
+  dealership intact as manager (work-queue 7/4/2/3, 28-of-28 active
+  vehicles, QA1013 detail + Sprint 10-era sync history) — **no
+  reseed performed or needed**.
+- **Production untouched:** `master` = `13c4f815` / `v1.0.0-beta.6`;
+  prod API healthy with the pre-sprint body (no `release` field —
+  it runs pre-Sprint-11 code); prod frontend 200.
+
+Sprint branch `feature/sprint-11-observability` deleted after both
+services were confirmed on `dev`. Sprint 10 remains **Implementation
+Paused — Awaiting Vendor Evidence**; Rail D remains **Merged — NOT
+Verified**. Sprint 12 not begun.
 
 ---
 
@@ -3155,7 +3202,8 @@ Never mark planned work as completed before it is actually merged and verified.
 1. ~~Run Sprint 08 to formalize the v1.1.0-beta scope/readiness register.~~ Done and merged (PR #10, `dddbb5f`) — `V1_1_RELEASE_READINESS.md` is operative, both Sprint 08 decisions ratified.
 2. ~~Begin Sprint 09 — Account Lifecycle & Settings.~~ Done and merged (PR #12 `02958f2`, PR #13 `b19a56a`) — Rail A Verified.
 2a. ~~Land Sprint 10 — Inventory Ingestion Safety.~~ **MERGED** (PR #14 → `b389072`, CI green on merged head; smoke passed pre-merge). Sprint state: **Implementation Paused — Awaiting Vendor Evidence** — the real Keyper Event contract (discovery item, §6.2) is the trigger to close it and complete Rail D's exit-4 Keyper half. Rail D NOT Verified until then.
-2b. Sprint 11 (Observability & Structured Logging) starts only on explicit owner initiation — not begun (owner directive at the Sprint 10 gate).
+2b. ~~Sprint 11 (Observability & Structured Logging).~~ **Complete** (PR #16 → `5ae6c79`, CI green on merged head; post-merge verification passed on both DEV services; Rails F + G **Verified**; the DEV-only verification trigger route was removed pre-merge — no crash endpoint ships).
+2c. Sprint 12 (Role-Aware UX + Onboarding/Help, Rails B + C) starts only on explicit owner initiation — not begun.
 3. Complete dealership vendor research before committing automatic email/API ingestion to the release (answers targeted before Sprint 12 planning).
 4. Continue feature and production-readiness work only through task branch → PR → `dev`.
 5. Keep real production frozen on `v1.0.0-beta.6`.

@@ -1671,6 +1671,108 @@ Repository publication remains a separate owner decision, deliberately decoupled
 
 ---
 
+# Sprint 12 — Role-Aware UX, Onboarding & Contextual Help
+
+**Status:** In Progress on `feature/sprint-12-role-aware-ux` (from `dev` = `d434b7f`) — at the branch review window; **PR pending**.
+**Date:** 2026-08-19
+**Rails:** B (Onboarding & Contextual Help) + C (Role-Aware Presentation) — operative register lettering.
+
+## Scope delivered on the branch
+
+One application, role-resolved presentation (`ROLE_AWARE_UX.md` is
+canonical — Phase 1 audit, 13-decision contract, onboarding/Help
+models, analytics questions, limitations): navigation order/labels/
+visibility and the landing surface come from the server-confirmed
+`/me` role only (no role switcher of any kind). Manager/admin land on
+**Overview** (the existing dashboard retitled, data unchanged);
+lot_staff lands on **Today's Work** — an execution-first composition
+over the exact task engine (GET /tasks + shared describeTask wording
++ the work-order PDF; no new endpoints, no duplicated lifecycle) with
+an evidence-freshness line; sales_manager gets the shared honest
+experience. The Inventory Sync nav item is omitted for roles whose
+every action there 403s (server authorization unchanged and
+regression-covered). **Production-safety invariant, test-pinned and
+verified both locally and deployed: the AUTH-disabled posture renders
+the pre-Sprint-12 shell byte-for-byte** (generic nav/labels/landing,
+no Help, no onboarding).
+
+Rail B: role-aware Getting Started tour (3–4 operational steps per
+role) with completion in **Supabase `user_metadata`** via the Sprint
+09 `updateUser` mechanism — no migration 0011, no API surface,
+cross-device; skip records completion; replay always available from
+the role-gated **Help & Getting Started** surface. Contextual help
+kept sparse (recommendations explainer on Overview).
+
+Audit honesty fixes (Phase 1 findings, all fixed + regression-pinned):
+dead "My Tasks"/`emp-0142` removed; header search tells the truth
+(VIN-only; the decorative ⌘K hint now actually focuses search); the
+**promoted sidebar-vs-Vehicle-Detail dismissal defect fixed** (nav
+always lands on its destination; breadcrumb names the true origin);
+nine dead controls removed (disabled task/vehicle actions, the
+never-persisting local-only Dismiss, the dead bulk toolbar +
+selection checkboxes); exception reason codes translated to
+dealership language (raw codes preserved for debugging); minimal
+**Sold** filter mode over the existing `?include_sold=true` (default
+view unchanged).
+
+Analytics: six explicit events, each with a recorded product
+question (`ROLE_AWARE_UX.md` §7): onboarding_started/_completed/
+_skipped/_replayed, help_opened, today_work_opened; page_viewed
+reused with controlled ids `today`/`help`. No autocapture/replay
+changes; the Sprint 11 posture net scans every new call.
+
+**Tests:** 37 new posture assertions (`tests/test_frontend_role_ux.py`
+— role model, disabled-mode invariant, honesty regressions, dismissal
+fix, onboarding storage/skip/replay/clamp, Help gating, Sold mode,
+analytics taxonomy). Suites: **624/624 SQLite · 624/624 PostgreSQL**
+(10/1 pre-existing skips). Frontend build green (885 kB raw / 256 kB
+gzip, +16/+5 over Sprint 11 from the new surfaces). Backend code
+untouched except none — zero backend changes.
+
+## Deployed-DEV verification — branch review window (2026-08-19)
+
+Owner switched both DEV services to the branch; API `/health` and the
+bundle byte-verified serving the branch head. **Manager pass:**
+first-run tour appeared automatically over the standing session, all
+four manager steps, completion **persisted across a hard reload**
+(the `user_metadata` round-trip live), Overview-first nav, role-gated
+Help incl. Inventory Sync section, replay opened and closed without
+rewriting, Sold filter **"6 of 34"** (simultaneously confirming the
+standing QA matrix intact), honest search live. **Lot Staff pass:**
+landing = Today's Work with the freshness line and per-vehicle
+evidence wording; nav = Today's Work · Vehicles · Tasks with **no
+Inventory Sync item**; first-run fired for the lot_staff user too
+(completed by the owner at login — completion persisted); Help
+correctly lacks the sync section; vehicle open → breadcrumb "Today's
+Work" → sidebar nav **dismisses cleanly** (the fixed defect verified
+deployed).
+
+**The smoke found a real Rail B bug and proved Rails F+G in the same
+stroke:** rapid Next clicks compounded functional `setIndex` updates
+past the final step (stale `last` closure), `steps[index]` rendered
+undefined, and the Sprint 11 Error Boundary caught it with the honest
+fallback while Sentry captured `TypeError: Cannot read properties of
+undefined (reading 'title')` (ref `9f338b8d`, the only issue in the
+window). Fixed by clamping the read and both advance directions;
+clamp is posture-test-pinned; fix pushed (CI green) — Phase 21's
+capture requirement demonstrated with a REAL crash, no deliberate
+crash needed.
+
+**PostHog (live):** all six new events arrived
+(started=3/completed=2/replayed=2/help=3/today_work=5) with
+`skipped=0` correct (replay-skip writes nothing); payloads carry
+release/environment, zero `@`-signs; **zero `$autocapture`/
+`$pageview`** remain project-wide.
+
+**Production untouched:** `master` = `13c4f815`/`v1.0.0-beta.6`; prod
+API healthy pre-sprint body; frontend 200.
+
+Rails B and C: **Implementation Complete — Awaiting Merge** (register
+updated). Sprint 10 unchanged (Implementation Paused — Awaiting
+Vendor Evidence); Rail D unchanged; Sprint 17 scope untouched.
+
+---
+
 # Sprint 11 — Observability, Structured Logging & Product Analytics
 
 **Status:** **Complete** — PR #16 owner-approved and **MERGED** as `5ae6c79` = `dev` head (merge commit, parents `61f9def` + `f890650`; CI green on the merged head), post-merge verification PASSED on both DEV services redeployed from `dev`, **Rails F and G → Verified** (register updated via the closeout docs PR).

@@ -38,6 +38,25 @@ Relative display text ("Synced N hours ago") tracks the real clock;
 the *business outcomes* (which tasks exist, which buckets apply) never
 drift.
 
+## Role-aware expectations (Sprint 12)
+
+What each standing QA login should see on a healthy deployment
+(`ROLE_AWARE_UX.md` is canonical):
+
+| Login | Landing | Nav | Notes |
+|---|---|---|---|
+| `manager@qa.dealerdoh.example` | Overview (the dashboard, retitled) | Overview · Tasks · Vehicles · Inventory Sync | Help + Profile below the divider; User Management inside Profile |
+| `lotstaff@qa.dealerdoh.example` | **Today's Work** (16 open tasks in 4 groups, expanded; freshness line; Generate Work Order) | Today's Work · Vehicles · Tasks — **no Inventory Sync item** (every action there 403s for the role; the server still enforces this regardless of UI) | Help has no Inventory Sync section |
+| sales manager QA login | Overview | Overview · Vehicles · Tasks | Shared honest experience; no invented workflow |
+
+First authenticated login per user shows the role-aware Getting
+Started tour once (completion lives in Supabase `user_metadata`, so
+it follows the user across devices; skip counts as completion;
+replay any time from Help). Onboarding/Help do not exist in the
+unauthenticated production posture. To re-test first-run for a QA
+user, clear `user_metadata.dealerdoh_onboarding` for that user in
+the Supabase dashboard.
+
 ## Signing in (Sprint 05)
 
 DealerDOH DEV requires authentication — unauthenticated visitors see

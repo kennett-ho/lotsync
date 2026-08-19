@@ -188,6 +188,97 @@ emphasis around roles — it does not redesign these.
 
 ---
 
-*Sections below this line are added as the sprint progresses:
-role experience principles, information architecture, onboarding
-model, Help model, analytics questions, and limitations.*
+## 2. Role experience principles (Phase 2)
+
+One application, one operational truth, one task engine. Role
+changes **emphasis, ordering, landing, and visibility of
+action-surfaces the role cannot use** — never data truth, task
+semantics, or authorization.
+
+### Manager (and Admin)
+
+Primary question: **"What needs attention right now?"**
+Landing: **Overview** (the existing Dashboard, retitled — its
+content already answers the manager questions: health, open work,
+recommendations, sync state, activity; it is not rebuilt).
+Emphasis: inventory health · recommendations (judgment work) ·
+full task visibility · Inventory Sync control · User Management.
+Admin is presented exactly as Manager (the server-side equivalence
+is deliberate and reserved; no separate Admin workspace).
+
+### Lot Staff
+
+Primary question: **"What do I need to do, on which vehicle, and
+why?"**
+Landing: **Today's Work** — a new execution-first composition over
+the existing task data (see §4). Emphasis: outstanding work
+grouped and prioritized · vehicle identity and lookup · the reason
+work exists · work-order access. Reduced: manager judgment panels
+(health %, recommendation review) and administration.
+The **Inventory Sync nav item is not shown** to lot_staff: it is an
+action surface whose actions 403 for them (audit §1.9) — a standing
+dead end. The *evidence* it carries stays reachable where lot staff
+need it: per-system freshness on Vehicle Detail, the header sync
+badge, and Today's Work's evidence-freshness line. Hiding the
+dead-end control is presentation; `SYNC_RUN_ROLES` remains the
+security boundary and is regression-tested.
+
+### Sales Manager
+
+No mature distinct workflow exists and none is invented. Sales
+Managers get the shared presentation (Overview landing, Vehicles,
+Tasks) without the Inventory Sync action surface, and without the
+lot-execution framing. Recorded honestly as the current
+disposition; future Sales modules are POST-v1.1 architecture.
+
+## 3. Information architecture (Phase 3)
+
+Role-resolved navigation, computed from the server-confirmed `/me`
+role (`AccessProvider`) — never from client-selectable state; there
+is no role switcher of any kind.
+
+| Role | Nav order | Landing |
+|---|---|---|
+| admin / manager | Overview · Tasks · Vehicles · Inventory Sync (+ Profile & Settings, Help) | Overview |
+| lot_staff | Today's Work · Vehicles · Tasks (+ Profile & Settings, Help) | Today's Work |
+| sales_manager | Overview · Vehicles · Tasks (+ Profile & Settings, Help) | Overview |
+
+Rules:
+
+- **`AUTH_MODE=disabled` (today's production posture) is
+  byte-identical to pre-Sprint-12 behavior**: the fixed
+  four-item nav, Dashboard landing, no onboarding, no role logic.
+  `/me` provides no membership there; role-aware presentation
+  activates only on a server-confirmed role. This is the sprint's
+  production-safety invariant and is test-pinned.
+- Unknown/unresolved role (loading, or an unexpected value) falls
+  back to the shared shape (current nav + Dashboard landing) —
+  presentation fails open to the generic experience, never to a
+  privileged one; the server keeps authorizing every request
+  regardless.
+- Shared surfaces stay shared: Vehicles, Tasks, Vehicle Detail,
+  Profile render the same product truth for everyone.
+- Navigation stays state-based this sprint (no URL routing
+  introduced); the sidebar-dismissal defect in §1.6 is fixed so
+  state navigation is honest.
+
+## 4. Sprint 12 decision record (implementation contract)
+
+| # | Decision | Rationale |
+|---|---|---|
+| S12-1 | Dashboard is retitled **Overview** for manager/sales_manager and remains the same component with the same data; greeting copy becomes role-neutral operational language. | Phase 4: don't replace working data for novelty. |
+| S12-2 | **Today's Work** is a new composition (`TodaysWork.tsx`) over `GET /tasks` (outstanding) + the existing work-order PDF endpoint + `GET /dashboard` freshness metadata. No new endpoints, no task-engine duplication, commitment/execution vocabulary reused verbatim. | Phase 5. |
+| S12-3 | Task actions remain read-only (no write APIs invented); Today's Work presents status honestly and routes execution evidence through Vehicle Detail. Recorded as a UAT-risk finding (execution tracking is still paper/verbal). | Phase 5 boundary; write APIs out of scope. |
+| S12-4 | "My Tasks" queue filter is **removed** (D1): no assignment concept exists; a permanently-empty filter is dishonest. Returns only with a real assignment feature. | Audit D1. |
+| S12-5 | Header search placeholder becomes honest ("Search by VIN…"); no stock-number lookup invented this sprint. | Audit D2. |
+| S12-6 | Sidebar navigation clears an open Vehicle Detail; breadcrumb reflects the true origin surface. | Audit §1.6, promoted per Sprint 08 condition. |
+| S12-7 | Exceptions REASON codes are translated to operational sentences at render (map in the frontend; codes remain the API contract). | Audit D4, Phase 6. |
+| S12-8 | Vehicles gains a **Sold** filter chip (default view unchanged: active only). | Audit §1.7 reassessment. |
+| S12-9 | Onboarding completion lives in **Supabase `user_metadata`** (`dealerdoh_onboarding`) via the Sprint 09 display-name mechanism (client `updateUser` + the existing token-refresh handling); follows the user across devices; **no DealerDOH schema migration**. If implementation surfaces a hard edge, the documented fallback is localStorage with the tradeoff recorded. | Phase 10; smallest correct model, proven mechanism. |
+| S12-10 | Onboarding is a short role-aware welcome (3–4 steps). **Skip records completion** (analytics distinguishes skipped from finished); replay is always available from Help — so it can never block work and never nags. | Phases 8/9/11. |
+| S12-11 | **Help** is a lightweight surface (sidebar entry) with role-aware sections; Inventory Sync help appears only for sync-authorized roles; "Replay Getting Started" lives there. Contextual help is added sparingly: recommendations meaning, task standing/execution meaning, validation-warning meaning. | Phases 12/13. |
+| S12-12 | New analytics events (all through the Sprint 11 wrapper, safe props only): `onboarding_started` / `onboarding_completed` / `onboarding_skipped` / `onboarding_replayed`, `help_opened`, `today_work_opened`. `page_viewed` is reused for the new surfaces (new controlled page ids `today-work`, `help`). | Phases 19/20; questions recorded in §analytics. |
+| S12-13 | Evidence freshness this sprint = what SyncRun already supports (last accepted sync per source, presented with relative time). Per-source Fresh/Aging/Stale classification is Sprint 17's model and is **not** built here. | Phase 7. |
+
+*Further sections (onboarding copy, help structure, analytics
+questions, limitations) are appended as implemented.*

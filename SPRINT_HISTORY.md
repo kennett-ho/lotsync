@@ -1724,7 +1724,7 @@ changes; the Sprint 11 posture net scans every new call.
 **Tests:** 37 new posture assertions (`tests/test_frontend_role_ux.py`
 — role model, disabled-mode invariant, honesty regressions, dismissal
 fix, onboarding storage/skip/replay/clamp, Help gating, Sold mode,
-analytics taxonomy). Suites: **624/624 SQLite · 624/624 PostgreSQL**
+analytics taxonomy). Suites: **625/625 SQLite · 625/625 PostgreSQL**
 (10/1 pre-existing skips). Frontend build green (885 kB raw / 256 kB
 gzip, +16/+5 over Sprint 11 from the new surfaces). Backend code
 untouched except none — zero backend changes.

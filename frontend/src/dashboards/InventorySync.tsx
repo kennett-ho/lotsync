@@ -68,6 +68,25 @@ const UPLOAD_SLOTS: { field: keyof InventorySyncFiles; label: string }[] = [
   { field: 'rapidrecon', label: 'RapidRecon' },
 ]
 
+// Sprint 12 (audit D4, Phase 6): PendingIdentity's identifier_type is
+// a backend classification code (sync/normalizer.py), not display
+// copy. Translate to dealership-operational language at render; the
+// raw code stays in the row's title attribute for debugging and in
+// telemetry, where codes -- never contents -- are the contract.
+const EXCEPTION_REASON_LABELS: Record<string, string> = {
+  unrecognized: "Key name doesn't match any known vehicle identifier format",
+  tekion_auto_generated_stock_number: 'Numeric key name looks like an auto-generated Tekion stock number — no matching vehicle',
+  last6_vin: 'Matches the last 6 digits of a VIN, but no current vehicle carries it',
+  ambiguous_last6_vin_multiple_matches: 'Last-6 VIN digits match more than one vehicle — needs a person to resolve',
+  stock_number: 'Stock-number-style key name with no matching vehicle in inventory',
+  non_vehicle: 'Recognized non-vehicle key (facility or loaner key)',
+}
+
+function exceptionReason(identifierType: string): string {
+  return EXCEPTION_REASON_LABELS[identifierType]
+    ?? identifierType.replace(/_/g, ' ')
+}
+
 function SystemDot({ status }: { status: string }) {
   if (status === 'complete')
     return <span className="inline-block w-2 h-2 rounded-full bg-emerald-500 shrink-0" />
@@ -335,6 +354,7 @@ export default function InventorySync(): JSX.Element {
       e =>
         e.raw_identifier.toLowerCase().includes(q) ||
         e.identifier_type.toLowerCase().includes(q) ||
+        exceptionReason(e.identifier_type).toLowerCase().includes(q) ||
         e.source.toLowerCase().includes(q),
     )
   }, [exceptions, search])
@@ -663,7 +683,7 @@ export default function InventorySync(): JSX.Element {
                             <span className="font-mono text-[12px] text-slate-800 font-medium">{e.raw_identifier}</span>
                             <span className="bg-slate-100 text-slate-600 text-[11px] font-medium px-2 py-0.5 rounded-md">{sourceLabel(e.source)}</span>
                           </div>
-                          <div className="text-[12px] text-slate-700 leading-snug mt-1">{e.identifier_type}</div>
+                          <div className="text-[12px] text-slate-700 leading-snug mt-1" title={e.identifier_type}>{exceptionReason(e.identifier_type)}</div>
                           <div className="text-[11px] text-slate-500 mt-1.5">
                             First {formatTimestamp(e.first_observed_at)} · Last {formatTimestamp(e.last_observed_at)}
                           </div>
@@ -690,7 +710,7 @@ export default function InventorySync(): JSX.Element {
                             <td className="px-4 py-3 align-top whitespace-nowrap">
                               <span className="font-mono text-[12px] text-slate-800 font-medium">{e.raw_identifier}</span>
                             </td>
-                            <td className="px-4 py-3 align-top text-slate-700 leading-snug">{e.identifier_type}</td>
+                            <td className="px-4 py-3 align-top text-slate-700 leading-snug" title={e.identifier_type}>{exceptionReason(e.identifier_type)}</td>
                             <td className="px-4 py-3 align-top whitespace-nowrap">
                               <span className="bg-slate-100 text-slate-600 text-[11px] font-medium px-2 py-0.5 rounded-md">{sourceLabel(e.source)}</span>
                             </td>

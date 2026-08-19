@@ -280,5 +280,74 @@ Rules:
 | S12-12 | New analytics events (all through the Sprint 11 wrapper, safe props only): `onboarding_started` / `onboarding_completed` / `onboarding_skipped` / `onboarding_replayed`, `help_opened`, `today_work_opened`. `page_viewed` is reused for the new surfaces (new controlled page ids `today-work`, `help`). | Phases 19/20; questions recorded in §analytics. |
 | S12-13 | Evidence freshness this sprint = what SyncRun already supports (last accepted sync per source, presented with relative time). Per-source Fresh/Aging/Stale classification is Sprint 17's model and is **not** built here. | Phase 7. |
 
-*Further sections (onboarding copy, help structure, analytics
-questions, limitations) are appended as implemented.*
+## 5. Onboarding model (implemented)
+
+Completion state: Supabase `user_metadata.dealerdoh_onboarding`
+(`frontend/src/onboarding/state.ts`) — `{completed_at, version,
+skipped}` — written with the Sprint 09-proven client `updateUser`
+mechanism. Cross-device, no migration, no API surface; read
+client-side from the auth user object, so no token-refresh dance.
+Every function is a safe no-op without a Supabase client and never
+throws: onboarding is secondary to work.
+
+Behavior: first authenticated session with no record opens the tour
+(3–4 role-aware steps, `onboarding/Onboarding.tsx`); **skip records
+completion** exactly like finishing (a skipped user chose not to
+tour — never nag) and the two are distinguished only in analytics;
+**replay** is always available from Help and never rewrites the
+record. With auth disabled (production) onboarding does not exist.
+Content per role: manager/admin (Overview → evidence/Inventory
+Sync → Help), lot_staff (Today's Work → why work exists → Help;
+never mentions Inventory Sync or User Management), shared/sales
+(Overview/Vehicles/Tasks → Help). Copy is operational and short —
+what it is, what it shows, who decides.
+
+## 6. Help model (implemented)
+
+`help/Help.tsx`, reachable from the sidebar for every role, beneath
+the operational nav. Sections: What is DealerDOH · Understanding
+Tasks · Understanding Recommendations · Vehicles & the evidence
+timeline · Inventory Sync (**rendered only for sync-authorized
+roles**) · Account & access (admin flavor for user admins, standard
+otherwise) · Troubleshooting · Replay the Getting Started tour.
+Contextual help stays sparse by design: the one inline explainer is
+the Overview's recommendations subtitle ("Evidence for human review
+— nothing commits automatically"); tasks and validation-warning
+meaning live in Help and in the surfaces' own existing copy.
+
+## 7. Analytics — events and their product questions (Phase 19/20)
+
+All through the Sprint 11 wrapper; safe properties only (role and
+controlled identifiers ride the existing person/registered
+properties; the Sprint 11 posture suite's repo-wide `track()` scan
+covers every new call).
+
+| Event | Product question it answers |
+|---|---|
+| `onboarding_started` | Do first-time users actually receive the getting-started flow? |
+| `onboarding_completed` | Do first-time users finish it? |
+| `onboarding_skipped` | Are users abandoning onboarding because it is unnecessary or too long? (ratio vs completed) |
+| `onboarding_replayed` | Do users return to the tour for re-orientation — is Help discoverable and the tour worth revisiting? |
+| `help_opened` | Where do users seek additional explanation? (volume/role mix) |
+| `today_work_opened` | Do Lot Staff use the role-focused work surface as their operational starting point? |
+| `page_viewed` (reused) | Which surfaces do the roles actually live on? New controlled ids: `today`, `help`. |
+
+## 8. Current limitations (recorded honestly)
+
+- **Task execution is display-only** — no write APIs exist; Start/
+  Complete tracking remains paper/verbal. The dead buttons are gone
+  (audit D3); the capability gap stays and is a UAT-risk finding.
+- **Recommendations cannot be dismissed or converted to tasks
+  in-app** (the local-only Dismiss was removed as dishonest, D5).
+- **Search is VIN-only**; a stock-number lookup would need a backend
+  endpoint that doesn't exist yet.
+- **Freshness is last-accepted-sync recency only** — per-source
+  Fresh/Aging/Stale classification, HOLD-state surfacing, and
+  automated acquisition status displays are Sprint 17's model; the
+  Today's Work freshness line and per-system timestamps are the
+  seams they will extend.
+- **sales_manager** has an honest shared experience, no distinct
+  workflow (future Sales modules are POST-v1.1).
+- Navigation remains state-based (no URLs); the dismissal defect is
+  fixed, the wider routing question stays open in the findings
+  register.

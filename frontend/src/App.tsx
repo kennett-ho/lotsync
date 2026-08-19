@@ -4,12 +4,18 @@ import VehicleDetailPage from './VehicleDetail'
 import Dashboard from './dashboards/Dashboard'
 import VehiclesList from './dashboards/VehiclesList'
 import Tasks from './dashboards/Tasks'
+import TodaysWork from './dashboards/TodaysWork'
 import InventorySync from './dashboards/InventorySync'
 import Profile from './dashboards/Profile'
+import Help from './help/Help'
+import Onboarding from './onboarding/Onboarding'
+import { getOnboardingRecord, recordOnboardingComplete } from './onboarding/state'
 import { getDashboard } from './api/dashboard'
 import { useApi } from './api/useApi'
+import { useAccess, useMe } from './auth/AccessProvider'
 import IdentityFooter from './auth/IdentityFooter'
 import { isAuthEnabled as IS_AUTH_ENABLED } from './auth/supabase'
+import { landingForRole, navForRole, type RoleNavItem } from './roleNav'
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -36,16 +42,23 @@ function relativeTime(iso: string): string {
   return `${days} day${days === 1 ? '' : 's'} ago`
 }
 
-// Friday MVP: one nav, one workflow. Lot staff are the primary users;
-// other departments contribute through this same operational workflow
-// rather than a separate per-role workspace, so there's no branching
-// here -- just the fixed set of screens every user sees.
-const NAV_ITEMS: NavItem[] = [
-  { id: 'dashboard',     label: 'Dashboard',      icon: svgIcon('M3 3h7v7H3zM14 3h7v7h-7zM3 14h7v7H3zM14 14h7v7h-7z') },
-  { id: 'vehicles',      label: 'Vehicles',        icon: svgIcon('M5 17H3a2 2 0 0 1-2-2V9a2 2 0 0 1 2-2h13l4 4v4a2 2 0 0 1-2 2h-2', 'M5 17a2 2 0 1 0 4 0 2 2 0 0 0-4 0zM15 17a2 2 0 1 0 4 0 2 2 0 0 0-4 0z') },
-  { id: 'tasks',         label: 'Tasks',           icon: svgIcon('M9 11l3 3L22 4', 'M21 12v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11') },
-  { id: 'inventory-sync',label: 'Inventory Sync',  icon: svgIcon('M23 4v6h-6M1 20v-6h6', 'M3.51 9a9 9 0 0 1 14.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0 0 20.49 15') },
-]
+// Sprint 12 (Rail C): the nav is role-resolved -- ORDER, LABELS, and
+// VISIBILITY come from roleNav.ts keyed on the server-confirmed /me
+// role; icons stay here because they're JSX. With auth disabled
+// (production) or no resolved role, roleNav's GENERIC_NAV reproduces
+// the pre-Sprint-12 fixed nav exactly. Presentation only: hiding an
+// item never revokes or grants anything server-side.
+const NAV_ICONS: Record<string, JSX.Element> = {
+  dashboard:        svgIcon('M3 3h7v7H3zM14 3h7v7h-7zM3 14h7v7H3zM14 14h7v7h-7z'),
+  today:            svgIcon('M12 8a4 4 0 1 0 0 8 4 4 0 0 0 0-8z', 'M12 2v2M12 20v2M4.93 4.93l1.41 1.41M17.66 17.66l1.41 1.41M2 12h2M20 12h2M4.93 19.07l1.41-1.41M17.66 6.34l1.41-1.41'),
+  vehicles:         svgIcon('M5 17H3a2 2 0 0 1-2-2V9a2 2 0 0 1 2-2h13l4 4v4a2 2 0 0 1-2 2h-2', 'M5 17a2 2 0 1 0 4 0 2 2 0 0 0-4 0zM15 17a2 2 0 1 0 4 0 2 2 0 0 0-4 0z'),
+  tasks:            svgIcon('M9 11l3 3L22 4', 'M21 12v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11'),
+  'inventory-sync': svgIcon('M23 4v6h-6M1 20v-6h6', 'M3.51 9a9 9 0 0 1 14.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0 0 20.49 15'),
+}
+
+function toNavItems(items: RoleNavItem[]): NavItem[] {
+  return items.map(item => ({ id: item.id, label: item.label, icon: NAV_ICONS[item.id] }))
+}
 
 // ─── Development environment banner ──────────────────────────────────────────
 
@@ -88,10 +101,9 @@ function DevBanner() {
 // off-canvas drawer opened by Header's hamburger button; the drawer
 // closes itself on nav so a one-handed user doesn't have to dismiss it
 // separately.
-function Sidebar({ activeNav, onNav, mobileOpen, onCloseMobile }: {
-  activeNav: string; onNav: (id: string) => void; mobileOpen: boolean; onCloseMobile: () => void
+function Sidebar({ items, activeNav, onNav, mobileOpen, onCloseMobile }: {
+  items: NavItem[]; activeNav: string; onNav: (id: string) => void; mobileOpen: boolean; onCloseMobile: () => void
 }) {
-  const items = NAV_ITEMS
 
   const handleNav = (id: string) => {
     onNav(id)
@@ -145,9 +157,27 @@ function Sidebar({ activeNav, onNav, mobileOpen, onCloseMobile }: {
             in unauthenticated builds (production). */}
         {IS_AUTH_ENABLED && <IdentityFooter />}
 
+        {/* Sprint 12 (Rail B): Help & Getting Started -- always present,
+            every role. Sits with Profile below the divider: reference
+            surfaces, not operational navigation. */}
+        <div className="px-3 pt-2 border-t border-white/10">
+          <button onClick={() => handleNav('help')}
+            className="w-full flex items-center gap-2.5 px-2.5 py-2 rounded-md transition-all text-left"
+            style={{ backgroundColor: activeNav === 'help' ? '#1D4ED8' : 'transparent' }}
+            onMouseEnter={e => { if (activeNav !== 'help') (e.currentTarget as HTMLButtonElement).style.backgroundColor = '#162236' }}
+            onMouseLeave={e => { if (activeNav !== 'help') (e.currentTarget as HTMLButtonElement).style.backgroundColor = 'transparent' }}>
+            <div className="w-7 h-7 rounded-full flex items-center justify-center text-white/70 flex-shrink-0" style={{ backgroundColor: '#1E293B' }}>
+              <svg width="14" height="14" fill="none" viewBox="0 0 24 24"><circle cx="12" cy="12" r="9" stroke="currentColor" strokeWidth="1.75"/><path d="M9.5 9.3a2.6 2.6 0 0 1 5.1.6c0 1.6-2.4 2-2.4 3.3M12 16.8h.01" stroke="currentColor" strokeWidth="1.75" strokeLinecap="round"/></svg>
+            </div>
+            <div className="flex-1 min-w-0">
+              <div className="text-white text-[12px] font-semibold truncate">Help</div>
+            </div>
+          </button>
+        </div>
+
         {/* Profile & Settings entry point -- no user identity displayed here,
             just a generic icon/label; see Profile.tsx for the page itself. */}
-        <div className="px-3 pb-4 pt-2 border-t border-white/10">
+        <div className="px-3 pb-4 pt-1">
           <button onClick={() => handleNav('profile')}
             className="w-full flex items-center gap-2.5 px-2.5 py-2 rounded-md transition-all text-left"
             style={{ backgroundColor: activeNav === 'profile' ? '#1D4ED8' : 'transparent' }}
@@ -198,15 +228,27 @@ function Header({ onVehicleSelect, onOpenMobileNav }: { onVehicleSelect: (s: str
   const [search, setSearch] = useState('')
   const dashboardState = useApi(() => getDashboard(), [])
 
+  // Sprint 12 (audit D2): the ⌘K hint used to be decorative -- no
+  // handler existed. Now it does what it advertises: focus the search.
+  useEffect(() => {
+    const onKey = (e: KeyboardEvent) => {
+      if ((e.metaKey || e.ctrlKey) && e.key.toLowerCase() === 'k') {
+        e.preventDefault()
+        document.getElementById('vehicle-search-input')?.focus()
+      }
+    }
+    window.addEventListener('keydown', onKey)
+    return () => window.removeEventListener('keydown', onKey)
+  }, [])
+
   const handleKey = (e: React.KeyboardEvent<HTMLInputElement>) => {
     if (e.key === 'Enter' && search.trim()) {
       const q = search.trim().toUpperCase()
-      // Widened from {4,8} (Sprint 3): onVehicleSelect now expects a VIN for
-      // any caller wired to the real backend (GET /vehicles/{vin} is the
-      // only vehicle lookup the API exposes -- there's no by-stock-number
-      // endpoint). A full VIN is typically 17 chars; still accepts the
-      // shorter stock-number shape too, which will just surface Vehicle
-      // Detail's "not found" state until a stock->VIN lookup exists.
+      // GET /vehicles/{vin} is the only lookup the API exposes -- the
+      // placeholder now says exactly that (audit D2: it used to promise
+      // Stock #/Customer search that never existed). A shorter
+      // stock-number-shaped entry still resolves to Vehicle Detail's own
+      // honest "not found" state rather than silently doing nothing.
       if (/^[A-Z0-9]{4,17}$/.test(q)) { onVehicleSelect(q); setSearch('') }
     }
   }
@@ -244,7 +286,8 @@ function Header({ onVehicleSelect, onOpenMobileNav }: { onVehicleSelect: (s: str
           <svg width="14" height="14" fill="none" viewBox="0 0 24 24"><circle cx="11" cy="11" r="7" stroke="currentColor" strokeWidth="1.8"/><path d="m16.5 16.5 4 4" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round"/></svg>
         </span>
         <input value={search} onChange={e => setSearch(e.target.value)} onKeyDown={handleKey}
-          type="text" placeholder="Search VIN, Stock #, Customer…"
+          id="vehicle-search-input"
+          type="text" placeholder="Search by VIN…"
           className="w-full h-8 pl-8 pr-3 lg:pr-10 text-[13px] bg-slate-50 border border-slate-200 rounded-lg text-slate-900 placeholder:text-slate-400 outline-none focus:border-blue-400 focus:ring-2 focus:ring-blue-100 transition-all" />
         <kbd className="hidden lg:block absolute right-2.5 top-1/2 -translate-y-1/2 text-[10px] text-slate-400 bg-white border border-slate-200 rounded px-1 font-mono">⌘K</kbd>
       </div>
@@ -279,24 +322,93 @@ function Header({ onVehicleSelect, onOpenMobileNav }: { onVehicleSelect: (s: str
 
 // ─── Nav content ─────────────────────────────────────────────────────────────
 
-function NavContent({ activeNav, onVehicleSelect, onNavigate }: {
+function NavContent({ activeNav, onVehicleSelect, onNavigate, onReplayOnboarding }: {
   activeNav: string
   onVehicleSelect: (s: string) => void
   onNavigate: (tab: 'tasks' | 'inventory-sync') => void
+  onReplayOnboarding: () => void
 }) {
+  if (activeNav === 'today')           return <TodaysWork onVehicleSelect={onVehicleSelect} />
   if (activeNav === 'vehicles')        return <VehiclesList onVehicleSelect={onVehicleSelect} />
   if (activeNav === 'tasks')           return <Tasks onVehicleSelect={onVehicleSelect} />
   if (activeNav === 'inventory-sync')  return <InventorySync />
   if (activeNav === 'profile')         return <Profile />
+  if (activeNav === 'help')            return <Help onReplayOnboarding={onReplayOnboarding} />
   return <Dashboard onVehicleSelect={onVehicleSelect} onNavigate={onNavigate} />
 }
 
 // ─── App ──────────────────────────────────────────────────────────────────────
 
 export default function App() {
-  const [activeNav, setActiveNav] = useState('dashboard')
+  const me = useMe()
+  const { state: accessState } = useAccess()
+  // The role is real only once the SERVER confirmed the membership --
+  // with auth disabled (production) me stays null and everything below
+  // resolves to the generic pre-Sprint-12 shape (roleNav.ts invariant).
+  const role = me?.authenticated ? me.role : undefined
+
+  const navItems = toNavItems(navForRole(role))
+
+  // null = "the role's landing surface"; set only by explicit user
+  // navigation. Role-aware landings never fight user intent.
+  const [navChoice, setNavChoice] = useState<string | null>(null)
   const [selectedVehicle, setSelectedVehicle] = useState<string | null>(null)
+  // The surface Vehicle Detail was opened FROM -- the breadcrumb tells
+  // the truth about where Back goes (audit §1.6: it used to claim
+  // "Dashboard" while landing elsewhere).
+  const [vehicleOrigin, setVehicleOrigin] = useState<string | null>(null)
   const [mobileNavOpen, setMobileNavOpen] = useState(false)
+
+  // A stale explicit choice (e.g. a surface this role's nav doesn't
+  // offer, after a role resolves mid-session) falls back to the landing.
+  const navIds = navItems.map(item => item.id) as string[]
+  const validChoice = navChoice !== null && (navIds.includes(navChoice) || navChoice === 'profile' || navChoice === 'help')
+  const activeNav = validChoice ? (navChoice as string) : landingForRole(role)
+
+  // ─── Onboarding (Rail B) ──────────────────────────────────────────
+  // 'unknown' until the stored record is read; first-run opens the
+  // tour. Auth disabled -> onboarding does not exist (production
+  // invariant). Skip records completion just like finishing
+  // (ROLE_AWARE_UX.md S12-10); replay never re-writes the record.
+  const [onboarding, setOnboarding] = useState<'unknown' | 'closed' | 'first-run' | 'replay'>('unknown')
+
+  useEffect(() => {
+    if (!IS_AUTH_ENABLED || !me?.authenticated) {
+      if (!IS_AUTH_ENABLED) setOnboarding('closed')
+      return
+    }
+    let cancelled = false
+    getOnboardingRecord().then(record => {
+      if (cancelled) return
+      if (record) { setOnboarding('closed') }
+      else {
+        setOnboarding('first-run')
+        track('onboarding_started')
+      }
+    })
+    return () => { cancelled = true }
+  }, [me?.authenticated])
+
+  const finishOnboarding = useCallback(() => {
+    if (onboarding === 'first-run') {
+      void recordOnboardingComplete(false)
+      track('onboarding_completed')
+    }
+    setOnboarding('closed')
+  }, [onboarding])
+
+  const skipOnboarding = useCallback(() => {
+    if (onboarding === 'first-run') {
+      void recordOnboardingComplete(true)
+      track('onboarding_skipped')
+    }
+    setOnboarding('closed')
+  }, [onboarding])
+
+  const replayOnboarding = useCallback(() => {
+    track('onboarding_replayed')
+    setOnboarding('replay')
+  }, [])
 
   // Sprint 11 (analytics): explicit page_viewed with CONTROLLED page
   // identifiers -- navigation here is state-based, so this effect is
@@ -309,23 +421,58 @@ export default function App() {
   }, [activeNav, selectedVehicle])
 
   const handleVehicleSelect = useCallback((stock: string) => {
+    if (selectedVehicle === null) setVehicleOrigin(activeNav)
     setSelectedVehicle(stock)
     setMobileNavOpen(false)
-  }, [])
+  }, [activeNav, selectedVehicle])
 
   const handleBack = useCallback(() => {
     setSelectedVehicle(null)
+    setVehicleOrigin(null)
   }, [])
 
-  // Keep breadcrumb label consistent with the tab the user came from
-  const backLabel = activeNav === 'vehicles' ? 'Vehicles' : 'Dashboard'
+  // Sprint 12 (audit §1.6 fix): navigating ALWAYS lands on the chosen
+  // surface -- an open Vehicle Detail is dismissed instead of silently
+  // swallowing the click.
+  const handleNav = useCallback((id: string) => {
+    setNavChoice(id)
+    setSelectedVehicle(null)
+    setVehicleOrigin(null)
+  }, [])
+
+  // Truthful breadcrumb: the label of the surface Vehicle Detail was
+  // actually opened from.
+  const originId = vehicleOrigin ?? activeNav
+  const backLabel =
+    navItems.find(item => item.id === originId)?.label
+    ?? (originId === 'profile' ? 'Profile & Settings' : originId === 'help' ? 'Help' : 'Dashboard')
+
+  // Auth-enabled builds briefly know nothing about the user while /me
+  // resolves; rendering the generic shell then snapping to a role
+  // layout reads as a glitch. A quiet splash instead. Disabled builds
+  // (production) never hit this branch.
+  if (IS_AUTH_ENABLED && accessState.status === 'loading') {
+    return (
+      <div className="min-h-screen flex items-center justify-center"
+           style={{ backgroundColor: '#0B1220' }}>
+        <div className="text-white/40 text-[13px]">Loading DealerDOH…</div>
+      </div>
+    )
+  }
 
   return (
     <div className="flex flex-col h-screen overflow-hidden" style={{ fontFamily: "'Plus Jakarta Sans', system-ui, sans-serif", backgroundColor: '#F8FAFC' }}>
       {IS_DEV_ENVIRONMENT && <DevBanner />}
 
+      {(onboarding === 'first-run' || onboarding === 'replay') && (
+        <Onboarding role={role} onFinish={finishOnboarding} onSkip={skipOnboarding} />
+      )}
+
       <div className="flex flex-1 overflow-hidden min-h-0">
-        <Sidebar activeNav={activeNav} onNav={setActiveNav} mobileOpen={mobileNavOpen} onCloseMobile={() => setMobileNavOpen(false)} />
+        {/* While a vehicle is open, the highlighted item is the surface
+            it was opened from -- the same one Back returns to. */}
+        <Sidebar items={navItems} activeNav={selectedVehicle ? originId : activeNav} onNav={handleNav}
+          mobileOpen={mobileNavOpen} onCloseMobile={() => setMobileNavOpen(false)} />
 
         <div className="flex-1 flex flex-col overflow-hidden min-w-0">
           <Header onVehicleSelect={handleVehicleSelect} onOpenMobileNav={() => setMobileNavOpen(true)} />
@@ -340,7 +487,8 @@ export default function App() {
               // "not found" state rather than a crash -- see
               // PHASE_3_SPRINT_3_REVIEW.md for which callers were updated.
               ? <VehicleDetailPage vin={selectedVehicle} onBack={handleBack} backLabel={backLabel} />
-              : <NavContent activeNav={activeNav} onVehicleSelect={handleVehicleSelect} onNavigate={setActiveNav} />
+              : <NavContent activeNav={activeNav} onVehicleSelect={handleVehicleSelect}
+                  onNavigate={handleNav} onReplayOnboarding={replayOnboarding} />
             }
           </div>
         </div>

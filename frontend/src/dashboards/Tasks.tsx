@@ -31,13 +31,16 @@
 //   discrete sub-step list. Dropped rather than fabricated; only the
 //   two real timestamps available (`created_at`, `completed_at`) are
 //   shown.
-// - Start/Pause/Mark Complete/Cancel are disabled ("Coming soon") --
-//   this sprint explicitly excludes write APIs, so no button silently
-//   mutates local state that doesn't reflect the backend.
-// - "My Tasks" filters against a placeholder employee id (CURRENT_EMPLOYEE_ID
-//   below) -- there is no real authentication yet (Phase 3's own named
-//   gate, still unstarted), so this stands in until a logged-in user's
-//   employee id is available from somewhere real.
+// - Sprint 12 (audit D3): the disabled Start/Pause/Mark Complete/
+//   Cancel row is REMOVED -- write APIs still don't exist, and four
+//   permanently-dead buttons on an execution surface are noise, not
+//   honesty. The real read-only lifecycle stays fully displayed;
+//   execution tracking remains paper/verbal (recorded UAT-risk
+//   finding in ROLE_AWARE_UX.md).
+// - Sprint 12 (audit D1): "My Tasks" is REMOVED. It filtered on a
+//   pre-auth placeholder employee id against an assignment concept
+//   that does not exist anywhere in the backend -- a permanently
+//   empty filter. It returns only with a real assignment feature.
 // - "Automated" vs. "Management Requests" is now driven by the real
 //   `ratification_type` field (`standing_policy`/null vs. `human`)
 //   rather than a fabricated `TaskSource` union with no backend
@@ -50,10 +53,6 @@ import { isBackendUnavailable } from '../api/client'
 import type { TaskDTO } from '../api/types'
 import { commitmentStandingLabel, taskStatusDisplay, type StatusTone } from '../taskStatus'
 import { track } from '../observability/analytics'
-
-// Placeholder for "the current user" until Phase 3 authentication
-// exists -- matches the rest of this prototype's hardcoded identity.
-const CURRENT_EMPLOYEE_ID = 'emp-0142'
 
 const DEPARTMENTS = ['Inventory', 'Controller', 'Lot Ops', 'Dealer Trades']
 const PRIORITIES = ['Critical', 'High', 'Medium', 'Low']
@@ -108,7 +107,7 @@ function formatDateTime(iso: string | null): string {
 // preserved in the database exactly as before and remain visible via the
 // 'completed' queue below, still individually labeled by deriveDisplayStatus
 // -- never collapsed into one generic status.
-type QueueFilter = 'active' | 'my' | 'standing-policy' | 'human-ratified' | 'verification' | 'completed-today' | 'completed'
+type QueueFilter = 'active' | 'standing-policy' | 'human-ratified' | 'verification' | 'completed-today' | 'completed'
 type SidebarFilter =
   | { type: 'queue'; value: QueueFilter }
   | { type: 'department'; value: string }
@@ -119,9 +118,8 @@ function matchesFilter(t: TaskDTO, f: SidebarFilter): boolean {
     switch (f.value) {
       case 'active':            return t.commitment_standing === 'outstanding'
       // These are slices of the operational queue, not the historical log --
-      // scoped to outstanding for the same reason 'active' is, so "My Tasks"
-      // etc. don't silently mix in already-discharged work.
-      case 'my':                return t.commitment_standing === 'outstanding' && t.assigned_employee_id === CURRENT_EMPLOYEE_ID
+      // scoped to outstanding for the same reason 'active' is, so they
+      // don't silently mix in already-discharged work.
       case 'standing-policy':   return t.commitment_standing === 'outstanding' && t.ratification_type !== 'human'
       case 'human-ratified':    return t.commitment_standing === 'outstanding' && t.ratification_type === 'human'
       case 'verification':      return t.commitment_standing === 'outstanding' && t.execution_status === 'completed'
@@ -184,7 +182,6 @@ function Sidebar({ tasks, filter, onFilter }: { tasks: TaskDTO[]; filter: Sideba
       {section('Queue')}
       <div className="flex flex-wrap gap-1.5 px-2 lg:block lg:space-y-0.5">
         <Btn label="Active Tasks"        f={{ type: 'queue', value: 'active' }} />
-        <Btn label="My Tasks"            f={{ type: 'queue', value: 'my' }} />
         <Btn label="Standing Policy"     f={{ type: 'queue', value: 'standing-policy' }} />
         <Btn label="Ratified by Person"  f={{ type: 'queue', value: 'human-ratified' }} />
         <Btn label="Verification Needed" f={{ type: 'queue', value: 'verification' }} warn />
@@ -352,8 +349,6 @@ function TaskDetail({ task, onBack, onVehicleSelect }: {
 }) {
   const ds = deriveDisplayStatus(task)
   const pb = task.priority ? priorityBadge[task.priority] : null
-  const canStart = task.commitment_standing === 'outstanding' && task.execution_status === 'not_started'
-  const canPauseOrComplete = task.commitment_standing === 'outstanding' && task.execution_status === 'in_progress'
 
   return (
     <div className="flex-1 flex flex-col overflow-hidden min-h-0">
@@ -376,17 +371,10 @@ function TaskDetail({ task, onBack, onVehicleSelect }: {
             )}
             <span className={`text-[11px] ${toneClasses[ds.tone]}`}>{ds.label}</span>
           </div>
-          <div className="flex items-center gap-2">
-            {canStart && (
-              <button disabled title="Coming soon -- write APIs are out of this sprint's scope"
-                className="text-[12px] font-bold px-4 py-1.5 bg-blue-300 text-white rounded-lg cursor-not-allowed">Start Task</button>
-            )}
-            {canPauseOrComplete && <>
-              <button disabled title="Coming soon" className="text-[12px] font-semibold px-3 py-1.5 bg-white text-slate-300 border border-slate-200 rounded-lg cursor-not-allowed">Pause</button>
-              <button disabled title="Coming soon -- write APIs are out of this sprint's scope" className="text-[12px] font-bold px-4 py-1.5 bg-emerald-300 text-white rounded-lg cursor-not-allowed">Mark Complete</button>
-            </>}
-            <button disabled title="Coming soon" className="text-[12px] text-slate-300 px-2 py-1.5 cursor-not-allowed">Cancel</button>
-          </div>
+          {/* Sprint 12 (audit D3): the disabled Start/Pause/Complete/
+              Cancel row is gone -- no write APIs exist and dead
+              buttons aren't honesty, they're noise. The read-only
+              lifecycle above stays fully displayed. */}
         </div>
       </div>
 

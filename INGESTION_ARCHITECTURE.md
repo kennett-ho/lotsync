@@ -33,7 +33,7 @@ Two canonical product rules govern everything here:
 Manual Upload ─────┐
                    │
 Scheduled Email ───┼──→ Classification → Validation → Sanity checks
-(conditional, 6.2) │         ↓
+(planned Sprint 17) │        ↓
 Vendor API ────────┘   Accept / Needs-review / Reject
                              ↓ (accepted evidence only)
                          Sync Engine (unchanged)
@@ -214,15 +214,18 @@ column-superset file passed); Sprint 10 narrows it (nonmatching
 variants are now rejected) but **cannot close it without the real
 vendor format — do not invent one to close it.** Until vendor
 evidence arrives, the real Full-vs-Event structural distinction is
-explicitly PENDING VENDOR EVIDENCE, the keyper slot remains a
-manual, operator-selected upload, and no Keyper acquisition may be
-automated (V1_1_RELEASE_READINESS §6.2 gates that on discovery
-regardless).
+explicitly PENDING VENDOR EVIDENCE and the keyper slot remains a
+manual, operator-selected upload. Sprint 17 acquisition is now planned,
+but unattended processing may not be activated or Verified until this
+distinction is grounded and the classifier is corrected if required
+(`V1_1_RELEASE_READINESS.md` §6.2).
 
-**Remaining trigger:** vendor discovery
-(V1_1_RELEASE_READINESS §6.2, owner action). When the real format
-arrives: give `KEYPER_KEY_EVENT` its real columns from the real
-sample, re-verify the Full classifier's signature actually
+**Remaining evidence trigger:** the real Keyper Event format. Scheduled
+delivery of the All Vehicles / Full Inventory snapshot is confirmed
+and owner-opted into v1.1 as planned Sprint 17 scope; that transport
+discovery does not prove report-type discrimination. When the real
+Event format arrives: give `KEYPER_KEY_EVENT` its real columns from
+the real sample, re-verify the Full classifier's signature actually
 discriminates against it (adding discriminating columns if the real
 formats overlap), decide its zero-event semantics from real vendor
 meaning (a zero-event window may be a *valid* empty event set —
@@ -357,10 +360,46 @@ failures, which reject before anything runs).
   boundary (or retiring it) is deliberately left for a future
   decision — do not treat its existence as a second sanctioned
   ingestion path.
-- **Telemetry**: validation produces exactly the operational states
-  Rail F/G will instrument (validated / rejected / needs-review /
-  sync started / failed) but emits no telemetry itself — Sprint 11's
-  job, not improvised here.
-- **Notifications**: CONDITIONAL rail; the manual flow's immediate
-  feedback is the v1.1 answer. The unattended-HOLD rule (§2) is the
-  seam notifications would build on.
+- **Telemetry**: the validation module stays transport-agnostic.
+  Sprint 11 instruments the surrounding API lifecycle (validated /
+  rejected / needs-review / sync started / completed / failed) through
+  the governed structured-log/Sentry/PostHog boundary. Sprint 17 must
+  extend that census for acquisition states without logging report
+  contents, filenames, VINs, or transport secrets.
+- **Notifications**: CONDITIONAL rail. Sprint 17 adds unattended
+  acquisition, so the implemented failure/HOLD experience must be
+  evaluated at the Sprint 17/18 readiness checkpoint. Notifications
+  are not automatically promoted or silently folded into Sprint 17.
+
+## 13. Planned Sprint 17 acquisition path (not implemented)
+
+The owner opted Keyper scheduled **All Vehicles / Full Inventory**
+delivery into v1.1 as Sprint 17 — Vendor Integration & Automated
+Evidence Acquisition. The detailed planning contract is
+[`KEYPER_AUTOMATED_INTEGRATION_PLAN.md`](KEYPER_AUTOMATED_INTEGRATION_PLAN.md).
+
+The planned flow is:
+
+```text
+Authenticated email-provider callback
+        ↓
+configured dealership + expected-source resolver
+        ↓
+message-ID + SHA-256 attachment deduplication
+        ↓
+this existing classifier / validator / fingerprint boundary
+        ↓
+ERROR = Reject · WARNING = HOLD · clean = eligible to process
+        ↓
+existing reconciliation + tasks/recommendations/history
+```
+
+Email is transport only. Recipient, sender, subject, filename, and MIME
+claim are never evidence authority. Source freshness must distinguish
+Fresh / Aging / Stale / Missing-never-received, governed by the rule:
+
+> **Stale evidence ≠ current evidence.**
+
+This plan does not add Keyper Event ingestion, automate any other
+vendor, create a parallel validation path, or alter Sprint 10/Rail D's
+open evidence status.

@@ -160,7 +160,17 @@ plus small reality corrections (stale smoke-test workflow note;
 `dealerdoh.com` now owned). Planning only — no rail implementation,
 production untouched.
 
-**Sprint 12 (2026-08-19, in progress — branch review window, PR pending):**
+**Sprint 12 (2026-08-19, merged + Complete same day):** **MERGED**
+(PR #19 → `dev` = `bafd747`, CI green on the merged head; sprint
+branch deleted). Merged-head both-role verification PASSED on DEV
+services restored to `dev`: Manager (Overview, Help with sync
+section, persistence) and Lot Staff (Today's Work, no-sync nav,
+dismissal, Sold, work order, live 403 with request-id); six analytics
+events stamped with the merge SHA, zero PII, autocapture/pageview
+still zero; Sentry clean; QA intact, no reseed.
+**Rails B + C: Verified. Sprint 12 Complete.** Next: Sprint 13 —
+Security + Supply Chain on explicit owner go. Original sprint
+summary follows —
 Rails B+C — Role-Aware UX, Onboarding & Contextual Help on
 `feature/sprint-12-role-aware-ux` (`ROLE_AWARE_UX.md` canonical).
 Server-confirmed-role navigation and landing: manager/admin →

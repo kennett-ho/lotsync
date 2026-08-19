@@ -27,14 +27,20 @@ import type { VehicleDTO } from '../api/types'
 
 // ─── Filters (direct reads of real fields -- see header note) ─────────────────
 
-type FilterKey = 'all' | 'keys-out' | 'recovr-missing' | 'mdd-missing' | 'open-tasks'
+type FilterKey = 'all' | 'keys-out' | 'recovr-missing' | 'mdd-missing' | 'open-tasks' | 'sold'
 
 const FILTERS: { key: FilterKey; label: string; test: (v: VehicleDTO) => boolean }[] = [
-  { key: 'all',            label: 'All',            test: () => true },
-  { key: 'keys-out',       label: 'Keys Out',       test: v => v.keyper_status !== null && v.keyper_status !== 'In' },
-  { key: 'recovr-missing', label: 'RecovR Missing', test: v => v.recovr_status !== null && v.recovr_status !== 'paired' },
-  { key: 'mdd-missing',    label: 'MDD Missing',    test: v => v.mdd_status !== null && v.mdd_status !== 'paired' },
-  { key: 'open-tasks',     label: 'Has Open Tasks', test: v => v.open_task_count > 0 },
+  { key: 'all',            label: 'All',            test: v => v.tekion_status !== 'Sold' },
+  { key: 'keys-out',       label: 'Keys Out',       test: v => v.tekion_status !== 'Sold' && v.keyper_status !== null && v.keyper_status !== 'In' },
+  { key: 'recovr-missing', label: 'RecovR Missing', test: v => v.tekion_status !== 'Sold' && v.recovr_status !== null && v.recovr_status !== 'paired' },
+  { key: 'mdd-missing',    label: 'MDD Missing',    test: v => v.tekion_status !== 'Sold' && v.mdd_status !== null && v.mdd_status !== 'paired' },
+  { key: 'open-tasks',     label: 'Has Open Tasks', test: v => v.tekion_status !== 'Sold' && v.open_task_count > 0 },
+  // Sprint 12 (audit §1.7): the minimal sold-browse addition -- a mode
+  // that fetches the wider roster (?include_sold=true) and shows only
+  // Tekion-sold rows. The DEFAULT view is unchanged: active inventory.
+  // Justified by real workflows (likely-sold recommendations,
+  // sold-vehicle key/device cleanup); deliberately not an archive.
+  { key: 'sold',           label: 'Sold',           test: v => v.tekion_status === 'Sold' },
 ]
 
 // ─── Sub-components ───────────────────────────────────────────────────────────
@@ -107,21 +113,13 @@ function TasksBadge({ count }: { count: number }) {
 
 // ─── Vehicle row ──────────────────────────────────────────────────────────────
 
-function VehicleRow({ v, query, selected, onToggle, onSelect }: {
-  v: VehicleDTO; query: string; selected: boolean
-  onToggle: (vin: string) => void
+function VehicleRow({ v, query, onSelect }: {
+  v: VehicleDTO; query: string
   onSelect: (vin: string) => void
 }) {
   return (
-    <tr className={`group border-b border-slate-100 transition-colors ${
-      selected ? 'bg-blue-50' : 'hover:bg-slate-50/70'
-    }`}>
-      <td className="pl-4 pr-3 py-3 w-8">
-        <input type="checkbox" checked={selected} onChange={() => onToggle(v.vin)}
-          className="w-3.5 h-3.5 rounded border-slate-300 text-blue-600 cursor-pointer accent-blue-600" />
-      </td>
-
-      <td className="py-3 pr-5 w-24">
+    <tr className="group border-b border-slate-100 transition-colors hover:bg-slate-50/70">
+      <td className="py-3 pl-4 pr-5 w-24">
         <button onClick={() => onSelect(v.vin)}
           className="font-mono text-[12px] font-bold text-blue-600 hover:text-blue-800 hover:underline transition-colors">
           <Highlight text={v.stock_number ?? '—'} query={query} />
@@ -133,7 +131,12 @@ function VehicleRow({ v, query, selected, onToggle, onSelect }: {
           <div className="text-[13px] font-semibold text-slate-900 group-hover:text-blue-700 transition-colors leading-snug">
             <Highlight text={v.display_name || 'Unknown vehicle'} query={query} />
           </div>
-          {v.new_or_used && <div className="text-[11px] text-slate-400 mt-0.5">{v.new_or_used}</div>}
+          <div className="flex items-center gap-1.5 mt-0.5">
+            {v.new_or_used && <span className="text-[11px] text-slate-400">{v.new_or_used}</span>}
+            {v.tekion_status === 'Sold' && (
+              <span className="text-[10px] font-bold px-1.5 py-0.5 rounded bg-slate-100 text-slate-500 border border-slate-200">Sold</span>
+            )}
+          </div>
         </button>
       </td>
 
@@ -168,22 +171,21 @@ function VehicleRow({ v, query, selected, onToggle, onSelect }: {
 // phone or portrait tablet; reuses the exact same badges/highlight as the
 // table row rather than inventing a second visual language for the same data) ──
 
-function VehicleCard({ v, query, selected, onToggle, onSelect }: {
-  v: VehicleDTO; query: string; selected: boolean
-  onToggle: (vin: string) => void
+function VehicleCard({ v, query, onSelect }: {
+  v: VehicleDTO; query: string
   onSelect: (vin: string) => void
 }) {
   return (
-    <div className={`flex items-start gap-3 px-4 py-3 border-b border-slate-100 transition-colors ${selected ? 'bg-blue-50' : 'active:bg-slate-50'}`}>
-      <input type="checkbox" checked={selected} onChange={() => onToggle(v.vin)}
-        className="mt-1 w-4 h-4 rounded border-slate-300 text-blue-600 cursor-pointer accent-blue-600 flex-shrink-0" />
-
+    <div className="flex items-start gap-3 px-4 py-3 border-b border-slate-100 transition-colors active:bg-slate-50">
       <button onClick={() => onSelect(v.vin)} className="flex-1 min-w-0 text-left">
         <div className="flex items-center gap-2 flex-wrap">
           <span className="font-mono text-[12px] font-bold text-blue-600">
             <Highlight text={v.stock_number ?? '—'} query={query} />
           </span>
           <TasksBadge count={v.open_task_count} />
+          {v.tekion_status === 'Sold' && (
+            <span className="text-[10px] font-bold px-1.5 py-0.5 rounded bg-slate-100 text-slate-500 border border-slate-200">Sold</span>
+          )}
         </div>
         <div className="text-[13px] font-semibold text-slate-900 mt-0.5 leading-snug">
           <Highlight text={v.display_name || 'Unknown vehicle'} query={query} />
@@ -199,33 +201,6 @@ function VehicleCard({ v, query, selected, onToggle, onSelect }: {
           <SysBadge label="MDD"    value={v.mdd_status}    okValue="paired" />
           <SysBadge label="Keys"   value={v.keyper_status}  okValue="In" />
         </div>
-      </button>
-    </div>
-  )
-}
-
-// ─── Bulk action toolbar ──────────────────────────────────────────────────────
-
-function BulkToolbar({ count, onClear }: { count: number; onClear: () => void }) {
-  const actions = ['Create Task', 'Move Zone', 'Log Activity', 'Export'] as const
-  return (
-    <div className="flex items-center gap-3 px-5 py-2 bg-blue-600 text-white">
-      <span className="text-[13px] font-bold">{count} vehicle{count !== 1 ? 's' : ''} selected</span>
-      <div className="w-px h-4 bg-white/25" />
-      <div className="flex items-center gap-2">
-        {actions.map(a => (
-          <button key={a} disabled
-            className="text-[11px] font-bold px-3 py-1 rounded-md bg-white/10 text-white/50 border border-white/15 cursor-not-allowed"
-            title="Coming soon">
-            {a}
-          </button>
-        ))}
-      </div>
-      <div className="flex-1" />
-      <button onClick={onClear}
-        className="text-[11px] font-semibold text-white/70 hover:text-white transition-colors flex items-center gap-1">
-        <svg width="11" height="11" fill="none" viewBox="0 0 24 24"><path d="M18 6 6 18M6 6l12 12" stroke="currentColor" strokeWidth="2" strokeLinecap="round"/></svg>
-        Clear
       </button>
     </div>
   )
@@ -251,13 +226,16 @@ const spinner = (
 // ─── Main component ───────────────────────────────────────────────────────────
 
 export default function VehiclesList({ onVehicleSelect }: { onVehicleSelect: (vin: string) => void }) {
-  const state = useApi(() => getVehicles(), [])
-
   const [search,   setSearch]   = useState('')
   const [filter,   setFilter]   = useState<FilterKey>('all')
   const [sortKey,  setSortKey]  = useState<SortKey>('open_task_count')
   const [sortDir,  setSortDir]  = useState<'asc' | 'desc'>('desc')
-  const [selected, setSelected] = useState<Set<string>>(new Set())
+
+  // The Sold mode fetches the wider roster; every other mode keeps the
+  // server's default active-only response, so the standing behavior of
+  // the page is byte-identical outside that mode.
+  const includeSold = filter === 'sold'
+  const state = useApi(() => getVehicles({ includeSold }), [includeSold])
 
   const vehicles = state.status === 'success' ? state.data : []
 
@@ -296,24 +274,6 @@ export default function VehiclesList({ onVehicleSelect }: { onVehicleSelect: (vi
     Object.fromEntries(FILTERS.map(f => [f.key, vehicles.filter(f.test).length])) as Record<FilterKey, number>,
   [vehicles])
 
-  const allSelected  = filtered.length > 0 && filtered.every(v => selected.has(v.vin))
-  const someSelected = filtered.some(v => selected.has(v.vin))
-  const selectedCount = selected.size
-
-  const toggleAll = () => {
-    if (allSelected) {
-      setSelected(prev => { const n = new Set(prev); filtered.forEach(v => n.delete(v.vin)); return n })
-    } else {
-      setSelected(prev => { const n = new Set(prev); filtered.forEach(v => n.add(v.vin)); return n })
-    }
-  }
-
-  const toggleOne = (vin: string) => {
-    setSelected(prev => { const n = new Set(prev); n.has(vin) ? n.delete(vin) : n.add(vin); return n })
-  }
-
-  const clearSelection = () => setSelected(new Set())
-
   return (
     <div className="flex-1 flex flex-col overflow-hidden min-h-0">
 
@@ -338,7 +298,10 @@ export default function VehiclesList({ onVehicleSelect }: { onVehicleSelect: (vi
         <div className="flex items-center gap-1">
           {FILTERS.map(({ key, label }) => {
             const count = filterCounts[key] ?? 0
-            if (key !== 'all' && !count) return null
+            // Sold is a MODE (it triggers the wider fetch), so it stays
+            // visible with no count promise until its data is loaded;
+            // the other chips keep the hide-when-empty honesty rule.
+            if (key !== 'all' && key !== 'sold' && !count) return null
             const active = filter === key
             return (
               <button key={key} onClick={() => setFilter(active && key !== 'all' ? 'all' : key)}
@@ -347,7 +310,7 @@ export default function VehiclesList({ onVehicleSelect }: { onVehicleSelect: (vi
                     ? 'bg-slate-800 text-white border-slate-800'
                     : 'bg-white text-slate-500 border-slate-200 hover:border-slate-300 hover:text-slate-700'
                 }`}>
-                {label} <span className="opacity-50 font-normal">{count}</span>
+                {label}{(key !== 'sold' || active) && <span className="opacity-50 font-normal"> {count}</span>}
               </button>
             )
           })}
@@ -359,10 +322,6 @@ export default function VehiclesList({ onVehicleSelect }: { onVehicleSelect: (vi
           {filtered.length} of {vehicles.length}
         </span>
       </div>
-
-      {selectedCount > 0 && (
-        <BulkToolbar count={selectedCount} onClear={clearSelection} />
-      )}
 
       <div className="flex-1 overflow-y-auto" style={{ scrollbarWidth: 'thin' }}>
         {state.status === 'loading' && (
@@ -404,24 +363,19 @@ export default function VehiclesList({ onVehicleSelect }: { onVehicleSelect: (vi
               {filtered.map(v => (
                 <VehicleCard
                   key={v.vin} v={v} query={q}
-                  selected={selected.has(v.vin)}
-                  onToggle={toggleOne}
                   onSelect={onVehicleSelect}
                 />
               ))}
             </div>
 
+            {/* Sprint 12 (audit D3-adjacent): the selection checkboxes and
+                bulk toolbar are removed -- selection existed only to feed
+                four permanently-disabled bulk actions. Both return
+                together when a real bulk write exists. */}
             <table className="hidden lg:table w-full border-collapse">
               <thead className="sticky top-0 z-10 bg-slate-50 border-b border-slate-200">
                 <tr>
-                  <th className="pl-4 pr-3 py-2.5 w-8">
-                    <input type="checkbox"
-                      checked={allSelected}
-                      ref={el => { if (el) el.indeterminate = someSelected && !allSelected }}
-                      onChange={toggleAll}
-                      className="w-3.5 h-3.5 rounded border-slate-300 cursor-pointer accent-blue-600" />
-                  </th>
-                  <th className="py-2.5 pr-5 text-left w-24">
+                  <th className="pl-4 py-2.5 pr-5 text-left w-24">
                     <ColHeader label="Stock #" sortKey="stock_number" current={sortKey} dir={sortDir} onSort={handleSort} />
                   </th>
                   <th className="py-2.5 pr-5 text-left" style={{ width: '220px' }}>
@@ -445,8 +399,6 @@ export default function VehiclesList({ onVehicleSelect }: { onVehicleSelect: (vi
                 {filtered.map(v => (
                   <VehicleRow
                     key={v.vin} v={v} query={q}
-                    selected={selected.has(v.vin)}
-                    onToggle={toggleOne}
                     onSelect={onVehicleSelect}
                   />
                 ))}

@@ -15,7 +15,7 @@
 // outright (this sprint's UI is frozen), they render an honest
 // "Not tracked yet" note in place of a fabricated value.
 
-import { useMemo, useState } from 'react'
+import { useMemo } from 'react'
 import { getVehicleDetail } from './api/vehicles'
 import { useApi } from './api/useApi'
 import { ApiError, isBackendUnavailable } from './api/client'
@@ -232,10 +232,9 @@ function Timeline({ events }: { events: ActivityDTO[] }) {
           <h3 className="text-[15px] font-bold text-slate-900">Vehicle Timeline</h3>
           <p className="text-[12px] text-slate-400 mt-0.5">{events.length} event{events.length === 1 ? '' : 's'}</p>
         </div>
-        <button disabled title="Coming soon"
-          className="text-[11px] font-semibold text-blue-300 bg-blue-50/50 border border-blue-100 px-3 py-1.5 rounded-lg flex items-center gap-1.5 cursor-not-allowed">
-          {I.plus} Log Event
-        </button>
+        {/* Sprint 12 (audit D3): the disabled "Log Event" button is
+            removed -- manual event writes don't exist. Events come
+            from synced source evidence only. */}
       </div>
 
       <div className="lg:flex-1 lg:overflow-y-auto pr-1" style={{ scrollbarWidth: 'thin' }}>
@@ -421,8 +420,7 @@ function TasksPanel({ tasks }: { tasks: TaskDTO[] }) {
 // ─── Operational Insights (Recommendations) ────────────────────────────────────
 
 function OperationalInsights({ recommendations }: { recommendations: RecommendationDTO[] }) {
-  const [dismissedLocally, setDismissedLocally] = useState<Set<number>>(new Set())
-  const open = recommendations.filter(r => r.status === 'open' && !dismissedLocally.has(r.recommendation_id))
+  const open = recommendations.filter(r => r.status === 'open')
 
   return (
     <div className="flex-shrink-0 border-t border-slate-200 bg-white px-4 sm:px-5 py-4">
@@ -462,17 +460,12 @@ function OperationalInsights({ recommendations }: { recommendations: Recommendat
                 {describeRecommendationDetail(rec) && (
                   <p className="text-[11px] text-slate-500 leading-relaxed mb-3">{describeRecommendationDetail(rec)}</p>
                 )}
-                <div className="flex items-center gap-1.5 flex-wrap">
-                  <button disabled title="Coming soon -- write APIs are out of this sprint's scope"
-                    className="text-[11px] font-bold px-2.5 py-1 rounded-md border border-blue-200 bg-white text-blue-300 cursor-not-allowed flex items-center gap-1">
-                    {I.plus} Create Task
-                  </button>
-                  <button onClick={() => setDismissedLocally(d => new Set(d).add(rec.recommendation_id))}
-                    title="Local-only for now -- Dismiss write API is out of this sprint's scope"
-                    className="text-[11px] font-bold px-2.5 py-1 rounded-md border border-slate-200 bg-white text-slate-400 hover:text-slate-600 hover:border-slate-300 transition-all duration-150 flex items-center gap-1">
-                    {I.dismiss} Dismiss
-                  </button>
-                </div>
+                {/* Sprint 12 (audit D3/D5): the disabled "Create Task"
+                    and the LOCAL-ONLY "Dismiss" (it never persisted --
+                    the recommendation returned on reload) are removed.
+                    Recommendations are evidence for human judgment;
+                    acting on one happens in the real systems until
+                    write APIs exist. */}
               </div>
             )
           })}
@@ -520,16 +513,9 @@ export default function VehicleDetailPage({ vin, onBack, backLabel = 'Dashboard'
           </span>
         </div>
 
-        {state.status === 'success' && (
-          <div className="flex items-center gap-2">
-            <button className="text-[11px] font-bold text-slate-600 bg-white border border-slate-200 hover:border-slate-300 px-3 py-1.5 rounded-lg transition-colors" disabled title="Coming soon">
-              Edit Vehicle
-            </button>
-            <button className="text-[11px] font-bold text-white bg-blue-300 px-3 py-1.5 rounded-lg flex items-center gap-1.5 cursor-not-allowed" disabled title="Coming soon -- write APIs are out of this sprint's scope">
-              {I.plus} Create Task
-            </button>
-          </div>
-        )}
+        {/* Sprint 12 (audit D3): the disabled Edit Vehicle / Create Task
+            header buttons are removed -- no write APIs exist. Vehicle
+            truth comes from synced source evidence. */}
       </div>
 
       {state.status === 'loading' && (

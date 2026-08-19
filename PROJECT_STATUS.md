@@ -160,6 +160,26 @@ plus small reality corrections (stale smoke-test workflow note;
 `dealerdoh.com` now owned). Planning only — no rail implementation,
 production untouched.
 
+**Sprint 12 (2026-08-19, in progress — branch review window, PR pending):**
+Rails B+C — Role-Aware UX, Onboarding & Contextual Help on
+`feature/sprint-12-role-aware-ux` (`ROLE_AWARE_UX.md` canonical).
+Server-confirmed-role navigation and landing: manager/admin →
+Overview; lot_staff → Today's Work (execution-first over the
+unchanged task engine, evidence-freshness line, no Inventory Sync nav
+where every action 403s); sales_manager shared-honest. Role-aware
+Getting Started tour (Supabase `user_metadata`, no migration; skip =
+completion; replay from role-gated Help). Audit honesty fixes: dead
+My Tasks/emp-0142 removed, VIN-only search truth, promoted
+sidebar-dismissal defect fixed, nine dead controls removed, exception
+codes translated, minimal Sold filter. AUTH-disabled production shape
+byte-identical (test-pinned, verified locally + deployed). 624/624
+SQLite · 624/624 PostgreSQL · 37 posture tests · build green.
+Deployed both-role smoke passed on the review window; the smoke
+found+fixed a rapid-click onboarding crash (captured live by the
+Sprint 11 boundary+Sentry — Rails F/G proven on a real failure).
+**Rails B+C: Implementation Complete — Awaiting Merge.** Rail D and
+Sprint 17 scope untouched.
+
 **Sprint 11 (2026-08-17, merged + Complete 2026-08-18):** Rails F+G —
 Observability & Structured Logging — **MERGED** (PR #16 → `dev` =
 `5ae6c79`, CI green on the merged head; sprint branch deleted).

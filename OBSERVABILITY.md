@@ -179,8 +179,11 @@ User A. Every event carries `environment` + `release` via
 | Event | Authority | Properties |
 |---|---|---|
 | `app_loaded` | UI | — |
-| `page_viewed` | UI | `page` (controlled id: dashboard/vehicles/tasks/inventory-sync/profile/vehicle-detail) |
+| `page_viewed` | UI | `page` (controlled id: dashboard/vehicles/tasks/inventory-sync/profile/vehicle-detail; Sprint 12 adds today/help) |
 | `vehicle_detail_opened` | UI | `source` page id (no VIN) |
+| `onboarding_started` / `_completed` / `_skipped` / `_replayed` | UI (Sprint 12 -- lifecycle of the role-aware Getting Started tour; skip records completion, replay never rewrites) | — |
+| `help_opened` | UI (Sprint 12) | — |
+| `today_work_opened` | UI (Sprint 12 -- the Lot Staff landing surface) | — |
 | `password_recovery_requested` | observed provider accept | — (never the email) |
 | `profile_display_name_updated` | observed server outcome | — (never the name) |
 | `user_management_opened` | UI | — |

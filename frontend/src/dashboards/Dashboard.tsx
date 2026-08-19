@@ -357,6 +357,9 @@ export default function Dashboard({ onVehicleSelect, onNavigate }: {
                   {recsState.status === 'success' ? recommendations.length : '…'}
                 </span>
               </div>
+              {/* Sprint 12 (Phase 13): the one non-obvious concept on this
+                  screen, explained inline once. */}
+              <span className="text-[11px] text-slate-400">Evidence for human review — nothing commits automatically</span>
             </div>
 
             {recsState.status === 'error' && (

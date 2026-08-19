@@ -7,7 +7,7 @@ for the full plan this tracks progress against. See
 [`SPRINT_HISTORY.md`](SPRINT_HISTORY.md) for the chronological
 DealerDOH infrastructure history and v1.1.0-beta release roadmap.
 
-**Last updated:** 2026-08-16 (Sprint 10 — Inventory Ingestion Safety, Report Classification & Pre-Sync Validation)
+**Last updated:** 2026-08-18 (post-Sprint-11 release-planning amendment — planned Sprint 17 Keyper automated acquisition; RC Freeze renumbered Sprint 18)
 
 ## ⚠️ Production is live and locked (2026-08-15)
 
@@ -177,6 +177,28 @@ correlation, Sentry receipt with clean payload, explicit-only
 PostHog events, signup disabled, QA dataset intact — no reseed).
 **Rails F+G: Verified. Sprint 11 Complete.** Rail D untouched. Next:
 Sprint 12 (Role-Aware UX + Onboarding) on explicit owner go.
+
+**Post-Sprint-11 release-planning amendment (2026-08-18):** owner
+discovery confirmed scheduled Keyper **All Vehicles / Full Inventory**
+delivery and explicitly opted that bounded adapter into v1.1. The
+release train now adds **Sprint 17 — Vendor Integration & Automated
+Evidence Acquisition** (status **Planned**, not started) and moves the
+existing RC Freeze to **Sprint 18 — Release Candidate Freeze / Release
+Readiness**. The adapter must reuse Sprint 10 classification,
+validation, fingerprinting, suspicious-count, HOLD, and reconciliation
+safeguards; email is transport only. Other vendor automation, Keyper
+Event ingestion, and unrelated work remain outside Sprint 17. Plan of
+record: [`KEYPER_AUTOMATED_INTEGRATION_PLAN.md`](KEYPER_AUTOMATED_INTEGRATION_PLAN.md).
+
+Notifications remains **CONDITIONAL**. After Sprint 17 implementation /
+during Sprint 18 readiness, the release must record whether real
+non-arrival, acquisition-failure, ERROR, WARNING/HOLD, stale-source, or
+repeated-failure behavior requires a minimal in-app notification
+surface. Sprint 10 remains **Implementation Paused — Awaiting Vendor
+Evidence** and Rail D remains **Merged — NOT Verified; Awaiting Vendor
+Evidence**; the real Keyper Event-vs-Full distinction still requires
+vendor evidence before unattended Keyper activation/verification.
+Planning/documentation only; no production impact.
 
 **Sprint 10 (2026-08-16, merged 2026-08-17):** Rail D — Inventory
 Ingestion Safety — is **MERGED** (PR #14 → `b389072`, owner-approved,

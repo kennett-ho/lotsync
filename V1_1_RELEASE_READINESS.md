@@ -37,7 +37,7 @@ register.
 | B — Onboarding & Contextual Help | REQUIRED | Planned | 12 | **Yes** | Tutorial, Help entry points, empty/loading/error states pass §5.B; UAT confirms no-coaching operation | Merged PR · CI · DEV smoke · Rail M UAT evidence |
 | C — Role-Aware Presentation | REQUIRED | Planned | 12 | **Yes** | Manager + Lot Staff presentations verified; zero authorization drift (§5.C) | Merged PR · CI · DEV smoke both roles · negative authz tests · UAT |
 | D — Inventory Ingestion Safety | REQUIRED (high operational priority) | **Merged — NOT Verified; Awaiting Vendor Evidence** (Sprint 10: **PR #14 owner-approved and merged as `b389072`, CI green on the merged head** — 548/548 SQLite, 548/548 PostgreSQL, frontend build; all seven §5.D classes + preview + execution revalidation fixture-tested against known vendor evidence; suspicious-count thresholds **owner-ratified** as initial beta policy; **deployed-DEV smoke PASSED pre-merge on the branch review window** — accept + reject matrix + suspicious-count/acknowledgement + direct-API bypass probes (422/409/409) + authz 401s + product tour, QA dealership intact; full record in `SPRINT_HISTORY.md`. **Why not Verified (owner-corrected evidence status):** the real Keyper Event-vs-Full structural distinction is **PENDING VENDOR EVIDENCE** — only safe rejection of nonmatching Keyper-shaped evidence is proven; sprint state: **Implementation Paused — Awaiting Vendor Evidence**) | 10 | **Yes** | All seven §5.D validation classes enforced + pre-sync preview; invalid evidence cannot reach the sync engine | Merged PR ✓ · CI on merged head ✓ (incl. adversarial fixtures) · DEV smoke ✓ (pre-merge branch window) · QA-dataset regression intact ✓ · Keyper Event vendor evidence for the exit-4 Keyper half — **outstanding** |
-| E — Notifications | **CONDITIONAL** (Sprint 08 decision — §6.1) | Deferred pending trigger | 12.5 if triggered | Only if triggered | Trigger fires (§6.1) → minimal in-app center passes its criteria | Trigger record · then B-style evidence |
+| E — Notifications | **CONDITIONAL** (Sprint 08 decision; 2026-08-18 amendment — §6.1) | Deferred pending Sprint 17/18 checkpoint, UAT evidence, or owner opt-in | Scheduled only if triggered | Only if triggered | Trigger fires (§6.1) → minimal in-app center passes its criteria before Sprint 18 can pass | Checkpoint/trigger record · then B-style evidence |
 | F — Observability (Sentry + PostHog) | REQUIRED | **Verified** (Sprint 11 merged as PR #16 → `dev` = `5ae6c79`, CI green on the merged head; both DEV services redeployed from `dev` and verified serving the merge SHA. Merged-head evidence 2026-08-18: real Sentry receipt from the merged deployment (frontend event, release = merge SHA, environment development, NO user identity/PII, Replay unconfigured — and no crash endpoint exists, the verification trigger was removed pre-merge; backend capture path fake-transport-proven on the same tree); PostHog explicit events arriving with release/environment and internal-UUID identity (anonymous→`auth_user_id` flip observed), zero `$autocapture`/`$pageview` in the project, recorder/replay absent from the deployed bundle; `signup_disabled` live-probed; payload inspection clean (no email/VIN/token). DEV providers configured; production providers deliberately NOT. Full record in `SPRINT_HISTORY.md`) | 11 | **Yes** | §5.F: DEV/PROD separation, redaction verified, synthetic failure visible, events arriving, telemetry cannot break workflows | Merged PR · CI · DEV smoke incl. synthetic error · redaction test evidence |
 | G — Structured Logging & Monitoring | REQUIRED | **Verified** (Sprint 11 merged as PR #16 → `dev` = `5ae6c79`, CI green on the merged head incl. redaction tests. Merged-head evidence 2026-08-18: JSON records streaming on the redeployed DEV service with the full schema and the merge SHA as `release`; fresh response↔log correlation proven (curl `X-Request-ID` `ff9b69a8…` found verbatim in the deployed record — `/vehicles` template, 401 = INFO, severity policy live); alert-condition inventory + telemetry census stand with named recipient (`OBSERVABILITY.md` §8). Full record in `SPRINT_HISTORY.md`) | 11 | **Yes** | §5.G: structured fields present, denylist enforced by test, alert conditions defined with owners | Merged PR · CI incl. redaction tests · DEV log samples |
 | H — Production Security Hardening | REQUIRED | Planned | 13 | **Yes** | §5.H: audit → remediate → adversarially verify → re-audit; no reachable Critical/High open | Audit reports (both passes) · fix PRs · adversarial test evidence |
@@ -47,14 +47,14 @@ register.
 | K — Accessibility | REQUIRED (blocking subset — §5.K) | Planned | 14 | **Yes** (blocking subset) | Blocking subset passes on core workflows; remainder documented as tracked remediation | Audit checklist · fix PRs · DEV keyboard/contrast evidence |
 | L — Privacy / Legal Readiness | REQUIRED ASSESSMENT (internal-beta subset blocks — §5.L) | Planned | 15 | **Yes** (subset) | Data inventory accurate; internal-beta documents published; commercial items explicitly deferred with owner sign-off | Data-flow inventory · published docs · deferral record |
 | M — Human User Acceptance Testing | REQUIRED | Planned | 16 | **Yes** | Manager + Lot Staff UAT complete; all release-blocker findings fixed and re-verified | UAT session notes · blocker list dispositions · re-test evidence |
-| Production migration (Releases A–C) | REQUIRED | **Rehearsed** (Sprint 07 PASS — not executed) | RC/cutover (17+) | **Yes** | Runbook executes at cutover; Sprint 18-era re-verification confirms rehearsal assumptions still hold | `PRODUCTION_MIGRATION_REHEARSAL.md` · refreshed rehearsal if drift · runbook completion record |
-| Automated Report Ingestion | **CONDITIONAL** (§6.2) | Discovery (owner) | v1.1 only if trigger met; else v1.1.x | Only if triggered | Vendor capability confirmed + bounded scope → owner opts in | Vendor discovery answers · scope estimate · owner decision |
+| Production migration (Releases A–C) | REQUIRED | **Rehearsed** (Sprint 07 PASS — not executed) | RC/cutover (18) | **Yes** | Runbook executes at cutover; Sprint 18 re-verification confirms rehearsal assumptions still hold | `PRODUCTION_MIGRATION_REHEARSAL.md` · refreshed rehearsal if drift · runbook completion record |
+| Automated Report Ingestion — Keyper Scheduled All Vehicles | **CONDITIONAL — TRIGGERED / owner-opted into v1.1** (§6.2, 2026-08-18) | Planned | 17 | **Yes — now that the rail has entered v1.1** | Configured dealership receives, deduplicates, validates, HOLDs or safely processes Keyper Full evidence through the Rail D boundary | Vendor evidence · merged PR · dual-engine CI · DEV acquisition/replay/HOLD smoke · observability evidence · H/I/J/L/M delta-gate evidence |
 
 Register statuses used: Planned · Discovery · In Progress ·
 Implementation Complete — Awaiting Merge · Verified · Deferred · N/A.
-**Nothing above is marked Verified** — no rail has release-grade
-evidence yet; the migration rail is deliberately "Rehearsed," not
-Verified, because rehearsal ≠ production execution.
+Rows move to Verified only with the evidence in §4. The migration rail
+remains deliberately "Rehearsed," not Verified, because rehearsal ≠
+production execution.
 
 ---
 
@@ -64,14 +64,19 @@ Verified, because rehearsal ≠ production execution.
 K (blocking subset), L (internal-beta subset), M, and the production
 migration itself.
 
-**CONDITIONAL (enters only if its trigger fires — §6):**
-E (Notifications), Automated Report Ingestion.
+**CONDITIONAL (§6):** E (Notifications) remains untriggered pending
+the Sprint 17/18 checkpoint in §6.1. Automated Report Ingestion began
+as conditional; its Keyper scheduled-report trigger is now satisfied
+and the owner explicitly opted the bounded Keyper adapter into v1.1
+as planned Sprint 17 scope. Once entered, its exit conditions block
+release.
 
 **POST-v1.1 (explicitly out, cannot silently re-enter — §7):** MFA,
 enterprise SSO, advanced user administration, SMS/push/Slack/digest
 notifications, notification preferences, session replay (pending
 privacy review), RLS, full per-row store scoping (Store #2 trigger),
-webhooks, AI-assistant tooling, GLBA-regulated data handling, public
+generic webhooks beyond Sprint 17's inbound-email provider callback,
+AI-assistant tooling, GLBA-regulated data handling, public
 API, payments/billing, object storage, commercial legal pack
 (SaaS agreement/DPA), Release D domain/rebrand execution (its own
 post-cutover release train), CHANGELOG backfill beyond release notes.
@@ -643,6 +648,14 @@ this register makes no legal-sufficiency claims.**
 **Evidence:** the inventory; the published docs; the deferral/risk
 record.
 
+**Sprint 17 delta rule:** because inbound email, a new provider,
+attachments, routing metadata, retention/retry state, and additional
+Keyper actor/context fields enter after Sprint 15, Sprint 17 must amend
+the data-flow/subprocessor/retention inventory and any affected
+internal-beta documents. Sprint 18 must verify the delta; Rail L
+evidence cannot be treated as final while the new acquisition path is
+missing from it.
+
 ### 5.M — Rail M: Human User Acceptance Testing
 - **Owner sprint:** 16 · **Blocks:** yes
 - **Purpose:** AI smoke testing does not replace dealership users;
@@ -670,6 +683,12 @@ record.
 **Evidence:** session notes per role; the dispositioned finding
 list; re-test records; telemetry cross-check.
 
+**Sprint 17 delta rule:** Sprint 16 remains the full uncoached product
+UAT. Any new Sprint 17 human surface — especially HOLD review/resume,
+freshness/staleness, or newly surfaced Keyper work — requires targeted
+human re-verification or an explicitly approved real-world pilot before
+Sprint 18, not a silent assumption that earlier UAT covered it.
+
 ---
 
 ## 6. CONDITIONAL Rails
@@ -688,34 +707,97 @@ release doesn't require. This deliberate tightening of
 on 2026-08-16**, with automated ingestion or UAT evidence as the
 promotion triggers.
 
+**Owner scope amendment (2026-08-18):** Keyper scheduled-report
+acquisition has entered v1.1 as planned Sprint 17 scope (§6.2). The
+owner explicitly kept Notifications **CONDITIONAL** rather than
+automatically promoting it. Sprint 17 implementation and Sprint 18
+readiness must instead run a recorded checkpoint against the real
+unattended failure/HOLD experience.
+
 **Triggers (any one fires the rail into scope):**
-1. Automated Report Ingestion (§6.2) enters v1.1 → notifications
-   become REQUIRED alongside it (unattended failures must reach a
-   human), scoped minimal: in-app center, unread/read, timestamp,
-   deep link, mark-read, retention.
+1. After Sprint 17 implementation / during Sprint 18 readiness, real
+   evidence shows that scheduled-report non-arrival, acquisition
+   failure, validation ERROR, validation WARNING/HOLD, stale evidence,
+   or repeated ingestion failure cannot reliably reach a responsible
+   human through the implemented operational surfaces → REQUIRED,
+   scoped minimal: in-app center, unread/read, timestamp, deep link,
+   mark-read, retention.
 2. Rail M UAT demonstrates users miss operationally significant
    conditions the existing surfaces don't carry → REQUIRED at the
    UAT-blocker level.
 3. Owner explicitly opts it in (Scope Discipline rule 5).
 
-If triggered: owner sprint ≈ 12.5 (between UX and security), and the
+If triggered, scope and scheduling must be explicitly added before
+Sprint 18 can pass; it is not silently absorbed into Sprint 17. The
 POST-v1.1 exclusions stay excluded (no SMS/push/Slack/digests/
-preferences).
+preferences). Sprint 12.5 remains the historical placeholder for an
+earlier trigger; the Sprint 17/18 checkpoint is the operative one now.
 
-### 6.2 Automated Report Ingestion (**CONDITIONAL — vendor discovery pending**)
-**Trigger to enter v1.1:** vendor capability confirmed **and**
-implementation scope bounded (a schedule-stable emailed full
-snapshot with a parseable attachment for at least one high-value
-source) **and** owner opts in. Otherwise → `v1.1.x`.
+### 6.2 Automated Report Ingestion (**CONDITIONAL TRIGGER SATISFIED — Planned Sprint 17**)
 
-**Discovery checklist (owner action — these are dealership/vendor
-questions, not code): status Discovery, target: answers before
-Sprint 12 planning**
+**Owner scope decision (2026-08-18):** dealership discovery confirmed
+that Keyper supports scheduled delivery of the **All Vehicles / Full
+Inventory** snapshot; the implementation is bounded to that one
+high-value source; and the owner opted it into v1.1. The rail therefore
+retains its conditional origin but is now **Planned**, assigned to
+Sprint 17, and blocks release once entered. The detailed plan of record
+is [`KEYPER_AUTOMATED_INTEGRATION_PLAN.md`](KEYPER_AUTOMATED_INTEGRATION_PLAN.md).
+
+**Sprint 17 exit conditions:**
+
+1. A configured dealership can receive a scheduled Keyper All
+   Vehicles attachment through an authenticated inbound-email
+   provider callback and resolve the expected dealership/source
+   without treating recipient, sender, subject, or filename as
+   evidence truth.
+2. Provider message ID plus SHA-256 attachment fingerprint provide
+   replay-safe deduplication and idempotency.
+3. Attachment type/size and recipient/source rules fail safely;
+   unknown recipients are acknowledged and recorded as unsupported,
+   not assumed malicious.
+4. Every attachment passes through the existing Rail D classifier,
+   validator, fingerprint, baseline, and reconciliation safeguards —
+   no second ingestion path.
+5. Unattended ERROR rejects with no operational mutation; WARNING
+   always HOLDs for human review and is never auto-acknowledged; clean
+   evidence is eligible for automated processing under the final
+   v1.1 policy.
+6. Keyper Full contract v1 retains the grounded custody, location,
+   registration/removal, actor, and display context defined in the
+   Sprint 17 plan without making Keyper globally authoritative over
+   Tekion.
+7. Cross-system exceptions produce explainable work while reusing the
+   existing checked-out-key workflow wherever it already represents
+   the condition.
+8. Acquisition/processing states are covered by Sprint 11 structured
+   logs, correlation, Sentry, PostHog, and the telemetry census with
+   the existing redaction boundary intact.
+9. Source freshness distinguishes Fresh / Aging / Stale /
+   Missing-never-received; stale evidence is never treated as current.
+10. Dual-engine tests, adversarial webhook/replay tests, real deployed
+    DEV verification, and any explicitly approved Mark Kia pilot pass.
+11. Targeted security/supply-chain, privacy/legal, performance/
+    resilience, and human-workflow delta reviews re-open and refresh
+    the affected earlier-rail evidence before Sprint 18.
+
+**Activation dependency:** the scheduled Full snapshot is the v1.1
+target; Keyper Event ingestion remains out of scope. Sprint 17 may be
+designed and built while Rail D awaits evidence, but unattended Keyper
+processing cannot be activated or this rail marked Verified until a
+real Event sample proves the Full-vs-Event structural distinction (or
+the classifier is corrected from that evidence). Rail D remains
+**Merged — NOT Verified; Awaiting Vendor Evidence** until its own exit
+condition is satisfied.
+
+**Remaining discovery checklist (owner/vendor evidence, not guessed
+code):**
 - **Tekion:** scheduled email capability? which report types?
   snapshot vs delta? frequency? attachment format? sender/subject/
   filename stability? export completeness behavior?
-- **Keyper:** scheduled Full Inventory Report? Key Event Report?
-  formats? snapshot vs event semantics?
+- **Keyper:** scheduled All Vehicles / Full Inventory delivery is
+  confirmed. Obtain representative delivered-message + attachment
+  evidence, exact cadence, sender/provider details, and the real Key
+  Event sample needed for Full-vs-Event discrimination.
 - **RecovR:** API availability? dealership IT/vendor approval path?
   browser-automation fallback acceptability?
 - **RapidRecon:** confirm the ~daily emailed-summary limitation and
@@ -738,7 +820,7 @@ never silently before:
 |---|---|---|
 | RLS | Browser gains direct sensitive Supabase table access, or richer multi-store architecture | Policy design sprint per `AUTH_ARCHITECTURE.md`'s documented conditions (policies + non-owner role + tests) |
 | Full per-row store scoping | **Before onboarding Store #2** (hard prerequisite, already governed) | Per-row `dealership_id` population + query filters + tests across business tables |
-| Webhooks | First inbound third-party webhook | Signature verification, replay protection, idempotency |
+| Generic webhooks beyond Sprint 17 | First additional inbound/outbound third-party webhook | Dedicated scope with authentication/signature verification, replay protection, idempotency; Sprint 17's email-provider callback is governed by §6.2 |
 | AI tool authorization | DealerDOH assistant gains protected read/action tools | AuthZ outside the model, least-privilege validated tools, prompt-injection defenses, confirmation for irreversible actions |
 | GLBA / customer financial data | Any customer financial/leasing/credit data enters the system | Dedicated legal + security review before shipping |
 | Public API | First external API consumer | Scoped credentials, rotation/revocation, least privilege, rate limits |
@@ -762,17 +844,18 @@ never silently before:
 | Admin ≈ Manager equivalence | Open — by design | No | Revisit only on product justification (POST-v1.1) |
 | Full per-row store scoping before Store #2 | Deferred — triggered | No (single-store release) | §7 trigger |
 | Legacy HS256 key retirement | Open — operator review | **Yes, via Rail H** exit 6 | Sprint 13 |
-| `CHANGELOG.md` stale (ends v0.7.4) | Open — documentation debt | No | Release-notes work at RC freeze (Sprint 17); full backfill POST-v1.1 |
-| Automated-ingestion vendor discovery | Discovery (owner) | No (gates only the conditional rail) | Answers before Sprint 12 planning (§6.2) |
+| `CHANGELOG.md` stale (ends v0.7.4) | Open — documentation debt | No | Release-notes work at RC freeze (Sprint 18); full backfill POST-v1.1 |
+| Keyper scheduled-report acquisition | **Planned — conditional trigger satisfied / owner opted into v1.1** | **Yes, once entered** | Sprint 17 (§6.2; `KEYPER_AUTOMATED_INTEGRATION_PLAN.md`) |
+| Keyper Event-vs-Full structural evidence | **PENDING VENDOR EVIDENCE** | **Yes — blocks Rail D verification and unattended Keyper activation** | Real Event sample; resolve through Sprint 10/Rail D evidence path before Sprint 17 verification |
 | Privacy/legal docs don't exist yet | Planned | **Yes, via Rail L** subset | Sprint 15 |
 | Migration-tool schema drift | Standing guard | Contextual | Any sprint that adds migration 0010+ must update `tools/migrate_sqlite_to_postgres.py`'s expectations (`EXPECTED_SCHEMA_VERSION`, tables/order) and its tests, and note it for the RC-freeze rehearsal refresh |
 | `SPRINT_HISTORY.md` canonicalization | Resolved this sprint | — | Landed in-repo (Sprint 08); rolling-update procedure applies from here |
 
 ---
 
-## 9. Recommended Sprint Order (Sprint 08 analysis)
+## 9. Current Sprint Order (Sprint 08 base; owner-amended 2026-08-18)
 
-**Final recommendation — 9 sprints to RC, then cutover:**
+**Current release train — 10 sprints to RC, then cutover:**
 
 | # | Sprint | Rails | Why here |
 |---|---|---|---|
@@ -783,9 +866,10 @@ never silently before:
 | 12.5 | *Notifications — only if triggered* | E | §6.1 |
 | 13 | Security Hardening + Supply Chain | H + I + Repository Public-Release Sanitation audit (§5.H.1 — gates repo visibility, not v1.1) | Audits the finished auth/ingestion/UX/telemetry surface once, not twice; folds I and the history audit into the same evidence pass |
 | 14 | Performance + Accessibility | J + K | After features stabilize so measurements and audits hit the real product; shared browser-audit tooling |
-| 15 | Privacy / Legal Readiness | L | Data flows are final only after F/G (and E-if-triggered) settle |
-| 16 | Human UAT | M | Everything observable, secure, performant first; fix only true blockers |
-| 17 | Release Candidate Freeze | Migration rail + `/release-readiness` | Freeze scope; final audits/regression/smoke; verify Sprint 07 migration assumptions still hold (schema drift → targeted rehearsal refresh with the updated tool); select the production window (G3) |
+| 15 | Privacy / Legal Readiness | L | Establishes the pre-acquisition data-flow/legal baseline; Sprint 17 must add its provider/attachment/retention delta before Sprint 18 |
+| 16 | Human UAT | M | Full uncoached core-product UAT; Sprint 17 must target-reverify any new HOLD/freshness/Keyper-work surface it adds |
+| 17 | Vendor Integration & Automated Evidence Acquisition | Automated Report Ingestion (§6.2; conditional trigger satisfied) | Keyper Scheduled All Vehicles is the first bounded unattended source; it reuses the Sprint 10 safety boundary and Sprint 11 observability, then refreshes the affected security/privacy/performance/UAT evidence because it lands after those sprints |
+| 18 | Release Candidate Freeze / Release Readiness | Migration rail + `/release-readiness` | Freeze scope; run the Notifications checkpoint and all Sprint 17 delta gates; final audits/regression/smoke; verify Sprint 07 migration assumptions still hold (schema drift → targeted rehearsal refresh with the updated tool); select the production window (G3) |
 
 **Changes from the provisional Sprint 09–18 plan, with reasons:**
 1. **Observability moved from 13 → 11** (rationale above — the
@@ -794,15 +878,24 @@ never silently before:
    → conditional slot 12.5 (§6.1 decision).
 3. **Dependency/supply-chain folded into the security sprint**
    (was implicit) — one security evidence pass.
-4. Net: **10 sprints → 9** to RC freeze without dropping any
-   REQUIRED rail.
+4. Sprint 08's original net was **10 sprints → 9** to RC freeze
+   without dropping any REQUIRED rail.
 5. `SPRINT_HISTORY.md`'s older draft order (10=UX, 11=Ingestion) is
    superseded by ingestion-first — matching the Sprint 08
    specification's own reasoning ("bad input can silently create
    false operational truth").
+6. **Owner amendment 2026-08-18:** Keyper scheduled All Vehicles
+   satisfied the bounded automated-ingestion trigger. A dedicated
+   planned Sprint 17 was added; RC Freeze moved 17 → 18. No unrelated
+   vendor automation entered scope.
 
 Sequencing rule: a sprint may start only when the rails it depends
 on are Verified or the dependency is explicitly waived by the owner.
+Sprint 17 planning/implementation may begin with Rail D still open, but
+it cannot activate unattended Keyper processing or become Verified
+until the real Event-vs-Full evidence closes that dependency. Because
+Sprint 17 follows H/I, L, and M, it must perform targeted delta review
+instead of assuming those earlier results cover its new surface.
 
 ---
 
@@ -825,7 +918,11 @@ on are Verified or the dependency is explicitly waived by the owner.
    documents; recorded deferrals (5.L).
 8. **Human UAT** — dealership users succeed uncoached; blockers
    fixed and re-verified (5.M).
-9. **Final `/release-readiness`** — all register rows Verified,
+9. **Automated Keyper evidence** — configured acquisition is
+   authenticated, deduplicated, observable, freshness-aware, and
+   still governed by the Rail D Accept/HOLD/Reject boundary (§6.2).
+10. **Final `/release-readiness`** — all in-scope register rows
+   Verified, the Notifications checkpoint recorded,
    scope frozen, migration assumptions re-confirmed → the Sprint
    06/07 runbook executes as Releases A–C at the owner-approved
    window.

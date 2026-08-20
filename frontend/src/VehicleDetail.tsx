@@ -15,7 +15,7 @@
 // outright (this sprint's UI is frozen), they render an honest
 // "Not tracked yet" note in place of a fabricated value.
 
-import { useMemo } from 'react'
+import { useMemo, useState } from 'react'
 import { getVehicleDetail } from './api/vehicles'
 import { useApi } from './api/useApi'
 import { ApiError, isBackendUnavailable } from './api/client'
@@ -108,45 +108,42 @@ function LeftPanel({ vehicle }: { vehicle: VehicleDetailDTO }) {
     : { bg: 'bg-emerald-50', text: 'text-emerald-700', border: 'border-emerald-200', dot: 'bg-emerald-400', label: 'No Open Tasks' }
 
   return (
-    <div className="w-full lg:flex-shrink-0 lg:overflow-y-auto space-y-4 pb-4 lg:w-[268px]" style={{ scrollbarWidth: 'none' }}>
-      {/* Vehicle photo -- no backend source of truth yet (API_CONTRACTS.md
-          Section 9); placeholder image kept so the layout stays intact,
-          real signal (open task count) badged over it instead of an
-          invented status label. */}
-      <div className="rounded-xl overflow-hidden border border-slate-200 bg-slate-100 relative" style={{ aspectRatio: '16/10' }}>
-        <img
-          src="https://images.unsplash.com/photo-1623869675781-80aa31012a5a?w=600&h=380&fit=crop&auto=format"
-          alt={vehicle.display_name ?? 'Vehicle'}
-          className="w-full h-full object-cover"
-        />
-        <div className="absolute top-2.5 right-2.5">
-          <span className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-[11px] font-bold border shadow-sm ${badge.bg} ${badge.text} ${badge.border}`}>
-            <span className={`w-1.5 h-1.5 rounded-full ${badge.dot}`} />
-            {badge.label}
-          </span>
-        </div>
-        <div className="absolute bottom-0 left-0 right-0 h-12 bg-gradient-to-t from-black/40 to-transparent rounded-b-xl" />
-      </div>
+    <div className="w-full lg:flex-shrink-0 lg:overflow-y-auto space-y-4 pb-4 lg:w-[268px]" style={{ scrollbarWidth: 'none' }}
+      tabIndex={0} role="region" aria-label="Vehicle identity and status">
+      {/* Sprint 14 (Rails J+K): the stock-photo hero is REMOVED. It was
+          a random Unsplash car (never the actual vehicle -- an honesty
+          problem the placeholder note half-acknowledged), an external
+          request, and since Sprint 13's CSP (img-src 'self' data:) it
+          was a BLOCKED broken image on the deployed app anyway. The one
+          real signal it carried (open-task count) moves into the
+          identity card below. A real photo returns only with a real
+          backend photo source (API_CONTRACTS.md Section 9). */}
 
       {/* Vehicle identity */}
       <div className="bg-white rounded-xl border border-slate-200 p-4">
-        <div className="text-[11px] text-slate-400 font-medium uppercase tracking-wider mb-1">Vehicle</div>
-        <h2 className="text-[18px] font-bold text-slate-900 leading-tight tracking-tight">
+        <div className="flex items-start justify-between gap-2 mb-1">
+          <div className="text-[11px] text-slate-500 font-medium uppercase tracking-wider">Vehicle</div>
+          <span className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-[11px] font-bold border ${badge.bg} ${badge.text} ${badge.border}`}>
+            <span className={`w-1.5 h-1.5 rounded-full ${badge.dot}`} aria-hidden="true" />
+            {badge.label}
+          </span>
+        </div>
+        <h1 className="text-[18px] font-bold text-slate-900 leading-tight tracking-tight">
           {vehicle.display_name || 'Unknown vehicle'}
-        </h2>
+        </h1>
         {vehicle.new_or_used && <p className="text-[13px] text-slate-500 font-medium mb-3">{vehicle.new_or_used}</p>}
 
         <div className="space-y-2.5">
           <div className="flex items-center gap-2">
-            <span className="text-slate-400 flex-shrink-0">{I.vin}</span>
+            <span className="text-slate-400 flex-shrink-0" aria-hidden="true">{I.vin}</span>
             <div>
-              <div className="text-[10px] text-slate-400 uppercase tracking-wider">VIN</div>
+              <div className="text-[10px] text-slate-500 uppercase tracking-wider">VIN</div>
               <div className="font-mono text-[12px] font-semibold text-slate-800 tracking-wide">{vehicle.vin}</div>
             </div>
           </div>
 
           <div className="pt-1 border-t border-slate-50">
-            <div className="text-[10px] text-slate-400 uppercase tracking-wider mb-0.5">Stock #</div>
+            <div className="text-[10px] text-slate-500 uppercase tracking-wider mb-0.5">Stock #</div>
             <div className="font-mono text-[15px] font-bold text-blue-600">{vehicle.stock_number ?? '—'}</div>
           </div>
         </div>
@@ -158,18 +155,18 @@ function LeftPanel({ vehicle }: { vehicle: VehicleDetailDTO }) {
         <div className="text-[11px] font-bold text-slate-500 uppercase tracking-wider">Location</div>
 
         <div className="flex items-start gap-2.5">
-          <span className="text-slate-400 mt-0.5 flex-shrink-0">{I.pin}</span>
+          <span className="text-slate-400 mt-0.5 flex-shrink-0" aria-hidden="true">{I.pin}</span>
           <div>
-            <div className="text-[10px] text-slate-400 uppercase tracking-wider">Dealership</div>
+            <div className="text-[10px] text-slate-500 uppercase tracking-wider">Dealership</div>
             <div className="text-[13px] font-semibold text-slate-800">{vehicle.current_dealership_id ?? '—'}</div>
           </div>
         </div>
 
-        <div className="flex items-start gap-2.5 opacity-60">
-          <span className="text-slate-400 mt-0.5 flex-shrink-0">{I.info}</span>
+        <div className="flex items-start gap-2.5">
+          <span className="text-slate-400 mt-0.5 flex-shrink-0" aria-hidden="true">{I.info}</span>
           <div>
-            <div className="text-[10px] text-slate-400 uppercase tracking-wider">Lot Zone / Inventory Age</div>
-            <div className="text-[12px] text-slate-400 italic">Not tracked yet</div>
+            <div className="text-[10px] text-slate-500 uppercase tracking-wider">Lot Zone / Inventory Age</div>
+            <div className="text-[12px] text-slate-500 italic">Not tracked yet</div>
           </div>
         </div>
       </div>
@@ -190,10 +187,10 @@ function LeftPanel({ vehicle }: { vehicle: VehicleDetailDTO }) {
               {row.value === null
                 ? <span className="text-slate-300 text-[11px]">—</span>
                 : row.tone === 'green'
-                ? <span className="flex items-center gap-1 text-emerald-600 text-[11px] font-semibold">{I.check} {row.display}</span>
+                ? <span className="flex items-center gap-1 text-emerald-700 text-[11px] font-semibold">{I.check} {row.display}</span>
                 : row.tone === 'red'
                 ? <span className="text-red-600 text-[11px] font-semibold">{row.display}</span>
-                : <span className="text-amber-600 text-[11px] font-semibold">{row.display}</span>
+                : <span className="text-amber-700 text-[11px] font-semibold">{row.display}</span>
               }
             </div>
           ))}
@@ -222,31 +219,46 @@ function sortEventsByWhenTheyHappened(events: ActivityDTO[]): ActivityDTO[] {
   })
 }
 
+// Sprint 14 (Rail J): a vehicle with a long history (600 synthetic
+// events) measured 1.4 s wall / a 976 ms main-thread block rendering
+// every card at once -- multi-second on a phone. The newest
+// TIMELINE_RENDER_CAP events render immediately (months of history
+// for any realistic vehicle); the full record stays one explicit
+// click away, and the API/backend contract is untouched.
+const TIMELINE_RENDER_CAP = 150
+
 function Timeline({ events }: { events: ActivityDTO[] }) {
   const sorted = useMemo(() => sortEventsByWhenTheyHappened(events), [events])
+  const [showAll, setShowAll] = useState(false)
+  const visible = showAll ? sorted : sorted.slice(0, TIMELINE_RENDER_CAP)
+  const hiddenCount = sorted.length - visible.length
 
   return (
     <div className="w-full lg:flex-1 flex flex-col lg:overflow-hidden min-w-0">
       <div className="flex items-center justify-between mb-4 flex-shrink-0">
         <div>
-          <h3 className="text-[15px] font-bold text-slate-900">Vehicle Timeline</h3>
-          <p className="text-[12px] text-slate-400 mt-0.5">{events.length} event{events.length === 1 ? '' : 's'}</p>
+          <h2 className="text-[15px] font-bold text-slate-900">Vehicle Timeline</h2>
+          <p className="text-[12px] text-slate-500 mt-0.5">{events.length} event{events.length === 1 ? '' : 's'}</p>
         </div>
         {/* Sprint 12 (audit D3): the disabled "Log Event" button is
             removed -- manual event writes don't exist. Events come
             from synced source evidence only. */}
       </div>
 
-      <div className="lg:flex-1 lg:overflow-y-auto pr-1" style={{ scrollbarWidth: 'thin' }}>
+      {/* Sprint 14 (Rail K): the timeline cards carry no interactive
+          children, so the scroll region itself must be reachable and
+          scrollable by keyboard. */}
+      <div className="lg:flex-1 lg:overflow-y-auto pr-1" style={{ scrollbarWidth: 'thin' }}
+        tabIndex={0} role="region" aria-label="Vehicle timeline">
         {events.length === 0 ? (
-          <div className="flex flex-col items-center justify-center h-40 text-slate-400">
+          <div className="flex flex-col items-center justify-center h-40 text-slate-500">
             <p className="text-[13px] font-medium">No activity recorded yet</p>
           </div>
         ) : (
           <div className="relative pb-4">
             <div className="absolute left-4 top-2 bottom-2 w-px bg-slate-200" />
             <div className="space-y-0">
-              {sorted.map((ev) => {
+              {visible.map((ev) => {
                 const { date, time } = formatDateTime(ev.event_time ?? ev.observed_at)
                 const { title, detail } = describeEvent(ev)
                 return (
@@ -262,7 +274,7 @@ function Timeline({ events }: { events: ActivityDTO[] }) {
                           {sourceLabel(ev.source)}
                         </span>
                         <div className="text-right flex-shrink-0">
-                          <div className="text-[10px] font-mono text-slate-400">{date}</div>
+                          <div className="text-[10px] font-mono text-slate-500">{date}</div>
                           {time && <div className="text-[10px] font-mono text-slate-500 font-semibold">{time}</div>}
                         </div>
                       </div>
@@ -270,13 +282,21 @@ function Timeline({ events }: { events: ActivityDTO[] }) {
                         {title}
                       </p>
                       {detail && (
-                        <p className="text-[11px] text-slate-400 leading-snug mt-0.5">{detail}</p>
+                        <p className="text-[11px] text-slate-500 leading-snug mt-0.5">{detail}</p>
                       )}
                     </div>
                   </div>
                 )
               })}
             </div>
+            {hiddenCount > 0 && (
+              <div className="pl-12 pt-1">
+                <button onClick={() => setShowAll(true)}
+                  className="text-[12px] font-semibold text-blue-700 bg-blue-50 border border-blue-200 hover:bg-blue-100 px-3.5 py-1.5 rounded-lg transition-colors">
+                  Show older history ({hiddenCount} more event{hiddenCount === 1 ? '' : 's'})
+                </button>
+              </div>
+            )}
           </div>
         )}
       </div>
@@ -304,8 +324,12 @@ function SysCardHeader({ name, status, tone }: { name: string; status: string; t
         {/* CSS capitalize only touches the first letter of each
             whitespace-separated word -- "in_progress" has no spaces, so
             without the replace this rendered as "In_progress" verbatim. */}
+        {/* Sprint 14 (Rail K, audit): the decorative external-link
+            icon button here had NO handler and NO accessible name --
+            five unnamed dead buttons per page (axe: button-name,
+            critical). Removed under the same honesty rule that
+            removed the other dead controls in Sprint 12 (D3). */}
         <span className="text-[11px] font-semibold capitalize">{status.replace(/_/g, ' ')}</span>
-        <button className="opacity-50 hover:opacity-100 transition-opacity">{I.external}</button>
       </div>
     </div>
   )
@@ -314,7 +338,7 @@ function SysCardHeader({ name, status, tone }: { name: string; status: string; t
 function SysRow({ label, value, mono = false }: { label: string; value: string; mono?: boolean }) {
   return (
     <div className="flex items-center justify-between py-2">
-      <span className="text-[11px] text-slate-400">{label}</span>
+      <span className="text-[11px] text-slate-500">{label}</span>
       <span className={`text-[12px] font-semibold text-slate-800 ${mono ? 'font-mono text-[11px]' : ''}`}>{value}</span>
     </div>
   )
@@ -327,14 +351,15 @@ function SystemCards({ connectedSystems }: { connectedSystems: Record<string, Co
   const entries = Object.entries(connectedSystems)
 
   return (
-    <div className="w-full lg:flex-shrink-0 lg:overflow-y-auto pb-4 space-y-3 lg:w-[288px]" style={{ scrollbarWidth: 'none' }}>
+    <div className="w-full lg:flex-shrink-0 lg:overflow-y-auto pb-4 space-y-3 lg:w-[288px]" style={{ scrollbarWidth: 'none' }}
+      tabIndex={0} role="region" aria-label="Connected systems">
       <div className="flex items-center justify-between flex-shrink-0">
-        <h3 className="text-[15px] font-bold text-slate-900">Connected Systems</h3>
-        <span className="text-[10px] text-slate-400">{entries.length} integration{entries.length === 1 ? '' : 's'}</span>
+        <h2 className="text-[15px] font-bold text-slate-900">Connected Systems</h2>
+        <span className="text-[10px] text-slate-500">{entries.length} integration{entries.length === 1 ? '' : 's'}</span>
       </div>
 
       {entries.length === 0 ? (
-        <div className="text-[12px] text-slate-400 py-2">No sync history yet for this vehicle.</div>
+        <div className="text-[12px] text-slate-500 py-2">No sync history yet for this vehicle.</div>
       ) : entries.map(([source, sys]) => {
         const { date, time } = formatDateTime(sys.started_at)
         return (
@@ -351,8 +376,8 @@ function SystemCards({ connectedSystems }: { connectedSystems: Record<string, Co
       })}
 
       <div className="flex items-start gap-2 px-1 pt-1">
-        <span className="text-slate-400 flex-shrink-0 mt-0.5">{I.info}</span>
-        <p className="text-[10px] text-slate-400 leading-relaxed">
+        <span className="text-slate-400 flex-shrink-0 mt-0.5" aria-hidden="true">{I.info}</span>
+        <p className="text-[10px] text-slate-500 leading-relaxed">
           Inventory data is refreshed during scheduled Inventory Syncs. Some connected system information may be up to a few hours behind real time.
         </p>
       </div>
@@ -377,14 +402,14 @@ function TasksPanel({ tasks }: { tasks: TaskDTO[] }) {
     <div className="flex-shrink-0 border-t border-slate-200 bg-white px-4 sm:px-5 py-4">
       <div className="flex items-center gap-2 mb-3 flex-wrap">
         <span className="text-blue-500">{I.insights}</span>
-        <span className="text-[12px] font-bold text-slate-700 uppercase tracking-wider">Tasks</span>
-        <span className="text-[10px] font-bold text-amber-600 bg-amber-50 border border-amber-100 px-1.5 py-0.5 rounded-full">
+        <h2 className="text-[12px] font-bold text-slate-700 uppercase tracking-wider">Tasks</h2>
+        <span className="text-[10px] font-bold text-amber-700 bg-amber-50 border border-amber-100 px-1.5 py-0.5 rounded-full">
           {outstanding.length} open
         </span>
       </div>
 
       {tasks.length === 0 ? (
-        <div className="flex items-center gap-2 py-3 text-[12px] text-slate-400">
+        <div className="flex items-center gap-2 py-3 text-[12px] text-slate-500">
           <span className="text-emerald-500">{I.check}</span> No tasks for this vehicle right now.
         </div>
       ) : (
@@ -426,14 +451,14 @@ function OperationalInsights({ recommendations }: { recommendations: Recommendat
     <div className="flex-shrink-0 border-t border-slate-200 bg-white px-4 sm:px-5 py-4">
       <div className="flex items-center gap-2 mb-3 flex-wrap">
         <span className="text-blue-500">{I.insights}</span>
-        <span className="text-[12px] font-bold text-slate-700 uppercase tracking-wider">Operational Insights</span>
+        <h2 className="text-[12px] font-bold text-slate-700 uppercase tracking-wider">Operational Insights</h2>
         <span className="text-[10px] font-bold text-blue-600 bg-blue-50 border border-blue-100 px-1.5 py-0.5 rounded-full">
           {open.length} active
         </span>
       </div>
 
       {open.length === 0 ? (
-        <div className="flex items-center gap-2 py-3 text-[12px] text-slate-400">
+        <div className="flex items-center gap-2 py-3 text-[12px] text-slate-500">
           <span className="text-emerald-500">{I.check}</span> No active insights — vehicle is operationally on track.
         </div>
       ) : (
@@ -520,8 +545,10 @@ export default function VehicleDetailPage({ vin, onBack, backLabel = 'Dashboard'
 
       {state.status === 'loading' && (
         <CenteredMessage>
-          {I.spinner}
-          <p className="text-[13px] font-medium">Loading vehicle…</p>
+          <div role="status" className="flex flex-col items-center gap-3">
+            {I.spinner}
+            <p className="text-[13px] font-medium">Loading vehicle…</p>
+          </div>
         </CenteredMessage>
       )}
 
@@ -533,10 +560,12 @@ export default function VehicleDetailPage({ vin, onBack, backLabel = 'Dashboard'
 
       {state.status === 'error' && !(state.error instanceof ApiError && state.error.status === 404) && (
         <CenteredMessage>
-          <p className="text-[13px] font-medium text-red-500">
-            {isBackendUnavailable(state.error) ? 'The LotSync API is unreachable.' : 'Something went wrong loading this vehicle.'}
-          </p>
-          <p className="text-[11px] text-slate-400">{state.error.message}</p>
+          <div role="alert" className="flex flex-col items-center gap-2 text-center">
+            <p className="text-[13px] font-medium text-red-600">
+              {isBackendUnavailable(state.error) ? 'The LotSync API is unreachable.' : 'Something went wrong loading this vehicle.'}
+            </p>
+            <p className="text-[11px] text-slate-500">{state.error.message}</p>
+          </div>
         </CenteredMessage>
       )}
 

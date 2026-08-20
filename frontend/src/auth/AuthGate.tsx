@@ -13,12 +13,16 @@
  * membership (see api/auth.py); nothing here is trusted server-side.
  */
 
-import { useEffect, useState } from 'react'
+import { Suspense, lazy, useEffect, useState } from 'react'
 import type { Session } from '@supabase/supabase-js'
 import { resetAnalyticsIdentity } from '../observability/analytics'
 import AccessProvider from './AccessProvider'
-import Login from './Login'
 import { isAuthEnabled, supabase } from './supabase'
+
+// Sprint 14 (Rail J): the login screen is its own chunk -- production
+// builds (auth disabled) never render it, and authenticated sessions
+// skip it too.
+const Login = lazy(() => import('./Login'))
 
 export default function AuthGate({ children }: { children: React.ReactNode }) {
   const [session, setSession] = useState<Session | null>(null)
@@ -50,7 +54,15 @@ export default function AuthGate({ children }: { children: React.ReactNode }) {
     )
   }
 
-  if (!session) return <Login />
+  if (!session) {
+    return (
+      <Suspense fallback={
+        <div className="min-h-screen" style={{ backgroundColor: '#0B1220' }} />
+      }>
+        <Login />
+      </Suspense>
+    )
+  }
 
   // Sprint 09: the signed-in app runs inside AccessProvider -- one
   // shared /me identity, account-level denial handling (disabled

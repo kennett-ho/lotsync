@@ -40,17 +40,17 @@ Do not rewrite history when architecture changes later. Record what was true at 
 | **Production persistence** | SQLite on Render persistent disk |
 | **Production Auth** | Disabled / not yet rolled out |
 | **Development product** | DealerDOH |
-| **Development branch / current head** | `dev` / `6bb3a9c` (PR #21 merged — Sprint 13 security hardening, supply chain & sanitation) |
+| **Development branch / current head** | `dev` / `73dee99` (Sprint 13 closeout merged); Sprint 14 branch `feature/sprint-14-performance-accessibility` at the PR gate |
 | **Development persistence** | Supabase PostgreSQL |
 | **Development Auth** | Supabase Auth + FastAPI server-side authorization (`AUTH_MODE=required`) |
-| **Current backend regression baseline** | 656/656 SQLite and 656/656 PostgreSQL on merged `dev` = `6bb3a9c` (Sprint 13; +31 security tests over the Sprint 12 baseline) |
+| **Current backend regression baseline** | 708/708 SQLite and 708/708 PostgreSQL on the Sprint 14 branch (657 at `dev` = `73dee99` + 51 Sprint 14 guards) |
 | **Standing DEV QA dataset** | 34 vehicles, 18 tasks, 2 recommendations, 98 events, 10 sync runs |
 | **Latest completed sprint** | Sprint 13 — Security Hardening, Supply Chain & Repository Sanitation (Rails H + I Verified; sanitation Audit Clean, repo private) |
 | **Migration readiness** | Technical rehearsal PASS / GO; real production cutover intentionally unscheduled |
 | **Current release target** | `v1.1.0-beta.1` |
 | **Open PRs** | tracked per sprint; see Git/PR records in each entry |
 | **Public domain** | `dealerdoh.com` owned; production domain cutover not yet performed |
-| **Immediate focus** | Sprint 13 **Complete** — PR #21 merged (`6bb3a9c`), merged-head CI green incl. the Security scans job, deployed security smoke PASSED, **Rails H + I Verified**; sanitation **Audit Clean** (no secret ever in history; repository stays private — publication is a separate owner decision, with the customer-identity disclosure noted). One smoke-found Low (CSP blocked Google Fonts) fixed in the closeout PR. Sprint 10 remains **Implementation Paused — Awaiting Vendor Evidence**; Rail D NOT Verified. Sprint 17 remains **Planned**. Next: Sprint 14 — Performance + Accessibility on explicit owner go. |
+| **Immediate focus** | Sprint 14 (Performance, Resilience & Accessibility — Rails J + K) **Implementation Complete — Awaiting Merge**: measured-first audit at QA + 4,700-vehicle production shape → evidence-backed fixes → re-measured. Initial JS 256→167 kB gzip (−35%); production-scale keystroke blocks 400–850 ms→27–74 ms; hot-path `sync_run` growth eliminated in SQL; axe **zero violations** on all five audited surfaces (from critical/serious findings incl. a keyboard-locked upload flow and hidden-focusable drawer); 708/708 both engines; CI bundle-budget gate + structural guards; `PERFORMANCE.md` + `ACCESSIBILITY.md` canonical. Rails J/K Verified only after merge + deployed smoke. Sprint 10 remains **Implementation Paused — Awaiting Vendor Evidence**; Rail D NOT Verified. Sprint 17 remains **Planned**. |
 
 **Production rule:** `master` is what real dealership users are allowed to depend on. Normal development belongs on task branches and `dev`; production remains frozen until an explicit release train is approved.
 
@@ -1994,6 +1994,261 @@ branch deleted after merge. Sprint 10 remains **Implementation Paused
 — Awaiting Vendor Evidence**; Rail D remains **Merged — NOT
 Verified**; Sprint 17 remains **Planned**. Next: Sprint 14
 (Performance + Accessibility) on explicit owner go.
+
+---
+
+# Sprint 14 — Performance, Resilience & Accessibility
+
+**Rails J + K (`V1_1_RELEASE_READINESS.md` §5.J / §5.K) · branch
+`feature/sprint-14-performance-accessibility` from `dev` = `73dee99` ·
+status: Implementation Complete — Awaiting Merge (PR at the approval
+gate).** Canonical enduring records created this sprint:
+**`PERFORMANCE.md`** (baseline → scenarios → budgets → measurements →
+fixes → regression strategy) and **`ACCESSIBILITY.md`** (target,
+methodology, interaction model, finding→fix map, honest limits).
+This entry is the sprint narrative; those documents carry the detail.
+
+## Objective
+
+Answer two questions with evidence, then fix only what the evidence
+justified: does DealerDOH stay responsive at the dealership's real
+data shape, and can people operate it without a mouse, perfect
+vision, or the visual layout's assumptions — before Human UAT (Rail
+M) and commercial-readiness work.
+
+## Method — audit BEFORE optimization (the sprint's own rule)
+
+Phase 0 verified repository/deployment truth (dev `73dee99` = both
+services, master `13c4f815` untouched, 657 OK baseline, 885 kB/256 kB
+gzip single-chunk bundle), then measured everything before editing
+anything: warm latency + payload for every endpoint at the standing
+QA scale AND the Sprint 07 production-shaped dataset (4,700 vehicles
+→ 1,197 active / 3,503 sold, 365 tasks); a +5,000-row `sync_run`
+growth probe; sourcemap attribution of the bundle (a purpose-built
+VLQ analyzer — rolldown's maps defeat source-map-explorer); browser
+render/keystroke main-thread measurement at production scale; a
+602-event pathological timeline; Render cold-start vs warm; live
+deployed request-shape counts; and a four-pass accessibility audit
+(semantic source review of every live surface, axe 4.10.2 sweeps,
+accessibility-tree + canvas-resolved oklch contrast measurement, real
+Tab-key walkthroughs).
+
+## Headline findings → fixes (measure → fix → re-measure)
+
+1. **Unbounded `sync_run` reads on hot paths.**
+   `connected_systems_status()` (paid by `/dashboard` AND every
+   `/vehicles/{vin}`) and `sync_run_history()` read every row ever
+   written. At 5,012 rows (≈ years of Sprint 17 acquisition):
+   `/dashboard` 4.4→10.5 ms, detail 4.5→10.7 ms. **Fixed in SQL**
+   (latest-per-source / newest-N-batches; semantics byte-identical
+   and pinned by `tests/test_queries_sync_scale.py`); re-measured
+   4.7 / 4.9 ms — growth path eliminated. No migration (existing
+   indexes suffice; `/data-migration` not triggered).
+2. **Duplicate `/dashboard` on every landing** — live-verified ×2 on
+   deployed DEV (161 + 362 ms), plus a session-stale header badge.
+   **Fixed** with one shared per-view fetch + in-flight dedup
+   (`api/dashboardData.tsx`); one request per view, header now
+   updates on every surface refresh. No HTTP caching introduced
+   (API stays `no-store`).
+3. **Bundle: 885 kB raw / 256 kB gzip, one chunk.** Attribution:
+   posthog-js 234.6 kB (27%), react-dom 174.4, @supabase ~198
+   (~94 kB unused sub-clients), @sentry ~83, app 156. **Fixed:**
+   PostHog deferred via dynamic import (order-preserving pre-ready
+   queue; unconfigured builds — current production — never fetch it;
+   Sentry deliberately stays synchronous for early-error capture) +
+   role-gated surfaces (Inventory Sync, Profile+User Management,
+   Help, Onboarding, Login, ResetPassword) as lazy chunks. **Initial
+   JS → 592 kB raw / 167 kB gzip (−35%).** Slimming Supabase to
+   auth-only (~94 kB more) deliberately DEFERRED — it rewires
+   verified Rail A auth (recorded in `PERFORMANCE.md` §6).
+4. **DOM rendering at production scale, not payload, is the frontend
+   bottleneck** (payloads 12.5/47 kB gzip — Render brotli-compresses,
+   verified live): 1,197 rows = 755 ms paint / 417 ms block; each
+   widening keystroke 400–850 ms; Sold = 131k DOM nodes / 939 ms;
+   602-event timeline 1.4 s. **Fixed with bounded rendering +
+   truthful escape hatches** (first 100 matches + "Show all N";
+   newest 150 events + "Show older history (N more)") — filters/
+   search/sort still run on the complete dataset; QA scale renders
+   identically; keystrokes now 27–74 ms. Virtualization and server
+   pagination rejected as disproportionate; reopening conditions
+   recorded.
+5. **Validation benchmark 0.033 s / 4,700 rows** (historical ≈0.04 s)
+   — Sprint 11/13 layers added no cost. PDF 17.6 ms @ QA / 66.6 ms @
+   365-task shape. Both fine; recorded.
+6. **Cold start separated from application latency:** 32.3 s Render
+   free-tier wake vs 0.21–0.27 s warm round-trip (~3 ms server-side).
+   Platform, not app; accepted for DEV, hosting-tier decision at
+   commercial readiness.
+7. **Resilience:** every fetch now carries a 30 s timeout (dead
+   networks fail into the existing comprehensible "unreachable"
+   path). The audit verified all mutation paths already carry
+   pending-state disable + double-submit guards; the Sprint 12
+   onboarding rapid-click clamp survives with a new pin.
+8. **Accessibility: audit → full remediation → zero axe violations**
+   on Overview, Vehicles, Tasks, Vehicle Detail, Inventory Sync
+   (from button-name critical ×5, region ×116, hidden-focusable
+   drawer controls, etc.), desktop + mobile, QA + production scale.
+   The work (complete map in `ACCESSIBILITY.md` §3): inert
+   off-canvas drawer with a real focus cycle (open→Close-button,
+   Escape→hamburger, aria-expanded/controls); onboarding became a
+   true modal (focus entry, Tab containment, Escape=Skip with the
+   same never-nag completion semantics, step announcements — clamp
+   intact); Dashboard's clickable-`<div>` rows became buttons;
+   keyboard-reachable file inputs (display:none had locked the whole
+   upload flow away from keyboards); announced outcomes
+   (role=status/alert) on validation/run/work-order/boundary;
+   labeled searches + clear button; main landmark, skip link,
+   labeled nav with aria-current, one h1 per surface, per-surface
+   document titles, focus-to-main on navigation, Escape closes
+   Vehicle Detail; aria-sort/pressed/expanded; status text beside
+   every status dot; AA contrast sweep measured against the v4 oklch
+   palette (slate-400 informative text = 2.63:1 → 500-series;
+   status tones → 700-series; canvas-resolved evidence — axe
+   under-reports oklch, recorded as a tooling limitation);
+   prefers-reduced-motion; global :focus-visible currentColor
+   outline; 24px+ targets; zero horizontal scroll at 375 px and the
+   200%-zoom-equivalent 640 px. Five dead unnamed icon buttons
+   removed from Vehicle Detail. **The CSP-blocked Unsplash hero**
+   (broken on deployed DEV since Sprint 13's `img-src 'self' data:`,
+   and never the actual vehicle) removed; its open-task badge moved
+   into the identity card; a scan now forbids external media hosts.
+   **No formal WCAG conformance is claimed** — audited/remediated
+   toward WCAG 2.2 AA-quality behavior; the screen-reader user study
+   is carried as a Rail M UAT risk.
+
+## Guards added (regression alarms, never wall-clock CI assertions)
+
+`tools/check_bundle_budget.py` + a CI gate in the frontend job
+(initial JS 200 kB gzip / total 320 / CSS 25 — 15–20% headroom over
+measured 161.8 / 255.9 / 11.0); `tests/test_frontend_performance.py`
+(shared fetch, bounded rendering, deferral, chunking, timeout);
+`tests/test_frontend_accessibility.py` (landmarks, dialog behavior,
+inert drawer, announced outcomes, no external media, reduced motion —
+recorded honestly as structural tripwires, not conformance evidence);
+`tests/test_queries_sync_scale.py` (bounded-read semantics at 2,000+
+rows).
+
+## Invariants preserved (verified, not assumed)
+
+Production-posture generic shell byte-identical (all 54 pre-existing
+frontend pin tests pass unchanged — role nav, AUTH-disabled shape,
+onboarding storage, PostHog privacy flags, no-replay, secret
+hygiene); server authorization untouched; Sprint 13 security headers/
+CSP/CORS/docs-gating/scanners untouched (no backend header or config
+change in the sprint); telemetry taxonomy unchanged (PostHog loading
+timing only — `OBSERVABILITY.md` §6 addendum); QA dealership
+untouched (local work ran on disposable seeds and generator copies).
+
+## Test matrix at the PR gate
+
+**708/708 SQLite (10 skips) · 708/708 PostgreSQL (1 skip)** — 657
+baseline + 51 new; frontend production build clean with the budget
+gate green; local browser verification: axe zero-violation sweeps,
+real-key keyboard walkthroughs (skip link first-tab, drawer cycle,
+visible focus), 375/640 px reflow, production-scale interaction
+timings.
+
+## Owner review pass + deployed feature-branch review window (2026-08-19/20)
+
+Two owner-gated passes ran before PR approval, and each one earned
+its keep by finding something real:
+
+**Owner contrast ruling (pre-window):** visible, meaningful
+attribution is TEXT, never an `aria-hidden` decorative exemption —
+the sidebar signature became AA text (white/50, measured 5.27:1,
+AT-exposed), and the re-measure caught the header sync badge's slate
+tone at 4.34:1 in the unreachable/empty states the data-full sweeps
+never painted (→ slate-600, 6.92:1).
+
+**Production-build + production-data pass (local, pre-deploy):** the
+exact branch-head build against the production-shaped dataset caught
+the Show-all cap reset landing one frame late (first keystroke after
+expansion re-rendered the full roster once, a 1.4 s block; returning
+to the expanded query surprise-re-expanded) — fixed as derived
+one-shot state (171 ms / 42 ms after). It also surfaced residual
+sub-AA tones only production-shaped data renders: slate-500-on-
+slate-100 chips (4.34), opacity-dimmed chip counts (1.98), the
+active-chip count on lightened blue (3.75), the done-fraction (2.4),
+one missed timeline date, and emerald/amber-600 status text
+(3.2–3.69) — all fixed (600-on-tint, 700-series status, weight-based
+dimming); large bold stat values legitimately pass as large text and
+were left. Final axe on the final build: **0 violations on all five
+surfaces at production data shape**; two new structural pins forbid
+the failing patterns.
+
+**Deployed window (owner pointed Render + Vercel at the branch;
+authenticated Lot Staff = the owner's own lot-staff account):** both
+services verified serving the branch head (API `/health` release +
+bundle-baked SHA + live chunk graph). Evidence recorded: zero
+console/CSP violations on a fresh tab with lazy chunks + deferred
+PostHog live (`/e/` events flowing, Sentry present); **exactly one
+`/dashboard` per view** on the real landing (the production build has
+no StrictMode noise); warm latencies /me 149 · /dashboard 213 ·
+/tasks 114 ms; initial-JS wire 173.9 kB compressed; Today's Work
+landing + per-surface titles; Vehicle Detail keyboard cycle (row →
+focus-enters-main → truthful "Today's Work" breadcrumb → Escape
+returns); drawer cycle (inert closed → open focuses Close → Escape →
+hamburger, `aria-expanded` correct); onboarding replay as a REAL
+modal live (lazy chunk, focus entry, real-key Tab containment both
+directions, Back/Next with step announcements, Escape-skip) — which
+exposed one more gap, **focus fell to `<body>` on close** → fixed
+(close hands focus to `<main>`); Sold filter `aria-pressed` +
+6-of-34; keyboard work-order generation (pending state, one request,
+227 ms); caps correctly DORMANT at QA scale; phone-width Lot Staff
+flow (drawer → Today's Work → Detail → back) with zero horizontal
+scroll and zero sub-24px targets; 640 px zoom-equivalent clean;
+signature 5.27:1 and badge 6.92:1 measured from the deployed
+stylesheet. One deliberate seam change fell out of the window's
+first Tab test: focus-to-main now happens ONLY on user-initiated
+navigation (the role-resolution landing swap on authenticated fresh
+loads was stealing it, making the first Tab skip the skip link).
+Deployed-origin axe is structurally blocked by our own CSP (recorded
+honestly; the identical final build is axe-clean locally and the
+deployed origin was verified via accessibility-tree/computed-style
+checks).
+
+**Final-head Manager pass (owner promoted `3da1b05`; owner-restored
+manager session):** both services verified serving `3da1b05` (API
+release + 3× bundle-baked SHA). The two review-window fixes proven
+live on it: an authenticated fresh load keeps document-start focus
+and the **first real Tab reveals the skip link** (Enter lands focus
+in `<main>`), and onboarding replay Escape-close returns focus to
+`<main>`. Manager evidence: Overview landing/h1 with **exactly one
+`/dashboard`** on the manager landing (the sprint's original live
+finding, closed on both role paths), real-button recommendation rows
++ `aria-expanded` groups; lazy Inventory Sync chunk; the
+visually-hidden **file input takes keyboard focus** with the label's
+focus-within ring; a **zero-mutation validate-only announcement
+proof** (synthetic unrecognized CSV → `role="status"` "Validated …
+nothing has been changed yet" announced live, Rejected verdict
+rendered, Run Sync Now stayed disabled — the Rail D gate visibly
+intact); lazy Profile chunk + `htmlFor`/`id` display-name pair +
+labeled invite email/role controls + roster; Vehicle Detail
+open/Escape cycle with the truthful "Vehicles" breadcrumb; Tasks
+h1/title; desktop-1280 layout sane (static non-inert sidebar, table
+visible, no hamburger). Regression batch on the window: API security
+headers live on 401/404 + request id, CORS allow/deny +
+`X-Request-ID` exposure, frontend CSP byte-identical to the audited
+Sprint 13 policy, deployed entry chunk carries all six PostHog
+privacy flags with zero replay/sourcemap refs, production untouched
+(`master` = `13c4f815` = tag, prod health ok), QA dealership intact
+(28/6/16) with zero mutations.
+
+**Cold start, observed on the feature deployment:** after a timed
+~17 min idle, the wake request took **52.3 s** (HTTP 200); the next
+two requests: 0.25 s / 0.29 s. Together with the earlier 32.3 s
+observation: free-tier wakes land in a 30-55 s band — platform
+sleep, not application latency (server-side stays ~3 ms), exactly
+the distinction `PERFORMANCE.md` §3 records.
+
+## Pending (deliberately NOT claimed done)
+
+Merge · merged-head CI · post-merge smoke. Rails J
+and K stay **Implementation Complete — Awaiting Merge** until then;
+nothing is marked Verified early. Rail D remains untouched (Merged —
+NOT Verified; Awaiting Vendor Evidence); Sprint 17 remains Planned.
+Recommended next sprint: **Sprint 15 — Privacy / Legal** (no
+release-blocking perf/a11y prerequisite found).
 
 ---
 

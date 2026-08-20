@@ -55,9 +55,23 @@ def sync_run_history(conn: sqlite3.Connection, limit: int = 20) -> list:
     that full summary; history entries show what's reliably derivable
     from `sync_run` alone. Stated here plainly rather than approximated.
     """
+    # Sprint 14 (Rail J): fetch only the rows belonging to the newest
+    # `limit` batches instead of every sync_run row ever written (the
+    # old full-table read grew linearly with history -- same class of
+    # unbounded read as connected_systems_status, fixed the same
+    # sprint). A batch's recency is its highest sync_run_id, matching
+    # the previous newest-first scan exactly; row order within the
+    # result (sync_run_id DESC) also matches, so the assembled batches
+    # are byte-identical to the old reduction for any history depth.
     rows = conn.execute(
-        "SELECT sync_run_id, source, status, started_at, completed_at, records_processed "
-        "FROM sync_run ORDER BY sync_run_id DESC"
+        "SELECT s.sync_run_id, s.source, s.status, s.started_at, s.completed_at, s.records_processed "
+        "FROM sync_run s "
+        "JOIN (SELECT started_at, MAX(sync_run_id) AS batch_latest "
+        "      FROM sync_run GROUP BY started_at "
+        "      ORDER BY batch_latest DESC LIMIT ?) b "
+        "  ON b.started_at = s.started_at "
+        "ORDER BY s.sync_run_id DESC",
+        (limit,),
     ).fetchall()
 
     batches = {}

@@ -1,13 +1,16 @@
-import React from 'react'
+import React, { Suspense, lazy } from 'react'
 import ReactDOM from 'react-dom/client'
 import App from './App'
 import AuthGate from './auth/AuthGate'
-import ResetPassword from './auth/ResetPassword'
 import { isAuthEnabled } from './auth/supabase'
 import ErrorBoundary from './observability/ErrorBoundary'
 import { initAnalytics, track } from './observability/analytics'
 import { initSentry } from './observability/sentry'
 import './index.css'
+
+// Sprint 14 (Rail J): the recovery page is its own chunk -- it serves
+// exactly one deep-linked route and never loads for normal app use.
+const ResetPassword = lazy(() => import('./auth/ResetPassword'))
 
 // Sprint 11 (Rails F+G): both initialize BEFORE first render and both
 // are silent no-ops without their build-time config (VITE_SENTRY_DSN /
@@ -37,7 +40,11 @@ ReactDOM.createRoot(document.getElementById('root')!).render(
         gate render failures get the honest fallback too. */}
     <ErrorBoundary>
       {isResetRoute ? (
-        <ResetPassword />
+        <Suspense fallback={
+          <div className="min-h-screen" style={{ backgroundColor: '#0B1220' }} />
+        }>
+          <ResetPassword />
+        </Suspense>
       ) : (
         <AuthGate>
           <App />

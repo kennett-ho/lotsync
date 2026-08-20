@@ -146,6 +146,39 @@ Tasks page → Print Work Order (or `GET /tasks/work-order` on the dev
 API). Expect all 16 open tasks grouped by type across the 14 vehicles
 that hold them, sold vehicles absent.
 
+## Performance & accessibility expectations (Sprint 14 — Rails J + K)
+
+Full contracts: `PERFORMANCE.md` / `ACCESSIBILITY.md`. What a QA pass
+should observe on a healthy deployment:
+
+- **One** `/dashboard` request per landing/surface visit (the header
+  shares it and its "Synced" badge updates after any surface
+  refresh). Role-gated surfaces (Inventory Sync, Profile, Help,
+  onboarding, login) each load as their own small JS chunk on first
+  use; PostHog loads as a separate deferred chunk after paint.
+- Vehicles at the standing QA scale looks exactly as before (≤34
+  rows, no cap UI). Only when a result set exceeds 100 rows does the
+  truthful bound appear: "Showing the first 100 of N" + **Show all
+  N** (a new search/filter resets to the bounded view). Vehicle
+  Detail shows the newest 150 timeline events with **Show older
+  history (N more)** beyond that. Counts/filters always reflect the
+  complete dataset.
+- **Keyboard-only** must work end to end: first Tab reveals **Skip to
+  main content**; nav carries a visible focus ring everywhere
+  (currentColor outline); navigating focuses the new surface; Escape
+  closes an open Vehicle Detail. Mobile (<1024px): hamburger opens
+  the drawer with focus on Close, Escape closes it and returns focus
+  to the hamburger, and the CLOSED drawer is never tab-reachable.
+  Onboarding: focus enters the dialog, Tab stays inside it, Escape
+  skips (counts as completion, never nags), each step announces
+  "Step N of M", and rapid Next-clicking still cannot crash it.
+- Async outcomes announce themselves (validation result, sync
+  complete/failed, work-order failure, saved/invite notices) — check
+  with a screen reader or the accessibility tree, not just the eye.
+- A first request after DEV has been idle takes ~30–60 s — that is
+  the Render free tier waking, **not** an application regression;
+  the same request warm answers in well under a second.
+
 ## How to reseed dev
 
 Deliberate operator action (never a boot side effect). From a machine

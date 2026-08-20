@@ -84,13 +84,14 @@ function AccountSection() {
 
   return (
     <div className="bg-white rounded-xl border border-slate-100 p-5">
-      <p className="text-[12px] font-semibold text-slate-600 mb-4">Account</p>
+      <h2 className="text-[12px] font-semibold text-slate-600 mb-4">Account</h2>
       <form onSubmit={save} className="flex flex-col gap-4">
         <div>
-          <label className="block text-[11px] font-semibold text-slate-500 mb-1.5">
+          <label htmlFor="profile-display-name" className="block text-[11px] font-semibold text-slate-500 mb-1.5">
             Display Name
           </label>
           <input
+            id="profile-display-name"
             type="text" value={name} maxLength={MAX_DISPLAY_NAME}
             onChange={e => setName(e.target.value)}
             placeholder="How your name appears in DealerDOH"
@@ -98,14 +99,15 @@ function AccountSection() {
           />
         </div>
         <div>
-          <label className="block text-[11px] font-semibold text-slate-500 mb-1.5">
+          <label htmlFor="profile-email" className="block text-[11px] font-semibold text-slate-500 mb-1.5">
             Email
           </label>
           <input
+            id="profile-email"
             type="text" value={me?.email ?? ''} readOnly
             className="w-full px-3 py-2 text-[13px] border border-slate-100 rounded-lg bg-slate-50 text-slate-500 cursor-not-allowed"
           />
-          <p className="text-[11px] text-slate-400 mt-1">
+          <p className="text-[11px] text-slate-500 mt-1">
             Your sign-in email. Contact an administrator to change it.
           </p>
         </div>
@@ -140,14 +142,14 @@ function AccessSection() {
   ]
   return (
     <div className="bg-white rounded-xl border border-slate-100 p-5">
-      <p className="text-[12px] font-semibold text-slate-600 mb-1">Access</p>
-      <p className="text-[11px] text-slate-400 mb-4">
+      <h2 className="text-[12px] font-semibold text-slate-600 mb-1">Access</h2>
+      <p className="text-[11px] text-slate-500 mb-4">
         Assigned by your dealership&rsquo;s administrators.
       </p>
       <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
         {rows.map(({ label, value }) => (
           <div key={label}>
-            <p className="text-[11px] text-slate-400">{label}</p>
+            <p className="text-[11px] text-slate-500">{label}</p>
             <p className="text-[13px] font-medium text-slate-700 mt-0.5">{value}</p>
           </div>
         ))}
@@ -178,11 +180,11 @@ function SecuritySection() {
 
   return (
     <div className="bg-white rounded-xl border border-slate-100 p-5">
-      <p className="text-[12px] font-semibold text-slate-600 mb-4">Security</p>
+      <h2 className="text-[12px] font-semibold text-slate-600 mb-4">Security</h2>
       <div className="flex items-center justify-between gap-4">
         <div>
           <p className="text-[13px] font-semibold text-slate-700">Password</p>
-          <p className="text-[11px] text-slate-400 mt-0.5">
+          <p className="text-[11px] text-slate-500 mt-0.5">
             We&rsquo;ll email you a secure link to set a new password.
           </p>
         </div>
@@ -205,7 +207,7 @@ function SecuritySection() {
       <div className="mt-4 pt-4 border-t border-slate-100 flex items-center justify-between gap-4">
         <div>
           <p className="text-[13px] font-semibold text-slate-700">Session</p>
-          <p className="text-[11px] text-slate-400 mt-0.5">Sign out of DealerDOH on this device.</p>
+          <p className="text-[11px] text-slate-500 mt-0.5">Sign out of DealerDOH on this device.</p>
         </div>
         <button
           onClick={() => { void signOut() }}
@@ -234,7 +236,7 @@ export default function Profile(): JSX.Element {
           <h1 className="text-[18px] font-bold text-slate-800">Profile &amp; Settings</h1>
         </div>
         <div className="flex-1 flex items-center justify-center p-6">
-          <p className="text-[13px] text-slate-400 text-center max-w-sm">
+          <p className="text-[13px] text-slate-500 text-center max-w-sm">
             Account settings are not available in this deployment — it runs
             without user sign-in.
           </p>
@@ -253,7 +255,7 @@ export default function Profile(): JSX.Element {
     <div className="h-full flex flex-col bg-slate-50 overflow-hidden">
       <div className="flex-shrink-0 bg-white border-b border-slate-100 px-4 sm:px-6 py-4">
         <h1 className="text-[18px] font-bold text-slate-800">Profile &amp; Settings</h1>
-        <p className="text-[12px] text-slate-400 mt-0.5">
+        <p className="text-[12px] text-slate-500 mt-0.5">
           Your account, access, and security
         </p>
       </div>
@@ -265,6 +267,7 @@ export default function Profile(): JSX.Element {
               <button
                 key={sec.id}
                 onClick={() => setActiveSection(sec.id)}
+                aria-current={activeSection === sec.id ? 'true' : undefined}
                 className={`w-auto lg:w-full text-left px-3 lg:px-4 py-2 lg:py-2.5 rounded-lg lg:rounded-none text-[13px] font-medium whitespace-nowrap transition-colors ${
                   activeSection === sec.id
                     ? 'text-blue-700 bg-blue-50'

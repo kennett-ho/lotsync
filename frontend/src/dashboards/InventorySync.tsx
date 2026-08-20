@@ -48,10 +48,10 @@
 //   with no errors and (if warnings) the acknowledgement is ticked.
 
 import { useMemo, useState } from 'react'
-import { getDashboard } from '../api/dashboard'
 import { track } from '../observability/analytics'
 import { getExceptions, getSyncHistory, runInventorySync, validateInventoryReports } from '../api/inventorySync'
 import { useApi } from '../api/useApi'
+import { useDashboardData } from '../api/dashboardData'
 import { ApiError, isBackendUnavailable, ValidationRejectedError } from '../api/client'
 import type { InventorySyncFiles } from '../api/inventorySync'
 import type {
@@ -87,6 +87,7 @@ function exceptionReason(identifierType: string): string {
     ?? identifierType.replace(/_/g, ' ')
 }
 
+// Decorative -- adjacent text carries the status meaning.
 function SystemDot({ status }: { status: string }) {
   if (status === 'complete')
     return <span className="inline-block w-2 h-2 rounded-full bg-emerald-500 shrink-0" />
@@ -263,7 +264,7 @@ function ReportPreviewCard({ report }: { report: ReportValidationDTO }) {
           ].map(s => (
             <div key={s.label} className="bg-slate-50 rounded-lg py-1.5">
               <div className="text-[14px] font-bold text-slate-800 leading-tight">{s.value.toLocaleString()}</div>
-              <div className="text-[10px] text-slate-400 uppercase tracking-wide">{s.label}</div>
+              <div className="text-[10px] text-slate-500 uppercase tracking-wide">{s.label}</div>
             </div>
           ))}
         </div>
@@ -339,7 +340,10 @@ export default function InventorySync(): JSX.Element {
   const [ack, setAck] = useState(false)
   const [refreshKey, setRefreshKey] = useState(0)
 
-  const dashboardState = useApi(() => getDashboard(), [refreshKey])
+  // Sprint 14 (Rail J): the connected-systems panel reads the shared
+  // per-view /dashboard fetch; after a completed run handleRunSync
+  // calls refreshDashboard() alongside the page's own refreshKey.
+  const { state: dashboardState, refresh: refreshDashboard } = useDashboardData(true)
   const historyState = useApi(() => getSyncHistory(), [refreshKey])
   const exceptionsState = useApi(() => getExceptions(), [refreshKey])
 
@@ -421,6 +425,7 @@ export default function InventorySync(): JSX.Element {
       setValidation({ status: 'idle' })
       setAck(false)
       setRefreshKey(k => k + 1)
+      refreshDashboard()
     } catch (err) {
       if (err instanceof ApiError && err.status >= 500) {
         track('inventory_sync_failed', { status: err.status })
@@ -476,16 +481,16 @@ export default function InventorySync(): JSX.Element {
         {/* Upload Reports -- 1 col on phones, 2 on tablet-portrait/narrow
             windows, 3 (unchanged) from lg up */}
         <div className="bg-white rounded-2xl border border-slate-100 p-4">
-          <p className="text-[11px] font-semibold text-slate-400 uppercase tracking-wider mb-3">
+          <h2 className="text-[11px] font-semibold text-slate-500 uppercase tracking-wider mb-3">
             Upload Reports
-          </p>
+          </h2>
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
             {UPLOAD_SLOTS.map(slot => {
               const file = files[slot.field]
               return (
                 <label
                   key={slot.field}
-                  className={`flex items-center gap-2.5 px-3 py-2.5 rounded-xl border text-[13px] cursor-pointer transition-all ${
+                  className={`relative flex items-center gap-2.5 px-3 py-2.5 rounded-xl border text-[13px] cursor-pointer transition-all focus-within:ring-2 focus-within:ring-blue-300 ${
                     file
                       ? 'border-blue-200 bg-blue-50 text-blue-700'
                       : 'border-slate-100 bg-white text-slate-600 hover:border-slate-200 hover:bg-slate-50'
@@ -494,12 +499,16 @@ export default function InventorySync(): JSX.Element {
                   <UploadIcon className={file ? 'text-blue-500' : 'text-slate-400'} />
                   <div className="min-w-0 flex-1">
                     <div className="font-semibold truncate">{slot.label}</div>
-                    <div className="text-[11px] text-slate-400 truncate">{file ? file.name : 'No file selected'}</div>
+                    <div className="text-[11px] text-slate-500 truncate">{file ? file.name : 'No file selected'}</div>
                   </div>
+                  {/* Sprint 14 (Rail K): display:none removed a
+                      keyboard user's only path to selecting a file --
+                      visually hidden but focusable instead; the label
+                      draws the focus ring via focus-within. */}
                   <input
                     type="file"
                     accept=".csv"
-                    className="hidden"
+                    className="visually-hidden"
                     onChange={e => handleFileChange(slot.field, e.target.files?.[0])}
                   />
                 </label>
@@ -518,7 +527,7 @@ export default function InventorySync(): JSX.Element {
               {validation.status === 'validating' ? spinner : <SearchIcon />}
               {validation.status === 'validating' ? 'Validating…' : 'Validate Reports'}
             </button>
-            <span className="text-[12px] text-slate-400">
+            <span role="status" className="text-[12px] text-slate-500">
               {validation.status === 'done'
                 ? `Validated ${formatTimestamp(validation.result.validated_at)} — nothing has been changed yet.`
                 : 'Reports are validated and previewed before anything is synced.'}
@@ -526,19 +535,19 @@ export default function InventorySync(): JSX.Element {
           </div>
 
           {validation.status === 'error' && (
-            <div className="mt-3 flex items-start gap-2 bg-red-50 border border-red-100 rounded-xl px-3 py-2.5 text-[12px] text-red-700">
+            <div role="alert" className="mt-3 flex items-start gap-2 bg-red-50 border border-red-100 rounded-xl px-3 py-2.5 text-[12px] text-red-700">
               <WarningIcon className="text-red-500 mt-0.5 shrink-0" />
               <span>{validation.message}</span>
             </div>
           )}
           {runState.status === 'error' && (
-            <div className="mt-3 flex items-start gap-2 bg-red-50 border border-red-100 rounded-xl px-3 py-2.5 text-[12px] text-red-700">
+            <div role="alert" className="mt-3 flex items-start gap-2 bg-red-50 border border-red-100 rounded-xl px-3 py-2.5 text-[12px] text-red-700">
               <WarningIcon className="text-red-500 mt-0.5 shrink-0" />
               <span>{runState.message}</span>
             </div>
           )}
           {runState.status === 'success' && (
-            <div className="mt-3 flex items-center gap-2 bg-emerald-50 border border-emerald-100 rounded-xl px-3 py-2.5 text-[12px] text-emerald-700">
+            <div role="status" className="mt-3 flex items-center gap-2 bg-emerald-50 border border-emerald-100 rounded-xl px-3 py-2.5 text-[12px] text-emerald-700">
               <span>
                 Sync complete — {summary?.vehicles_processed.toLocaleString()} vehicles processed across{' '}
                 {summary?.sync_runs.length} source{summary?.sync_runs.length === 1 ? '' : 's'}.
@@ -550,12 +559,12 @@ export default function InventorySync(): JSX.Element {
         {/* Pre-Sync Preview (Sprint 10) */}
         {validation.status === 'done' && (
           <div className="bg-white rounded-2xl border border-slate-100 p-4">
-            <p className="text-[11px] font-semibold text-slate-400 uppercase tracking-wider mb-3">
+            <h2 className="text-[11px] font-semibold text-slate-500 uppercase tracking-wider mb-3">
               Pre-Sync Preview
-            </p>
+            </h2>
 
             {validation.note && (
-              <div className="mb-3 flex items-start gap-2 bg-amber-50 border border-amber-100 rounded-xl px-3 py-2.5 text-[12px] text-amber-800">
+              <div role="alert" className="mb-3 flex items-start gap-2 bg-amber-50 border border-amber-100 rounded-xl px-3 py-2.5 text-[12px] text-amber-800">
                 <WarningIcon className="text-amber-500 mt-0.5 shrink-0" />
                 <span>{validation.note}</span>
               </div>
@@ -596,11 +605,11 @@ export default function InventorySync(): JSX.Element {
 
         {/* Recent Sync Runs */}
         <div className="bg-white rounded-2xl border border-slate-100 p-4">
-          <p className="text-[11px] font-semibold text-slate-400 uppercase tracking-wider mb-3">
+          <h2 className="text-[11px] font-semibold text-slate-500 uppercase tracking-wider mb-3">
             Recent Sync Runs
-          </p>
+          </h2>
           {history.length === 0 ? (
-            <p className="text-[13px] text-slate-400">No syncs recorded yet — upload reports above to get started.</p>
+            <p className="text-[13px] text-slate-500">No syncs recorded yet — upload reports above to get started.</p>
           ) : (
             <div className="flex items-center gap-2 flex-wrap">
               {history.slice(0, 6).map(batch => (
@@ -609,8 +618,9 @@ export default function InventorySync(): JSX.Element {
                   className="flex items-center gap-2.5 px-4 py-2.5 rounded-xl border border-slate-100 bg-white text-[13px]"
                 >
                   <SystemDot status={batch.overall_status} />
+                  <span className="visually-hidden">{statusLabel(batch.overall_status)}.</span>
                   <span className="font-semibold text-slate-700">{formatTimestamp(batch.started_at)}</span>
-                  <span className="text-[11px] text-slate-400">
+                  <span className="text-[11px] text-slate-500">
                     {batch.sources.map(s => sourceLabel(s.source)).join(', ')}
                   </span>
                 </div>
@@ -650,6 +660,7 @@ export default function InventorySync(): JSX.Element {
                   <SearchIcon className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" />
                   <input
                     type="text"
+                    aria-label="Search exceptions"
                     placeholder="Search exceptions…"
                     value={search}
                     onChange={e => setSearch(e.target.value)}
@@ -660,13 +671,13 @@ export default function InventorySync(): JSX.Element {
 
               <div className="overflow-y-auto" style={{ maxHeight: '440px' }}>
                 {exceptionsState.status === 'error' ? (
-                  <div className="text-center py-10 text-slate-400 text-[13px]">
+                  <div className="text-center py-10 text-slate-500 text-[13px]">
                     {isBackendUnavailable(exceptionsState.error)
                       ? 'The LotSync API is unreachable.'
                       : 'Could not load exceptions.'}
                   </div>
                 ) : filteredExceptions.length === 0 ? (
-                  <div className="text-center py-10 text-slate-400 text-[13px]">
+                  <div className="text-center py-10 text-slate-500 text-[13px]">
                     {exceptionsState.status === 'loading' ? 'Loading…' : 'No exceptions match your search.'}
                   </div>
                 ) : (
@@ -694,11 +705,11 @@ export default function InventorySync(): JSX.Element {
                     <table className="hidden lg:table w-full text-[12px]">
                       <thead className="sticky top-0 bg-slate-50 z-10">
                         <tr className="border-b border-slate-100">
-                          <th className="text-left px-4 py-2.5 font-semibold text-slate-500 text-[11px] uppercase tracking-wider whitespace-nowrap">Identifier</th>
-                          <th className="text-left px-4 py-2.5 font-semibold text-slate-500 text-[11px] uppercase tracking-wider">Reason</th>
-                          <th className="text-left px-4 py-2.5 font-semibold text-slate-500 text-[11px] uppercase tracking-wider whitespace-nowrap">Source</th>
-                          <th className="text-left px-4 py-2.5 font-semibold text-slate-500 text-[11px] uppercase tracking-wider whitespace-nowrap">First Observed</th>
-                          <th className="text-left px-4 py-2.5 font-semibold text-slate-500 text-[11px] uppercase tracking-wider whitespace-nowrap">Last Observed</th>
+                          <th scope="col" className="text-left px-4 py-2.5 font-semibold text-slate-500 text-[11px] uppercase tracking-wider whitespace-nowrap">Identifier</th>
+                          <th scope="col" className="text-left px-4 py-2.5 font-semibold text-slate-500 text-[11px] uppercase tracking-wider">Reason</th>
+                          <th scope="col" className="text-left px-4 py-2.5 font-semibold text-slate-500 text-[11px] uppercase tracking-wider whitespace-nowrap">Source</th>
+                          <th scope="col" className="text-left px-4 py-2.5 font-semibold text-slate-500 text-[11px] uppercase tracking-wider whitespace-nowrap">First Observed</th>
+                          <th scope="col" className="text-left px-4 py-2.5 font-semibold text-slate-500 text-[11px] uppercase tracking-wider whitespace-nowrap">Last Observed</th>
                         </tr>
                       </thead>
                       <tbody>
@@ -735,7 +746,7 @@ export default function InventorySync(): JSX.Element {
               </div>
               <div className="divide-y divide-slate-50">
                 {Object.keys(connectedSystems).length === 0 ? (
-                  <div className="px-5 py-4 text-[13px] text-slate-400">No syncs recorded yet.</div>
+                  <div className="px-5 py-4 text-[13px] text-slate-500">No syncs recorded yet.</div>
                 ) : (
                   Object.entries(connectedSystems).map(([source, status]) => (
                     <div key={source} className="px-5 py-3 flex items-start gap-3">
@@ -743,7 +754,7 @@ export default function InventorySync(): JSX.Element {
                       <div className="flex-1 min-w-0">
                         <div className="flex items-center gap-2">
                           <span className="text-[13px] font-semibold text-slate-800">{sourceLabel(source)}</span>
-                          <span className={`text-[11px] font-medium ${status.status === 'complete' ? 'text-emerald-600' : status.status === 'failed' ? 'text-red-600' : 'text-amber-600'}`}>
+                          <span className={`text-[11px] font-medium ${status.status === 'complete' ? 'text-emerald-700' : status.status === 'failed' ? 'text-red-600' : 'text-amber-700'}`}>
                             {statusLabel(status.status)}
                           </span>
                         </div>
@@ -779,7 +790,7 @@ export default function InventorySync(): JSX.Element {
                     </div>
                   </>
                 ) : (
-                  <p className="text-[13px] text-slate-400">Run a sync to see what changed.</p>
+                  <p className="text-[13px] text-slate-500">Run a sync to see what changed.</p>
                 )}
               </div>
             </div>
@@ -791,23 +802,24 @@ export default function InventorySync(): JSX.Element {
               </div>
               <div className="divide-y divide-slate-50">
                 {historyState.status === 'loading' && (
-                  <div className="px-5 py-4 text-[13px] text-slate-400">Loading…</div>
+                  <div className="px-5 py-4 text-[13px] text-slate-500">Loading…</div>
                 )}
                 {historyState.status === 'error' && (
-                  <div className="px-5 py-4 text-[13px] text-slate-400">
+                  <div className="px-5 py-4 text-[13px] text-slate-500">
                     {isBackendUnavailable(historyState.error) ? 'The LotSync API is unreachable.' : 'Could not load history.'}
                   </div>
                 )}
                 {historyState.status === 'success' && history.length === 0 && (
-                  <div className="px-5 py-4 text-[13px] text-slate-400">No syncs recorded yet.</div>
+                  <div className="px-5 py-4 text-[13px] text-slate-500">No syncs recorded yet.</div>
                 )}
                 {history.map(batch => (
                   <div key={batch.started_at} className="px-5 py-2.5 flex items-center justify-between">
                     <div className="flex items-center gap-2.5">
                       <SystemDot status={batch.overall_status} />
+                      <span className="visually-hidden">{statusLabel(batch.overall_status)}.</span>
                       <span className="text-[12px] text-slate-700">{formatTimestamp(batch.started_at)}</span>
                     </div>
-                    <span className="text-[11px] font-medium px-2 py-0.5 rounded-full bg-slate-100 text-slate-500">
+                    <span className="text-[11px] font-medium px-2 py-0.5 rounded-full bg-slate-100 text-slate-600">
                       {batch.sources.length} source{batch.sources.length === 1 ? '' : 's'}
                     </span>
                   </div>

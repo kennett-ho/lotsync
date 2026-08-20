@@ -128,12 +128,12 @@ export default function ResetPassword() {
       <div className="flex-1 flex items-center justify-center px-4">
         <div className="w-full max-w-sm">
           <div className="text-center mb-8">
-            <div className="text-white text-2xl font-bold tracking-tight">DealerDOH</div>
+            <h1 className="text-white text-2xl font-bold tracking-tight">DealerDOH</h1>
             <div className="text-white/50 text-[13px] mt-1">Set your password</div>
           </div>
 
           {phase === 'checking' && (
-            <div className="text-center text-white/40 text-[13px]">Checking your link…</div>
+            <div role="status" className="text-center text-white/50 text-[13px]">Checking your link…</div>
           )}
 
           {phase === 'invalid' && (

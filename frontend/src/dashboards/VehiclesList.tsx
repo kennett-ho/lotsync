@@ -25,6 +25,20 @@ import { useApi } from '../api/useApi'
 import { isBackendUnavailable } from '../api/client'
 import type { VehicleDTO } from '../api/types'
 
+// Sprint 14 (Rail J): the DOM is the bottleneck at production scale,
+// not the payload -- rendering all 1,197 active rows measured 755 ms
+// wall / a 417 ms main-thread block on a desktop-class machine, and
+// every search keystroke that widened the result re-blocked for
+// 400-850 ms (Sold mode: 3,503 rows, 131k DOM nodes, 939 ms). The
+// list therefore renders the first RENDER_CAP matches and offers an
+// explicit, truthful "Show all N" -- search/filter/sort still operate
+// on the COMPLETE dataset (the counts don't lie), only the painted
+// rows are bounded. At the standing QA scale (≤34) nothing changes.
+// The full payload stays measured-acceptable (≈12.5 kB gzipped for
+// the active list, ≈47 kB with sold -- recorded in PERFORMANCE.md),
+// so server-side pagination is deliberately NOT introduced.
+const RENDER_CAP = 100
+
 // ─── Filters (direct reads of real fields -- see header note) ─────────────────
 
 type FilterKey = 'all' | 'keys-out' | 'recovr-missing' | 'mdd-missing' | 'open-tasks' | 'sold'
@@ -54,16 +68,21 @@ function ColHeader({ label, sortKey, current, dir, onSort, right }: {
   const active = current === sortKey
   return (
     <button onClick={() => onSort(sortKey)}
-      className={`flex items-center gap-1 text-[10px] font-bold uppercase tracking-wider transition-colors ${right ? 'ml-auto' : ''} ${
-        active ? 'text-blue-600' : 'text-slate-400 hover:text-slate-600'
+      className={`flex items-center gap-1 py-1.5 -my-1.5 text-[10px] font-bold uppercase tracking-wider transition-colors ${right ? 'ml-auto' : ''} ${
+        active ? 'text-blue-600' : 'text-slate-500 hover:text-slate-700'
       }`}>
       {label}
-      <svg width="8" height="8" fill="none" viewBox="0 0 24 24"
+      <svg width="8" height="8" fill="none" viewBox="0 0 24 24" aria-hidden="true"
         className={`transition-transform ${active && dir === 'desc' ? 'rotate-180' : ''} ${active ? 'opacity-100' : 'opacity-25'}`}>
         <path d="M12 5v14M5 12l7-7 7 7" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"/>
       </svg>
     </button>
   )
+}
+
+/** aria-sort value for a sortable column header cell. */
+function ariaSort(active: boolean, dir: 'asc' | 'desc'): 'ascending' | 'descending' | undefined {
+  return active ? (dir === 'asc' ? 'ascending' : 'descending') : undefined
 }
 
 function Highlight({ text, query }: { text: string; query: string }) {
@@ -79,25 +98,31 @@ function Highlight({ text, query }: { text: string; query: string }) {
   )
 }
 
-// Compact tri-state system indicator -- driven directly by a raw per-source field.
+// Compact tri-state system indicator -- driven directly by a raw
+// per-source field. Sprint 14 (Rail K): the state used to live in the
+// dot color alone; the actual source value now rides the accessible
+// name and the hover title, so "which state" no longer requires
+// distinguishing a green dot from an amber one.
 function SysBadge({ label, value, okValue }: { label: string; value: string | null; okValue: string }) {
   const state: 'ok' | 'warn' | 'unknown' = value === null ? 'unknown' : value === okValue ? 'ok' : 'warn'
   const styles = {
-    ok:      'bg-slate-100 text-slate-400',
-    warn:    'bg-amber-50 text-amber-600 border border-amber-200',
-    unknown: 'bg-slate-50 text-slate-300 border border-slate-100',
+    ok:      'bg-slate-100 text-slate-600',
+    warn:    'bg-amber-50 text-amber-700 border border-amber-200',
+    unknown: 'bg-slate-50 text-slate-500 border border-slate-100',
   }
   const dot = { ok: 'bg-emerald-400', warn: 'bg-amber-400', unknown: 'bg-slate-300' }
+  const stateText = value === null ? 'no data' : value.replace(/_/g, ' ')
   return (
-    <span className={`inline-flex items-center gap-1 text-[10px] font-bold px-1.5 py-0.5 rounded-md ${styles[state]}`}>
-      <span className={`w-1.5 h-1.5 rounded-full flex-shrink-0 ${dot[state]}`} />
-      {label}
+    <span role="img" className={`inline-flex items-center gap-1 text-[10px] font-bold px-1.5 py-0.5 rounded-md ${styles[state]}`}
+      title={`${label}: ${stateText}`} aria-label={`${label}: ${stateText}`}>
+      <span className={`w-1.5 h-1.5 rounded-full flex-shrink-0 ${dot[state]}`} aria-hidden="true" />
+      <span aria-hidden="true">{label}</span>
     </span>
   )
 }
 
 function TasksBadge({ count }: { count: number }) {
-  if (count === 0) return <span className="text-[11px] text-slate-300 font-medium tabular-nums">—</span>
+  if (count === 0) return <span className="text-[11px] text-slate-500 font-medium tabular-nums" aria-label="No open tasks">—</span>
   const style = count >= 3
     ? 'bg-red-100 text-red-700 border border-red-200'
     : 'bg-amber-50 text-amber-700 border border-amber-200'
@@ -134,14 +159,14 @@ function VehicleRow({ v, query, onSelect }: {
           <div className="flex items-center gap-1.5 mt-0.5">
             {v.new_or_used && <span className="text-[11px] text-slate-400">{v.new_or_used}</span>}
             {v.tekion_status === 'Sold' && (
-              <span className="text-[10px] font-bold px-1.5 py-0.5 rounded bg-slate-100 text-slate-500 border border-slate-200">Sold</span>
+              <span className="text-[10px] font-bold px-1.5 py-0.5 rounded bg-slate-100 text-slate-600 border border-slate-200">Sold</span>
             )}
           </div>
         </button>
       </td>
 
       <td className="py-3 pr-5" style={{ width: '160px' }}>
-        <span className="font-mono text-[11px] text-slate-400 tracking-wide">
+        <span className="font-mono text-[11px] text-slate-500 tracking-wide">
           <Highlight text={v.vin} query={query} />
         </span>
       </td>
@@ -184,13 +209,13 @@ function VehicleCard({ v, query, onSelect }: {
           </span>
           <TasksBadge count={v.open_task_count} />
           {v.tekion_status === 'Sold' && (
-            <span className="text-[10px] font-bold px-1.5 py-0.5 rounded bg-slate-100 text-slate-500 border border-slate-200">Sold</span>
+            <span className="text-[10px] font-bold px-1.5 py-0.5 rounded bg-slate-100 text-slate-600 border border-slate-200">Sold</span>
           )}
         </div>
         <div className="text-[13px] font-semibold text-slate-900 mt-0.5 leading-snug">
           <Highlight text={v.display_name || 'Unknown vehicle'} query={query} />
         </div>
-        <div className="font-mono text-[11px] text-slate-400 tracking-wide mt-0.5">
+        <div className="font-mono text-[11px] text-slate-500 tracking-wide mt-0.5">
           <Highlight text={v.vin} query={query} />
         </div>
         {v.current_dealership_id && (
@@ -230,6 +255,23 @@ export default function VehiclesList({ onVehicleSelect }: { onVehicleSelect: (vi
   const [filter,   setFilter]   = useState<FilterKey>('all')
   const [sortKey,  setSortKey]  = useState<SortKey>('open_task_count')
   const [sortDir,  setSortDir]  = useState<'asc' | 'desc'>('desc')
+
+  // A new search/filter starts back at the bounded view -- "show all"
+  // is a ONE-SHOT choice for the result set it was clicked on, never a
+  // sticky mode (sticky would silently reintroduce the multi-hundred-
+  // ms keystroke blocks the cap exists to prevent). DERIVED, not an
+  // effect: the Sprint 14 review-window measurement caught the
+  // effect-based reset landing one frame late -- the first keystroke
+  // after "Show all" re-rendered the full roster once (a 1.4 s block
+  // at production scale) before the cap re-engaged. Keying the
+  // expansion to the result set makes the very next render bounded;
+  // dropping the key as soon as the query moves off it (the
+  // adjust-state-during-render pattern) keeps a RETURN to that query
+  // bounded too, instead of surprise-re-expanding.
+  const [showAllFor, setShowAllFor] = useState<string | null>(null)
+  const resultSetKey = `${search.trim().toLowerCase()}|${filter}`
+  if (showAllFor !== null && showAllFor !== resultSetKey) setShowAllFor(null)
+  const showAll = showAllFor === resultSetKey
 
   // The Sold mode fetches the wider roster; every other mode keeps the
   // server's default active-only response, so the standing behavior of
@@ -274,23 +316,31 @@ export default function VehiclesList({ onVehicleSelect }: { onVehicleSelect: (vi
     Object.fromEntries(FILTERS.map(f => [f.key, vehicles.filter(f.test).length])) as Record<FilterKey, number>,
   [vehicles])
 
+  // Rail J render bound -- see RENDER_CAP above. Sorting still ran on
+  // the full list, so "first 100" is the top of the CURRENT sort, not
+  // an arbitrary slice.
+  const rendered = showAll ? filtered : filtered.slice(0, RENDER_CAP)
+  const capped = filtered.length > rendered.length
+
   return (
     <div className="flex-1 flex flex-col overflow-hidden min-h-0">
+      <h1 className="visually-hidden">Vehicles</h1>
 
       {/* Toolbar */}
       <div className="flex-shrink-0 flex items-center gap-3 px-3 sm:px-5 py-2.5 bg-white border-b border-slate-200 flex-wrap">
         <div className="relative w-full sm:w-auto">
-          <svg className="absolute left-2.5 top-1/2 -translate-y-1/2 text-slate-400" width="13" height="13" fill="none" viewBox="0 0 24 24">
+          <svg className="absolute left-2.5 top-1/2 -translate-y-1/2 text-slate-400" width="13" height="13" fill="none" viewBox="0 0 24 24" aria-hidden="true">
             <circle cx="11" cy="11" r="7" stroke="currentColor" strokeWidth="1.8"/>
             <path d="m16.5 16.5 4 4" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round"/>
           </svg>
           <input value={search} onChange={e => setSearch(e.target.value)}
+            aria-label="Search vehicles by stock number, VIN, make, or model"
             placeholder="Stock, VIN, make, model…"
             className="h-8 w-full sm:w-64 pl-8 pr-7 text-[12px] bg-slate-50 border border-slate-200 rounded-lg text-slate-900 placeholder:text-slate-400 outline-none focus:border-blue-400 focus:ring-2 focus:ring-blue-100 transition-all" />
           {search && (
-            <button onClick={() => setSearch('')}
-              className="absolute right-2.5 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600">
-              <svg width="12" height="12" fill="none" viewBox="0 0 24 24"><path d="M18 6 6 18M6 6l12 12" stroke="currentColor" strokeWidth="2" strokeLinecap="round"/></svg>
+            <button onClick={() => setSearch('')} aria-label="Clear search"
+              className="absolute right-1 top-1/2 -translate-y-1/2 w-6 h-6 flex items-center justify-center rounded text-slate-500 hover:text-slate-700">
+              <svg width="12" height="12" fill="none" viewBox="0 0 24 24" aria-hidden="true"><path d="M18 6 6 18M6 6l12 12" stroke="currentColor" strokeWidth="2" strokeLinecap="round"/></svg>
             </button>
           )}
         </div>
@@ -305,12 +355,13 @@ export default function VehiclesList({ onVehicleSelect }: { onVehicleSelect: (vi
             const active = filter === key
             return (
               <button key={key} onClick={() => setFilter(active && key !== 'all' ? 'all' : key)}
+                aria-pressed={active}
                 className={`text-[11px] font-bold px-2.5 py-1 rounded-full border transition-all ${
                   active
                     ? 'bg-slate-800 text-white border-slate-800'
                     : 'bg-white text-slate-500 border-slate-200 hover:border-slate-300 hover:text-slate-700'
                 }`}>
-                {label}{(key !== 'sold' || active) && <span className="opacity-50 font-normal"> {count}</span>}
+                {label}{(key !== 'sold' || active) && <span className={active ? 'font-normal text-white/80' : 'font-normal'}> {count}</span>}
               </button>
             )
           })}
@@ -318,22 +369,24 @@ export default function VehiclesList({ onVehicleSelect }: { onVehicleSelect: (vi
 
         <div className="flex-1" />
 
-        <span className="text-[11px] text-slate-400 tabular-nums">
+        <span className="text-[11px] text-slate-500 tabular-nums">
           {filtered.length} of {vehicles.length}
         </span>
       </div>
 
       <div className="flex-1 overflow-y-auto" style={{ scrollbarWidth: 'thin' }}>
         {state.status === 'loading' && (
-          <CenteredMessage>{spinner}<p className="text-[13px] font-medium">Loading vehicles…</p></CenteredMessage>
+          <CenteredMessage><div role="status" className="flex flex-col items-center gap-3">{spinner}<p className="text-[13px] font-medium">Loading vehicles…</p></div></CenteredMessage>
         )}
 
         {state.status === 'error' && (
           <CenteredMessage>
-            <p className="text-[13px] font-medium text-red-500">
-              {isBackendUnavailable(state.error) ? 'The LotSync API is unreachable.' : 'Something went wrong loading vehicles.'}
-            </p>
-            <p className="text-[11px] text-slate-400">{state.error.message}</p>
+            <div role="alert" className="flex flex-col items-center gap-2 text-center">
+              <p className="text-[13px] font-medium text-red-600">
+                {isBackendUnavailable(state.error) ? 'The LotSync API is unreachable.' : 'Something went wrong loading vehicles.'}
+              </p>
+              <p className="text-[11px] text-slate-500">{state.error.message}</p>
+            </div>
           </CenteredMessage>
         )}
 
@@ -360,7 +413,7 @@ export default function VehiclesList({ onVehicleSelect }: { onVehicleSelect: (vi
                 instead. Desktop (lg+) is completely unaffected -- the table
                 below is unchanged, just conditionally hidden. */}
             <div className="lg:hidden divide-y divide-slate-100 bg-white">
-              {filtered.map(v => (
+              {rendered.map(v => (
                 <VehicleCard
                   key={v.vin} v={v} query={q}
                   onSelect={onVehicleSelect}
@@ -375,28 +428,28 @@ export default function VehiclesList({ onVehicleSelect }: { onVehicleSelect: (vi
             <table className="hidden lg:table w-full border-collapse">
               <thead className="sticky top-0 z-10 bg-slate-50 border-b border-slate-200">
                 <tr>
-                  <th className="pl-4 py-2.5 pr-5 text-left w-24">
+                  <th scope="col" className="pl-4 py-2.5 pr-5 text-left w-24" aria-sort={ariaSort(sortKey === 'stock_number', sortDir)}>
                     <ColHeader label="Stock #" sortKey="stock_number" current={sortKey} dir={sortDir} onSort={handleSort} />
                   </th>
-                  <th className="py-2.5 pr-5 text-left" style={{ width: '220px' }}>
+                  <th scope="col" className="py-2.5 pr-5 text-left" style={{ width: '220px' }} aria-sort={ariaSort(sortKey === 'make', sortDir)}>
                     <ColHeader label="Vehicle" sortKey="make" current={sortKey} dir={sortDir} onSort={handleSort} />
                   </th>
-                  <th className="py-2.5 pr-5 text-left" style={{ width: '160px' }}>
-                    <span className="text-[10px] font-bold uppercase tracking-wider text-slate-400">VIN</span>
+                  <th scope="col" className="py-2.5 pr-5 text-left" style={{ width: '160px' }}>
+                    <span className="text-[10px] font-bold uppercase tracking-wider text-slate-500">VIN</span>
                   </th>
-                  <th className="py-2.5 pr-5 text-left" style={{ width: '120px' }}>
+                  <th scope="col" className="py-2.5 pr-5 text-left" style={{ width: '120px' }} aria-sort={ariaSort(sortKey === 'current_dealership_id', sortDir)}>
                     <ColHeader label="Dealership" sortKey="current_dealership_id" current={sortKey} dir={sortDir} onSort={handleSort} />
                   </th>
-                  <th className="py-2.5 pr-5 w-20 text-center">
+                  <th scope="col" className="py-2.5 pr-5 w-20 text-center" aria-sort={ariaSort(sortKey === 'open_task_count', sortDir)}>
                     <ColHeader label="Tasks" sortKey="open_task_count" current={sortKey} dir={sortDir} onSort={handleSort} />
                   </th>
-                  <th className="py-2.5 px-5 text-center">
-                    <span className="text-[10px] font-bold uppercase tracking-wider text-slate-400">Systems</span>
+                  <th scope="col" className="py-2.5 px-5 text-center">
+                    <span className="text-[10px] font-bold uppercase tracking-wider text-slate-500">Systems</span>
                   </th>
                 </tr>
               </thead>
               <tbody className="bg-white divide-y divide-slate-100">
-                {filtered.map(v => (
+                {rendered.map(v => (
                   <VehicleRow
                     key={v.vin} v={v} query={q}
                     onSelect={onVehicleSelect}
@@ -404,6 +457,20 @@ export default function VehiclesList({ onVehicleSelect }: { onVehicleSelect: (vi
                 ))}
               </tbody>
             </table>
+
+            {/* Rail J render bound: the escape hatch is explicit and
+                truthful -- nothing is hidden silently. */}
+            {capped && (
+              <div className="bg-white border-t border-slate-100 px-4 py-3 text-center">
+                <p className="text-[12px] text-slate-500 mb-1.5">
+                  Showing the first {rendered.length} of {filtered.length} matching vehicles.
+                </p>
+                <button onClick={() => setShowAllFor(resultSetKey)}
+                  className="text-[12px] font-semibold text-blue-700 bg-blue-50 border border-blue-200 hover:bg-blue-100 px-3.5 py-1.5 rounded-lg transition-colors">
+                  Show all {filtered.length}
+                </button>
+              </div>
+            )}
           </>
         )}
       </div>

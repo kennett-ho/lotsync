@@ -69,17 +69,17 @@ function humanize(taskType: string): string {
 const deriveDisplayStatus = taskStatusDisplay
 
 const toneClasses: Record<StatusTone, string> = {
-  slate: 'text-slate-400',
+  slate: 'text-slate-500',
   blue: 'text-blue-600 font-semibold',
-  amber: 'text-amber-600 font-semibold',
-  green: 'text-emerald-600 font-semibold',
+  amber: 'text-amber-700 font-semibold',
+  green: 'text-emerald-700 font-semibold',
 }
 
 const priorityBadge: Record<string, { stripe: string; badge: string }> = {
   Critical: { stripe: 'bg-red-500',    badge: 'bg-red-100 text-red-700 border border-red-200' },
   High:     { stripe: 'bg-orange-400', badge: 'bg-orange-100 text-orange-700 border border-orange-200' },
   Medium:   { stripe: 'bg-amber-400',  badge: 'bg-amber-50 text-amber-700 border border-amber-200' },
-  Low:      { stripe: 'bg-slate-300',  badge: 'bg-slate-100 text-slate-500 border border-slate-200' },
+  Low:      { stripe: 'bg-slate-300',  badge: 'bg-slate-100 text-slate-600 border border-slate-200' },
 }
 
 function ratificationLabel(t: TaskDTO): string {
@@ -144,14 +144,14 @@ function Sidebar({ tasks, filter, onFilter }: { tasks: TaskDTO[]; filter: Sideba
       // pattern) so the filter panel doesn't force a tall vertical block above
       // the task list on a phone. lg: classes reproduce the original full-width
       // row exactly, so desktop is pixel-unchanged.
-      <button onClick={() => onFilter(f)}
+      <button onClick={() => onFilter(f)} aria-pressed={on}
         className={`w-auto lg:w-full inline-flex lg:flex items-center justify-start lg:justify-between gap-2 whitespace-nowrap px-3 py-1.5 rounded-lg text-[12px] font-medium transition-all ${
           on ? 'bg-blue-600 text-white' : 'text-slate-600 hover:bg-slate-100 hover:text-slate-900'
         }`}>
         {label}
         {c > 0 && (
           <span className={`text-[10px] font-bold px-1.5 py-0.5 rounded-full ${
-            on ? 'bg-white/20' : warn ? 'bg-amber-100 text-amber-700' : 'bg-slate-100 text-slate-500'
+            on ? 'bg-black/20' : warn ? 'bg-amber-100 text-amber-700' : 'bg-slate-100 text-slate-600'
           }`}>{c}</span>
         )}
       </button>
@@ -159,7 +159,7 @@ function Sidebar({ tasks, filter, onFilter }: { tasks: TaskDTO[]; filter: Sideba
   }
 
   const section = (label: string) => (
-    <div className="text-[9px] font-bold uppercase tracking-widest text-slate-400 px-3 pt-4 pb-1">{label}</div>
+    <div className="text-[9px] font-bold uppercase tracking-widest text-slate-500 px-3 pt-4 pb-1">{label}</div>
   )
 
   // Demo Polish: department/priority are real Task columns, but nothing
@@ -178,7 +178,7 @@ function Sidebar({ tasks, filter, onFilter }: { tasks: TaskDTO[]; filter: Sideba
   // wrapping as pill rows (Btn handles that). From lg up this is unchanged
   // -- fixed-width left rail, vertical button stacks, own scroll region.
   return (
-    <aside className="flex-shrink-0 w-full lg:w-48 bg-white border-b lg:border-b-0 lg:border-r border-slate-200 flex flex-col py-2 lg:py-3 lg:overflow-y-auto" style={{ scrollbarWidth: 'none' }}>
+    <aside aria-label="Task filters" className="flex-shrink-0 w-full lg:w-48 bg-white border-b lg:border-b-0 lg:border-r border-slate-200 flex flex-col py-2 lg:py-3 lg:overflow-y-auto" style={{ scrollbarWidth: 'none' }}>
       {section('Queue')}
       <div className="flex flex-wrap gap-1.5 px-2 lg:block lg:space-y-0.5">
         <Btn label="Active Tasks"        f={{ type: 'queue', value: 'active' }} />
@@ -251,7 +251,7 @@ function GroupCard({ group, onSelectTask, onVehicleSelect }: {
               {topPriority && (
                 <span className={`text-[10px] font-bold px-1.5 py-0.5 rounded uppercase tracking-wide ${pb.badge}`}>{topPriority}</span>
               )}
-              <span className="text-[10px] font-bold px-1.5 py-0.5 rounded bg-slate-100 text-slate-500 border border-slate-200">
+              <span className="text-[10px] font-bold px-1.5 py-0.5 rounded bg-slate-100 text-slate-600 border border-slate-200">
                 {ratificationLabel(group.tasks[0])}
               </span>
             </div>
@@ -263,12 +263,12 @@ function GroupCard({ group, onSelectTask, onVehicleSelect }: {
           </div>
 
           <div className="flex items-start justify-between gap-3 mb-1.5">
-            <h3 className="text-[14px] font-bold text-slate-900 leading-snug">{humanize(group.taskType)}</h3>
+            <h2 className="text-[14px] font-bold text-slate-900 leading-snug">{humanize(group.taskType)}</h2>
             {isMulti && (
-              <button onClick={() => setExpanded(e => !e)}
-                className="flex-shrink-0 flex items-center gap-1 text-[10px] font-bold text-slate-500 bg-slate-100 hover:bg-slate-200 border border-slate-200 px-2 py-0.5 rounded-full transition-colors">
+              <button onClick={() => setExpanded(e => !e)} aria-expanded={expanded}
+                className="flex-shrink-0 flex items-center gap-1 text-[10px] font-bold text-slate-600 bg-slate-100 hover:bg-slate-200 border border-slate-200 px-2 py-0.5 rounded-full transition-colors">
                 {group.tasks.length} Vehicles
-                <span className="text-slate-400 font-normal">· {doneCount}/{group.tasks.length}</span>
+                <span className="text-slate-600 font-normal">· {doneCount}/{group.tasks.length}</span>
                 <svg width="9" height="9" fill="none" viewBox="0 0 24 24" className={`transition-transform ${expanded ? 'rotate-180' : ''}`}>
                   <path d="m6 9 6 6 6-6" stroke="currentColor" strokeWidth="2" strokeLinecap="round"/>
                 </svg>
@@ -288,7 +288,7 @@ function GroupCard({ group, onSelectTask, onVehicleSelect }: {
                     {single.vehicle.display_name}
                   </span>
                 )}
-                <span className="text-[11px] text-slate-400">{single.assigned_employee_id ?? 'Unassigned'}</span>
+                <span className="text-[11px] text-slate-500">{single.assigned_employee_id ?? 'Unassigned'}</span>
               </div>
               <button onClick={() => onSelectTask(single.task_id)}
                 className="flex-shrink-0 text-[12px] font-bold px-3.5 py-1.5 rounded-lg bg-blue-600 text-white hover:bg-blue-700 transition-all">
@@ -298,7 +298,7 @@ function GroupCard({ group, onSelectTask, onVehicleSelect }: {
           )}
 
           {isMulti && !expanded && (
-            <div className="text-[11px] text-slate-400">
+            <div className="text-[11px] text-slate-500">
               {(() => {
                 // Demo Polish: department is null for every task today,
                 // so counting distinct values (including the "Unassigned"
@@ -354,7 +354,7 @@ function TaskDetail({ task, onBack, onVehicleSelect }: {
     <div className="flex-1 flex flex-col overflow-hidden min-h-0">
       <div className="flex-shrink-0 bg-white border-b border-slate-200 px-4 sm:px-5 py-3">
         <div className="flex items-center gap-2 mb-2.5">
-          <button onClick={onBack} className="flex items-center gap-1.5 text-[12px] font-semibold text-slate-400 hover:text-slate-700 transition-colors group">
+          <button onClick={onBack} className="flex items-center gap-1.5 text-[12px] font-semibold text-slate-500 hover:text-slate-700 transition-colors group">
             <svg width="13" height="13" fill="none" viewBox="0 0 24 24" className="group-hover:-translate-x-0.5 transition-transform">
               <path d="m15 18-6-6 6-6" stroke="currentColor" strokeWidth="2" strokeLinecap="round"/>
             </svg>
@@ -394,7 +394,7 @@ function TaskDetail({ task, onBack, onVehicleSelect }: {
                     <div className="absolute -left-4 top-1 w-2.5 h-2.5 rounded-full border-2 border-white bg-blue-400" />
                     <div>
                       <div className="text-[12px] font-medium text-slate-800">Created</div>
-                      <div className="text-[10px] text-slate-400 mt-0.5">{formatDateTime(task.created_at)}</div>
+                      <div className="text-[10px] text-slate-500 mt-0.5">{formatDateTime(task.created_at)}</div>
                     </div>
                   </div>
                   {task.completed_at && (
@@ -402,7 +402,7 @@ function TaskDetail({ task, onBack, onVehicleSelect }: {
                       <div className="absolute -left-4 top-1 w-2.5 h-2.5 rounded-full border-2 border-white bg-emerald-400" />
                       <div>
                         <div className="text-[12px] font-medium text-slate-800">Discharged — {ds.label}</div>
-                        <div className="text-[10px] text-slate-400 mt-0.5">{formatDateTime(task.completed_at)}</div>
+                        <div className="text-[10px] text-slate-500 mt-0.5">{formatDateTime(task.completed_at)}</div>
                       </div>
                     </div>
                   )}
@@ -440,28 +440,28 @@ function TaskDetail({ task, onBack, onVehicleSelect }: {
 
             <div className="bg-white rounded-xl border border-slate-200 p-4 space-y-2 text-[12px]">
               <div className="flex justify-between">
-                <span className="text-slate-400">Assigned</span>
+                <span className="text-slate-500">Assigned</span>
                 <span className="font-medium text-slate-700">{task.assigned_employee_id ?? 'Unassigned'}</span>
               </div>
               <div className="flex justify-between">
-                <span className="text-slate-400">Department</span>
+                <span className="text-slate-500">Department</span>
                 <span className="font-medium text-slate-700">{task.department ?? '—'}</span>
               </div>
               <div className="flex justify-between">
-                <span className="text-slate-400">Commitment</span>
+                <span className="text-slate-500">Commitment</span>
                 <span className="font-medium text-slate-700">{commitmentStandingLabel(task.commitment_standing)}</span>
               </div>
               <div className="flex justify-between">
-                <span className="text-slate-400">Execution</span>
+                <span className="text-slate-500">Execution</span>
                 <span className="font-medium text-slate-700 capitalize">{task.execution_status.replace('_', ' ')}</span>
               </div>
               <div className="flex justify-between">
-                <span className="text-slate-400">Ratification</span>
+                <span className="text-slate-500">Ratification</span>
                 <span className="font-medium text-slate-700">{ratificationLabel(task)}</span>
               </div>
               {task.ratified_by && (
                 <div className="flex justify-between">
-                  <span className="text-slate-400">Ratified by</span>
+                  <span className="text-slate-500">Ratified by</span>
                   <span className="font-medium text-slate-700">{task.ratified_by}</span>
                 </div>
               )}
@@ -560,13 +560,13 @@ export default function Tasks({ onVehicleSelect }: { onVehicleSelect: (s: string
       <div className="flex-1 flex flex-col overflow-hidden min-h-0">
         <div className="flex-shrink-0 flex items-center justify-between px-4 sm:px-5 py-2.5 bg-white border-b border-slate-200 flex-wrap gap-2">
           <div className="flex items-center gap-3">
-            <h2 className="text-[14px] font-bold text-slate-900">Dispatch Queue</h2>
-            {outstanding > 0 && <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-slate-100 text-slate-500">{outstanding} open</span>}
+            <h1 className="text-[14px] font-bold text-slate-900">Dispatch Queue</h1>
+            {outstanding > 0 && <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-slate-100 text-slate-600">{outstanding} open</span>}
             {inProgress  > 0 && <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-blue-100 text-blue-700">{inProgress} in progress</span>}
           </div>
           <div className="flex items-center gap-3">
             {workOrderStatus === 'error' && (
-              <span className="text-[11px] text-red-500">Couldn't generate the work order.</span>
+              <span role="alert" className="text-[11px] text-red-600">Couldn't generate the work order.</span>
             )}
             <button
               onClick={handleGenerateWorkOrder}
@@ -576,30 +576,30 @@ export default function Tasks({ onVehicleSelect }: { onVehicleSelect: (s: string
               {workOrderStatus === 'generating' ? spinner : printerIcon}
               {workOrderStatus === 'generating' ? 'Generating…' : 'Generate Work Order'}
             </button>
-            {state.status === 'success' && <span className="text-[11px] text-slate-400">{visible.length} tasks</span>}
+            {state.status === 'success' && <span className="text-[11px] text-slate-500">{visible.length} tasks</span>}
           </div>
         </div>
 
         <div className="flex-1 overflow-y-auto px-5 py-3 space-y-2" style={{ scrollbarWidth: 'thin' }}>
           {state.status === 'loading' && (
-            <div className="flex flex-col items-center justify-center h-48 text-slate-400 gap-3">
+            <div role="status" className="flex flex-col items-center justify-center h-48 text-slate-500 gap-3">
               {spinner}
               <p className="text-[13px] font-medium">Loading tasks…</p>
             </div>
           )}
 
           {state.status === 'error' && (
-            <div className="flex flex-col items-center justify-center h-48 text-center gap-2">
-              <p className="text-[13px] font-medium text-red-500">
+            <div role="alert" className="flex flex-col items-center justify-center h-48 text-center gap-2">
+              <p className="text-[13px] font-medium text-red-600">
                 {isBackendUnavailable(state.error) ? 'The LotSync API is unreachable.' : 'Something went wrong loading tasks.'}
               </p>
-              <p className="text-[11px] text-slate-400">{state.error.message}</p>
+              <p className="text-[11px] text-slate-500">{state.error.message}</p>
             </div>
           )}
 
           {state.status === 'success' && groups.length === 0 && (
-            <div className="flex flex-col items-center justify-center h-48 text-slate-400">
-              <svg width="28" height="28" fill="none" viewBox="0 0 24 24" className="mb-2 opacity-30">
+            <div className="flex flex-col items-center justify-center h-48 text-slate-500">
+              <svg width="28" height="28" fill="none" viewBox="0 0 24 24" className="mb-2 opacity-30" aria-hidden="true">
                 <path d="M9 11l3 3L22 4" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"/>
                 <path d="M21 12v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round"/>
               </svg>

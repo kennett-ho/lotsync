@@ -24,7 +24,7 @@ export default function IdentityFooter() {
           {primary}
         </div>
         {secondaryEmail && (
-          <div className="text-white/40 text-[11px] truncate" title={secondaryEmail}>
+          <div className="text-white/60 text-[11px] truncate" title={secondaryEmail}>
             {secondaryEmail}
           </div>
         )}

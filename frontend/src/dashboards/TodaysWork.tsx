@@ -22,9 +22,9 @@
  */
 
 import { useEffect, useMemo, useState } from 'react'
-import { getDashboard } from '../api/dashboard'
 import { getTasks, getWorkOrderPdf } from '../api/tasks'
 import { useApi } from '../api/useApi'
+import { useDashboardData } from '../api/dashboardData'
 import { isBackendUnavailable } from '../api/client'
 import type { TaskDTO } from '../api/types'
 import { describeTask, describeTaskDetail } from '../taskDisplay'
@@ -77,7 +77,9 @@ function downloadBlob(blob: Blob, filename: string): void {
 
 export default function TodaysWork({ onVehicleSelect }: { onVehicleSelect: (vin: string) => void }) {
   const tasksState = useApi(() => getTasks({ commitment_standing: 'outstanding' }), [])
-  const dashboardState = useApi(() => getDashboard(), [])
+  // Sprint 14 (Rail J): shared per-view /dashboard fetch (freshness
+  // metadata only) -- see api/dashboardData.tsx.
+  const dashboardState = useDashboardData(true).state
   const [workOrderStatus, setWorkOrderStatus] = useState<'idle' | 'generating' | 'error'>('idle')
 
   // Sprint 12 analytics: does Lot Staff actually use the role-focused
@@ -135,7 +137,7 @@ export default function TodaysWork({ onVehicleSelect }: { onVehicleSelect: (vin:
           </div>
           <div className="flex items-center gap-3">
             {workOrderStatus === 'error' && (
-              <span className="text-[11px] text-red-500">Couldn&rsquo;t generate the work order.</span>
+              <span role="alert" className="text-[11px] text-red-600">Couldn&rsquo;t generate the work order.</span>
             )}
             <button
               onClick={handleGenerateWorkOrder}
@@ -149,21 +151,21 @@ export default function TodaysWork({ onVehicleSelect }: { onVehicleSelect: (vin:
 
         {/* Evidence freshness -- when the systems last reported. */}
         {lastSyncAt && (
-          <p className="text-[12px] text-slate-400 mb-5">
+          <p className="text-[12px] text-slate-500 mb-5">
             Based on evidence from the last sync: <span className="font-semibold text-slate-600">{formatTimestamp(lastSyncAt)}</span>
           </p>
         )}
         {!lastSyncAt && <div className="mb-5" />}
 
         {tasksState.status === 'loading' && (
-          <div className="flex flex-col items-center justify-center h-48 text-slate-400 gap-3">
+          <div role="status" className="flex flex-col items-center justify-center h-48 text-slate-500 gap-3">
             {spinner}
             <p className="text-[13px] font-medium">Loading today&rsquo;s work…</p>
           </div>
         )}
 
         {tasksState.status === 'error' && (
-          <div className="bg-white rounded-2xl border border-slate-100 px-5 py-10 text-center text-[13px] text-slate-400">
+          <div role="alert" className="bg-white rounded-2xl border border-slate-100 px-5 py-10 text-center text-[13px] text-slate-500">
             {isBackendUnavailable(tasksState.error) ? 'The API is unreachable right now.' : 'Could not load today’s work.'}
           </div>
         )}
@@ -171,7 +173,7 @@ export default function TodaysWork({ onVehicleSelect }: { onVehicleSelect: (vin:
         {tasksState.status === 'success' && tasks.length === 0 && (
           <div className="bg-white rounded-2xl border border-slate-100 px-5 py-12 text-center">
             <p className="text-[15px] font-semibold text-slate-700">No outstanding work</p>
-            <p className="text-[13px] text-slate-400 mt-1.5 max-w-sm mx-auto">
+            <p className="text-[13px] text-slate-500 mt-1.5 max-w-sm mx-auto">
               You&rsquo;re all caught up. New work appears here when the next
               inventory sync finds something that needs doing.
             </p>
@@ -194,7 +196,7 @@ export default function TodaysWork({ onVehicleSelect }: { onVehicleSelect: (vin:
                   <div className={`absolute left-0 top-0 bottom-0 w-[3px] ${pb.bar}`} />
                   <div className="flex items-center justify-between gap-2">
                     <span className="text-[14px] font-bold text-slate-900">{display.groupTitle}</span>
-                    <span className="flex-shrink-0 text-[11px] font-semibold text-slate-500 bg-slate-100 px-2 py-0.5 rounded-full">
+                    <span className="flex-shrink-0 text-[11px] font-semibold text-slate-600 bg-slate-100 px-2 py-0.5 rounded-full">
                       {group.tasks.length} vehicle{group.tasks.length === 1 ? '' : 's'}
                     </span>
                   </div>

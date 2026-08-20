@@ -18,10 +18,10 @@
 // mock rows.
 
 import { useMemo, useState } from 'react'
-import { getDashboard } from '../api/dashboard'
 import { getTasks } from '../api/tasks'
 import { getRecommendations } from '../api/recommendations'
 import { useApi } from '../api/useApi'
+import { useDashboardData } from '../api/dashboardData'
 import { isBackendUnavailable } from '../api/client'
 import type { TaskDTO, RecommendationDTO } from '../api/types'
 import { describeTask, describeTaskDetail } from '../taskDisplay'
@@ -135,11 +135,12 @@ function TaskGroupRow({ group, expanded, onToggle, onVehicleSelect }: {
           "View/Hide Vehicles" label as the affordance -- not just a
           bare chevron -- so this reads as a work order a dispatcher
           opens, not a database row they expand. */}
-      <button onClick={onToggle} className="relative w-full text-left px-4 py-3 hover:bg-slate-50/60 transition-colors">
-        <div className={`absolute left-0 top-0 bottom-0 w-[3px] ${p.bar}`} />
+      <button onClick={onToggle} aria-expanded={expanded}
+        className="relative w-full text-left px-4 py-3 hover:bg-slate-50/60 transition-colors">
+        <div className={`absolute left-0 top-0 bottom-0 w-[3px] ${p.bar}`} aria-hidden="true" />
         <div className="flex items-center justify-between gap-2">
           <span className="text-[13px] font-semibold text-slate-900">{display.groupTitle}</span>
-          <span className="flex-shrink-0 text-[11px] font-semibold text-slate-500 bg-slate-100 px-2 py-0.5 rounded-full">
+          <span className="flex-shrink-0 text-[11px] font-semibold text-slate-600 bg-slate-100 px-2 py-0.5 rounded-full">
             {group.tasks.length} vehicle{group.tasks.length === 1 ? '' : 's'}
           </span>
         </div>
@@ -152,12 +153,15 @@ function TaskGroupRow({ group, expanded, onToggle, onVehicleSelect }: {
 
       {expanded && (
         <div className="bg-slate-50/50 divide-y divide-slate-100">
+          {/* Sprint 14 (Rail K): these rows were clickable <div>s --
+              real buttons now, so keyboard and AT users can open the
+              vehicle too. */}
           {group.tasks.map(task => {
             const tp = priorityBadge[task.priority ?? ''] ?? priorityBadge.Low
             const detail = describeTaskDetail(task)
             return (
-              <div key={task.task_id} onClick={() => onVehicleSelect(task.vin)}
-                className="flex items-center justify-between gap-3 pl-9 pr-4 py-3 hover:bg-white cursor-pointer transition-colors">
+              <button key={task.task_id} onClick={() => onVehicleSelect(task.vin)}
+                className="w-full text-left flex items-center justify-between gap-3 pl-9 pr-4 py-3 hover:bg-white cursor-pointer transition-colors">
                 <div className="min-w-0">
                   <div className="flex items-center gap-2 flex-wrap">
                     <span className="text-[13px] font-semibold text-slate-900">{task.vehicle?.display_name ?? 'Vehicle'}</span>
@@ -170,7 +174,7 @@ function TaskGroupRow({ group, expanded, onToggle, onVehicleSelect }: {
                   View Vehicle
                   <ChevronRight />
                 </span>
-              </div>
+              </button>
             )
           })}
         </div>
@@ -183,7 +187,10 @@ export default function Dashboard({ onVehicleSelect, onNavigate }: {
   onVehicleSelect: (vin: string) => void
   onNavigate: (tab: 'tasks' | 'inventory-sync') => void
 }) {
-  const dashboardState = useApi(() => getDashboard(), [])
+  // Sprint 14 (Rail J): the shared per-view /dashboard fetch --
+  // refreshOnMount preserves the old fetch-per-visit freshness without
+  // the old duplicate request (see api/dashboardData.tsx).
+  const dashboardState = useDashboardData(true).state
   const tasksState = useApi(() => getTasks({ commitment_standing: 'outstanding' }), [])
   const recsState = useApi(() => getRecommendations({ status: 'open' }), [])
 
@@ -244,13 +251,13 @@ export default function Dashboard({ onVehicleSelect, onNavigate }: {
       {/* Header */}
       <div className="bg-white border-b border-slate-100 px-4 sm:px-6 py-4 flex-shrink-0 flex flex-wrap items-center justify-between gap-2">
         <div>
-          <div className="text-[20px] font-bold text-slate-900 leading-tight">
+          <h1 className="text-[20px] font-bold text-slate-900 leading-tight">
             Good Morning
-          </div>
+          </h1>
           <div className="text-[13px] text-slate-500 mt-0.5">Here's your work queue for today.</div>
         </div>
         <div className="flex items-center gap-3">
-          <div className="text-[12px] text-slate-400 font-medium hidden sm:block">{todayLabel()}</div>
+          <div className="text-[12px] text-slate-500 font-medium hidden sm:block">{todayLabel()}</div>
           {systemEntries.length === 0 ? null : hasSyncIssue ? (
             <span className="inline-flex items-center gap-1.5 bg-amber-50 border border-amber-200 text-amber-700 text-[11px] font-semibold px-2.5 py-1 rounded-full">
               <span className="w-1.5 h-1.5 rounded-full bg-amber-400 inline-block"></span>
@@ -308,29 +315,29 @@ export default function Dashboard({ onVehicleSelect, onNavigate }: {
           <div className="bg-white rounded-2xl border border-slate-100 overflow-hidden flex flex-col">
             <div className="flex items-center justify-between px-4 py-3 border-b border-slate-50 flex-shrink-0">
               <div className="flex items-center gap-2">
-                <span className="text-[13px] font-semibold text-slate-900">Open Tasks</span>
-                <span className="bg-slate-100 text-slate-500 text-[11px] font-semibold px-2 py-0.5 rounded-full">
+                <h2 className="text-[13px] font-semibold text-slate-900">Open Tasks</h2>
+                <span className="bg-slate-100 text-slate-600 text-[11px] font-semibold px-2 py-0.5 rounded-full">
                   {tasksState.status === 'success' ? tasks.length : '…'}
                 </span>
               </div>
               <button
                 onClick={() => onNavigate('tasks')}
-                className="text-[12px] text-blue-600 font-medium hover:text-blue-700 transition-colors"
+                className="text-[12px] text-blue-600 font-medium hover:text-blue-700 transition-colors px-2 py-1.5 -my-1.5 -mx-2 rounded"
               >
                 View All
               </button>
             </div>
 
             {tasksState.status === 'error' && (
-              <div className="px-4 py-8 text-center text-[13px] text-slate-400">
+              <div className="px-4 py-8 text-center text-[13px] text-slate-500">
                 {isBackendUnavailable(tasksState.error) ? 'The LotSync API is unreachable.' : 'Could not load tasks.'}
               </div>
             )}
             {tasksState.status === 'loading' && (
-              <div className="px-4 py-8 text-center text-[13px] text-slate-400">Loading tasks…</div>
+              <div className="px-4 py-8 text-center text-[13px] text-slate-500">Loading tasks…</div>
             )}
             {tasksState.status === 'success' && tasks.length === 0 && (
-              <div className="px-4 py-8 text-center text-[13px] text-slate-400">No open tasks.</div>
+              <div className="px-4 py-8 text-center text-[13px] text-slate-500">No open tasks.</div>
             )}
 
             {taskGroups.length > 0 && (
@@ -352,33 +359,33 @@ export default function Dashboard({ onVehicleSelect, onNavigate }: {
           <div className="bg-white rounded-2xl border border-slate-100 overflow-hidden">
             <div className="flex items-center justify-between px-4 py-3 border-b border-slate-50">
               <div className="flex items-center gap-2">
-                <span className="text-[13px] font-semibold text-slate-900">Recommendations</span>
-                <span className="bg-slate-100 text-slate-500 text-[11px] font-semibold px-2 py-0.5 rounded-full">
+                <h2 className="text-[13px] font-semibold text-slate-900">Recommendations</h2>
+                <span className="bg-slate-100 text-slate-600 text-[11px] font-semibold px-2 py-0.5 rounded-full">
                   {recsState.status === 'success' ? recommendations.length : '…'}
                 </span>
               </div>
               {/* Sprint 12 (Phase 13): the one non-obvious concept on this
                   screen, explained inline once. */}
-              <span className="text-[11px] text-slate-400">Evidence for human review — nothing commits automatically</span>
+              <span className="text-[11px] text-slate-500">Evidence for human review — nothing commits automatically</span>
             </div>
 
             {recsState.status === 'error' && (
-              <div className="px-4 py-8 text-center text-[13px] text-slate-400">
+              <div className="px-4 py-8 text-center text-[13px] text-slate-500">
                 {isBackendUnavailable(recsState.error) ? 'The LotSync API is unreachable.' : 'Could not load recommendations.'}
               </div>
             )}
             {recsState.status === 'loading' && (
-              <div className="px-4 py-8 text-center text-[13px] text-slate-400">Loading recommendations…</div>
+              <div className="px-4 py-8 text-center text-[13px] text-slate-500">Loading recommendations…</div>
             )}
             {recsState.status === 'success' && recommendations.length === 0 && (
-              <div className="px-4 py-8 text-center text-[13px] text-slate-400">No open recommendations.</div>
+              <div className="px-4 py-8 text-center text-[13px] text-slate-500">No open recommendations.</div>
             )}
 
             <div>
               {recommendations.slice(0, 6).map((rec) => (
-                <div
+                <button
                   key={rec.recommendation_id}
-                  className="relative flex items-center gap-3 px-4 py-3 border-b border-slate-50 last:border-0 hover:bg-slate-50/60 cursor-pointer transition-colors"
+                  className="relative w-full text-left flex items-center gap-3 px-4 py-3 border-b border-slate-50 last:border-0 hover:bg-slate-50/60 cursor-pointer transition-colors"
                   onClick={() => onVehicleSelect(rec.vin)}
                 >
                   <div className="flex-1 min-w-0 ml-1">
@@ -398,7 +405,7 @@ export default function Dashboard({ onVehicleSelect, onNavigate }: {
                     <div className="mt-0.5 text-[11px] text-slate-500">{rec.title ?? rec.detail ?? 'No detail available'}</div>
                   </div>
                   <ChevronRight />
-                </div>
+                </button>
               ))}
             </div>
           </div>
@@ -412,23 +419,23 @@ export default function Dashboard({ onVehicleSelect, onNavigate }: {
           {/* Sync Health */}
           <div className="bg-white rounded-2xl border border-slate-100 p-4">
             <div className="flex items-center justify-between mb-3">
-              <span className="text-[13px] font-semibold text-slate-900">Inventory Sync</span>
+              <h2 className="text-[13px] font-semibold text-slate-900">Inventory Sync</h2>
               {systemEntries.length > 0 && (
                 hasSyncIssue ? (
-                  <span className="text-[10px] font-semibold text-amber-600 bg-amber-50 border border-amber-200 px-1.5 py-0.5 rounded-full">
+                  <span className="text-[10px] font-semibold text-amber-700 bg-amber-50 border border-amber-200 px-1.5 py-0.5 rounded-full">
                     Attention
                   </span>
                 ) : (
-                  <span className="text-[10px] font-semibold text-emerald-600 bg-emerald-50 border border-emerald-200 px-1.5 py-0.5 rounded-full">
+                  <span className="text-[10px] font-semibold text-emerald-700 bg-emerald-50 border border-emerald-200 px-1.5 py-0.5 rounded-full">
                     Healthy
                   </span>
                 )
               )}
             </div>
 
-            {dashboardState.status === 'loading' && <p className="text-[12px] text-slate-400">Loading…</p>}
+            {dashboardState.status === 'loading' && <p className="text-[12px] text-slate-500" role="status">Loading…</p>}
             {dashboardState.status === 'success' && systemEntries.length === 0 && (
-              <p className="text-[12px] text-slate-400">No syncs recorded yet — upload reports to get started.</p>
+              <p className="text-[12px] text-slate-500">No syncs recorded yet — upload reports to get started.</p>
             )}
 
             {lastSyncAt && (
@@ -439,12 +446,12 @@ export default function Dashboard({ onVehicleSelect, onNavigate }: {
               <div className="mt-3 flex items-center gap-3 bg-slate-50 rounded-xl px-3 py-2.5">
                 <div className="text-center flex-1">
                   <div className="text-[16px] font-bold text-slate-900">{inventoryHealth.total_vehicles.toLocaleString()}</div>
-                  <div className="text-[10px] text-slate-400">vehicles tracked</div>
+                  <div className="text-[10px] text-slate-500">vehicles tracked</div>
                 </div>
                 <div className="w-px h-8 bg-slate-200" />
                 <div className="text-center flex-1">
-                  <div className="text-[16px] font-bold text-emerald-600">{inventoryHealth.healthy_vehicles.toLocaleString()}</div>
-                  <div className="text-[10px] text-slate-400">no open tasks</div>
+                  <div className="text-[16px] font-bold text-emerald-700">{inventoryHealth.healthy_vehicles.toLocaleString()}</div>
+                  <div className="text-[10px] text-slate-500">no open tasks</div>
                 </div>
               </div>
             )}
@@ -457,13 +464,13 @@ export default function Dashboard({ onVehicleSelect, onNavigate }: {
                     {sys.status === 'complete' ? (
                       <div className="flex items-center gap-1">
                         <CheckCircle className="text-emerald-500" />
-                        <span className="text-[11px] text-emerald-600 font-medium">OK</span>
+                        <span className="text-[11px] text-emerald-700 font-medium">OK</span>
                       </div>
                     ) : (
                       <div className="flex items-start gap-1">
                         <WarnIcon className="text-amber-500 mt-0.5 flex-shrink-0" />
                         <div className="text-right">
-                          <div className="text-[11px] text-amber-600 font-semibold leading-tight capitalize">{sys.status.replace(/_/g, ' ')}</div>
+                          <div className="text-[11px] text-amber-700 font-semibold leading-tight capitalize">{sys.status.replace(/_/g, ' ')}</div>
                         </div>
                       </div>
                     )}
@@ -475,7 +482,7 @@ export default function Dashboard({ onVehicleSelect, onNavigate }: {
             <div className="mt-4 pt-3 border-t border-slate-50">
               <button
                 onClick={() => onNavigate('inventory-sync')}
-                className="text-[11px] text-blue-600 font-medium hover:text-blue-700 transition-colors flex items-center gap-1"
+                className="text-[11px] text-blue-600 font-medium hover:text-blue-700 transition-colors flex items-center gap-1 px-2 py-1.5 -mx-2 rounded"
               >
                 View Inventory Sync
                 <svg width="12" height="12" viewBox="0 0 12 12" fill="none">
@@ -489,7 +496,7 @@ export default function Dashboard({ onVehicleSelect, onNavigate }: {
               ranks last in this column (see the right-column comment above). */}
           <div className="bg-white rounded-2xl border border-slate-100 p-4">
             <div className="flex items-center justify-between mb-3">
-              <span className="text-[13px] font-semibold text-slate-900">Recent Activity</span>
+              <h2 className="text-[13px] font-semibold text-slate-900">Recent Activity</h2>
             </div>
 
             {dashboardState.status === 'error' && (
@@ -497,9 +504,9 @@ export default function Dashboard({ onVehicleSelect, onNavigate }: {
                 {isBackendUnavailable(dashboardState.error) ? 'The LotSync API is unreachable.' : 'Could not load activity.'}
               </p>
             )}
-            {dashboardState.status === 'loading' && <p className="text-[12px] text-slate-400">Loading…</p>}
+            {dashboardState.status === 'loading' && <p className="text-[12px] text-slate-500" role="status">Loading…</p>}
             {dashboardState.status === 'success' && recentActivity.length === 0 && (
-              <p className="text-[12px] text-slate-400">No activity recorded yet.</p>
+              <p className="text-[12px] text-slate-500">No activity recorded yet.</p>
             )}
 
             <div>
@@ -510,7 +517,7 @@ export default function Dashboard({ onVehicleSelect, onNavigate }: {
                   </div>
                   <div className="flex-1 min-w-0">
                     <div className="flex items-center gap-1.5 flex-wrap">
-                      <span className="text-[10px] font-mono text-slate-400">{formatTimestamp(entry.event_time ?? entry.observed_at)}</span>
+                      <span className="text-[10px] font-mono text-slate-500">{formatTimestamp(entry.event_time ?? entry.observed_at)}</span>
                       {entry.vehicle?.stock_number && (
                         <span className="text-[10px] font-mono text-blue-500 bg-blue-50 px-1 rounded">
                           {entry.vehicle.stock_number}

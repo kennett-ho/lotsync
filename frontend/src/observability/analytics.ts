@@ -15,6 +15,16 @@
  *   turn it on)
  * - no form capture, no arbitrary DOM text
  *
+ * Sprint 14 (Rail J): the SDK is now loaded with a dynamic import()
+ * so its ~235 kB (the single largest bundle contributor) leaves the
+ * initial chunk -- telemetry is secondary by doctrine and must never
+ * gate first paint. The exported API is unchanged and stays
+ * synchronous: calls made before the SDK finishes loading are held in
+ * an in-order queue and replayed on readiness, so event ORDER
+ * (identify before its tracks, reset severing identity) is preserved
+ * exactly. If the SDK fails to load, everything stays a silent no-op
+ * -- identical to the unconfigured posture.
+ *
  * Identity: the stable internal auth_user_id (a UUID -- non-PII),
  * identified after /me confirms the membership server-side, with
  * role/dealership/organization/environment as person properties.
@@ -27,7 +37,7 @@
  * logs remain the authority on what actually happened server-side.
  */
 
-import posthog from 'posthog-js'
+import type { PostHog } from 'posthog-js'
 import { OBS_ENVIRONMENT, OBS_RELEASE } from './config'
 
 const env = (import.meta as unknown as { env?: Record<string, string | undefined> }).env ?? {}
@@ -41,32 +51,60 @@ export type PageId =
   | 'dashboard' | 'vehicles' | 'tasks' | 'inventory-sync' | 'profile'
   | 'vehicle-detail' | 'login' | 'reset-password'
 
+// The loaded SDK instance (null until the dynamic import + init
+// resolve) and the in-order queue of calls made before that moment.
+let client: PostHog | null = null
+let pending: Array<(instance: PostHog) => void> | null = []
+
+function withClient(call: (instance: PostHog) => void): void {
+  if (client) {
+    call(client)
+  } else if (pending) {
+    pending.push(call)
+  }
+  // client === null && pending === null -> load failed; drop silently.
+}
+
 export function initAnalytics(): void {
   if (!KEY) return
-  try {
-    posthog.init(KEY, {
-      api_host: HOST,
-      autocapture: false,
-      capture_pageview: false,
-      capture_pageleave: false,
-      disable_session_recording: true,
-      rageclick: false,
-      // Found in deployed DEV verification: the SDK fetches its
-      // surveys module from the PostHog CDN by default. No surveys
-      // are used -- keep the collection surface (and network) minimal.
-      disable_surveys: true,
-      person_profiles: 'identified_only',
+  import('posthog-js')
+    .then(({ default: posthog }) => {
+      posthog.init(KEY, {
+        api_host: HOST,
+        autocapture: false,
+        capture_pageview: false,
+        capture_pageleave: false,
+        disable_session_recording: true,
+        rageclick: false,
+        // Found in deployed DEV verification: the SDK fetches its
+        // surveys module from the PostHog CDN by default. No surveys
+        // are used -- keep the collection surface (and network) minimal.
+        disable_surveys: true,
+        person_profiles: 'identified_only',
+      })
+      posthog.register({ environment: OBS_ENVIRONMENT, release: OBS_RELEASE })
+      const queued = pending ?? []
+      pending = null
+      client = posthog
+      for (const call of queued) {
+        try {
+          call(posthog)
+        } catch {
+          // Telemetry is secondary.
+        }
+      }
     })
-    posthog.register({ environment: OBS_ENVIRONMENT, release: OBS_RELEASE })
-  } catch {
-    // Telemetry is secondary.
-  }
+    .catch(() => {
+      // SDK failed to load: behave exactly like the unconfigured
+      // posture from here on. Telemetry is secondary.
+      pending = null
+    })
 }
 
 export function track(event: string, properties?: Record<string, unknown>): void {
   if (!analyticsEnabled) return
   try {
-    posthog.capture(event, properties)
+    withClient(p => p.capture(event, properties))
   } catch {
     // Never let analytics break a workflow.
   }
@@ -78,12 +116,12 @@ export function identifyAnalyticsUser(
 ): void {
   if (!analyticsEnabled || !authUserId) return
   try {
-    posthog.identify(authUserId, {
+    withClient(p => p.identify(authUserId, {
       role: properties.role,
       dealership_id: properties.dealership_id,
       organization_id: properties.organization_id,
       environment: OBS_ENVIRONMENT,
-    })
+    }))
   } catch {
     // Telemetry is secondary.
   }
@@ -93,7 +131,7 @@ export function identifyAnalyticsUser(
 export function resetAnalyticsIdentity(): void {
   if (!analyticsEnabled) return
   try {
-    posthog.reset()
+    withClient(p => p.reset())
   } catch {
     // Telemetry is secondary.
   }

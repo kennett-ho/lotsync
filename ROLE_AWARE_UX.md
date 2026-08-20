@@ -353,3 +353,32 @@ covers every new call).
 - Navigation remains state-based (no URLs); the dismissal defect is
   fixed, the wider routing question stays open in the findings
   register.
+
+## 9. Sprint 14 addendum — performance & accessibility touches
+
+Sprint 14 (Rails J + K; canonical records `PERFORMANCE.md` /
+`ACCESSIBILITY.md`) adjusted presentation mechanics without moving
+any Sprint 12 truth: the role-resolved nav, landings, generic
+production shape, and every §4 decision are byte-identical (the
+Sprint 12 pin suite passes unchanged). What changed around them:
+
+- The shell gained document-level semantics: a skip link, one `<main>`
+  per view, labeled nav with `aria-current`, per-surface document
+  titles, focus-to-main on state navigation, Escape closing Vehicle
+  Detail, and a real focus cycle on the mobile drawer (inert when
+  closed). Onboarding is now a genuine modal (focus containment,
+  Escape = Skip with S12-10's never-nag completion semantics, step
+  announcements) — the S12 rapid-click clamp is pinned and intact.
+- Role-gated surfaces (Inventory Sync, Profile/User Management, Help,
+  the tour, login/reset) load as on-demand chunks; the role LANDING
+  surfaces deliberately stay in the initial bundle so first paint of
+  Overview / Today's Work never waits.
+- Vehicles and the Vehicle Detail timeline render bounded row counts
+  with explicit "Show all N" / "Show older history" — an emphasis
+  mechanism only: filters, counts, and search always answer from the
+  complete dataset (missing rows are never silently hidden).
+- The Vehicle Detail stock-photo hero was removed (it was a random
+  stock image, and the Sprint 13 CSP had already blocked it on
+  deployed DEV); its open-task badge lives in the identity card.
+  The dead per-system icon buttons went the way of D3's other dead
+  controls.

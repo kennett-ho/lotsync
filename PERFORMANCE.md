@@ -187,9 +187,12 @@ survives with a test pin.
 
 ## 3. Cold start vs application latency (the distinction)
 
-Measured this sprint on DEV (Render free tier): first request after
-idle sleep = **32.3 s**; the same endpoint immediately after:
-0.21–0.27 s round-trip, ~3 ms server-side. The 32 s is the platform
+Measured this sprint on DEV (Render free tier), two observations:
+first request after idle sleep = **32.3 s** and **52.3 s** (the
+review-window wake after a timed ~17 min idle — free-tier wakes vary
+in the 30–55 s band; `DEV_QA_GUIDE.md`'s "~50 s" stands); the same
+endpoint immediately after: 0.21–0.29 s round-trip, ~3 ms
+server-side. The 32 s is the platform
 waking the service, not DealerDOH code — application startup itself
 is a normal uvicorn boot. **Do not optimize application code against
 free-tier sleep.** Mitigation is a hosting-tier decision at

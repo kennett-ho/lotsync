@@ -2207,17 +2207,46 @@ honestly; the identical final build is axe-clean locally and the
 deployed origin was verified via accessibility-tree/computed-style
 checks).
 
+**Final-head Manager pass (owner promoted `3da1b05`; owner-restored
+manager session):** both services verified serving `3da1b05` (API
+release + 3× bundle-baked SHA). The two review-window fixes proven
+live on it: an authenticated fresh load keeps document-start focus
+and the **first real Tab reveals the skip link** (Enter lands focus
+in `<main>`), and onboarding replay Escape-close returns focus to
+`<main>`. Manager evidence: Overview landing/h1 with **exactly one
+`/dashboard`** on the manager landing (the sprint's original live
+finding, closed on both role paths), real-button recommendation rows
++ `aria-expanded` groups; lazy Inventory Sync chunk; the
+visually-hidden **file input takes keyboard focus** with the label's
+focus-within ring; a **zero-mutation validate-only announcement
+proof** (synthetic unrecognized CSV → `role="status"` "Validated …
+nothing has been changed yet" announced live, Rejected verdict
+rendered, Run Sync Now stayed disabled — the Rail D gate visibly
+intact); lazy Profile chunk + `htmlFor`/`id` display-name pair +
+labeled invite email/role controls + roster; Vehicle Detail
+open/Escape cycle with the truthful "Vehicles" breadcrumb; Tasks
+h1/title; desktop-1280 layout sane (static non-inert sidebar, table
+visible, no hamburger). Regression batch on the window: API security
+headers live on 401/404 + request id, CORS allow/deny +
+`X-Request-ID` exposure, frontend CSP byte-identical to the audited
+Sprint 13 policy, deployed entry chunk carries all six PostHog
+privacy flags with zero replay/sourcemap refs, production untouched
+(`master` = `13c4f815` = tag, prod health ok), QA dealership intact
+(28/6/16) with zero mutations.
+
+**Cold start, observed on the feature deployment:** after a timed
+~17 min idle, the wake request took **52.3 s** (HTTP 200); the next
+two requests: 0.25 s / 0.29 s. Together with the earlier 32.3 s
+observation: free-tier wakes land in a 30-55 s band — platform
+sleep, not application latency (server-side stays ~3 ms), exactly
+the distinction `PERFORMANCE.md` §3 records.
+
 ## Pending (deliberately NOT claimed done)
 
-Manager-role deployed keyboard walkthrough (owner restores the
-manager session) · final-head revision verification on the deployed
-window (Vercel serves branch pushes as Preview — owner
-promote/rebuild) · deployed first-Tab skip-link re-verify on that
-head · a natural Render idle window for one observed cold start ·
-merge · merged-head CI · post-merge smoke. Rails J and K stay
-**Implementation Complete — Awaiting Merge** until then; nothing is
-marked Verified early. Rail D remains untouched (Merged — NOT
-Verified; Awaiting Vendor Evidence); Sprint 17 remains Planned.
+Merge · merged-head CI · post-merge smoke. Rails J
+and K stay **Implementation Complete — Awaiting Merge** until then;
+nothing is marked Verified early. Rail D remains untouched (Merged —
+NOT Verified; Awaiting Vendor Evidence); Sprint 17 remains Planned.
 Recommended next sprint: **Sprint 15 — Privacy / Legal** (no
 release-blocking perf/a11y prerequisite found).
 

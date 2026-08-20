@@ -179,8 +179,21 @@ safe auth copy, the Error Boundary (now announced).
   generation; phone-width Today's Work → Detail → back with zero
   horizontal scroll and zero sub-24px targets; 640 px
   zoom-equivalent pass; signature (5.27:1) and badge (6.92:1) tones
-  measured from the deployed stylesheet. Manager-role deployed
-  walkthrough recorded in `SPRINT_HISTORY.md` alongside.
+  measured from the deployed stylesheet.
+- **Deployed (review window, authenticated Manager, final head):**
+  fresh authenticated load keeps document-start focus and the FIRST
+  real Tab reveals the skip link (the seam fix live); Enter on it
+  lands focus in `<main>`; Overview h1/landing with real-button
+  recommendation rows and `aria-expanded` groups; lazy Inventory
+  Sync chunk on nav; the visually-hidden file input takes keyboard
+  focus with the label's focus-within ring; a zero-mutation
+  validate-only pass announced its outcome live (`role="status"`
+  "Validated … nothing has been changed yet", Rejected verdict
+  rendered, Run stayed disabled); lazy Profile chunk with the
+  `htmlFor`/`id` display-name pair, labeled invite email/role
+  controls, roster loaded; onboarding replay Escape-close returned
+  focus to `<main>` (the overlay fix live); Vehicle Detail
+  open/Escape cycle with the truthful "Vehicles" breadcrumb.
 
 ## 5. Known limitations (tracked, honest)
 

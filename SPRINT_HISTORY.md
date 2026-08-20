@@ -40,17 +40,17 @@ Do not rewrite history when architecture changes later. Record what was true at 
 | **Production persistence** | SQLite on Render persistent disk |
 | **Production Auth** | Disabled / not yet rolled out |
 | **Development product** | DealerDOH |
-| **Development branch / current head** | `dev` / `73dee99` (Sprint 13 closeout merged); Sprint 14 branch `feature/sprint-14-performance-accessibility` at the PR gate |
+| **Development branch / current head** | `dev` / `c916208` (PR #23 merged — Sprint 14 performance, resilience & accessibility) |
 | **Development persistence** | Supabase PostgreSQL |
 | **Development Auth** | Supabase Auth + FastAPI server-side authorization (`AUTH_MODE=required`) |
-| **Current backend regression baseline** | 708/708 SQLite and 708/708 PostgreSQL on the Sprint 14 branch (657 at `dev` = `73dee99` + 51 Sprint 14 guards) |
+| **Current backend regression baseline** | 712/712 SQLite and 712/712 PostgreSQL on merged `dev` = `c916208` (Sprint 14; +55 perf/a11y guards over the Sprint 13 baseline) |
 | **Standing DEV QA dataset** | 34 vehicles, 18 tasks, 2 recommendations, 98 events, 10 sync runs |
-| **Latest completed sprint** | Sprint 13 — Security Hardening, Supply Chain & Repository Sanitation (Rails H + I Verified; sanitation Audit Clean, repo private) |
+| **Latest completed sprint** | Sprint 14 — Performance, Resilience & Accessibility (Rails J + K Verified) |
 | **Migration readiness** | Technical rehearsal PASS / GO; real production cutover intentionally unscheduled |
 | **Current release target** | `v1.1.0-beta.1` |
 | **Open PRs** | tracked per sprint; see Git/PR records in each entry |
 | **Public domain** | `dealerdoh.com` owned; production domain cutover not yet performed |
-| **Immediate focus** | Sprint 14 (Performance, Resilience & Accessibility — Rails J + K) **Implementation Complete — Awaiting Merge**: measured-first audit at QA + 4,700-vehicle production shape → evidence-backed fixes → re-measured. Initial JS 256→167 kB gzip (−35%); production-scale keystroke blocks 400–850 ms→27–74 ms; hot-path `sync_run` growth eliminated in SQL; axe **zero violations** on all five audited surfaces (from critical/serious findings incl. a keyboard-locked upload flow and hidden-focusable drawer); 708/708 both engines; CI bundle-budget gate + structural guards; `PERFORMANCE.md` + `ACCESSIBILITY.md` canonical. Rails J/K Verified only after merge + deployed smoke. Sprint 10 remains **Implementation Paused — Awaiting Vendor Evidence**; Rail D NOT Verified. Sprint 17 remains **Planned**. |
+| **Immediate focus** | Sprint 14 **Complete** — PR #23 merged (`c916208`), merged-head CI green incl. the bundle-budget gate, both DEV services restored to `dev` and serving the merge SHA, post-merge both-role smoke PASSED (one `/dashboard` per landing · 169 kB initial wire · skip-link/focus/modal/drawer cycles live · zero-mutation validation announcement · QA intact, zero mutations). **Rails J + K Verified** (`PERFORMANCE.md` / `ACCESSIBILITY.md` canonical). Sprint 10 remains **Implementation Paused — Awaiting Vendor Evidence**; Rail D NOT Verified. Sprint 17 remains **Planned**. Next: Sprint 15 — Privacy / Legal on explicit owner go. |
 
 **Production rule:** `master` is what real dealership users are allowed to depend on. Normal development belongs on task branches and `dev`; production remains frozen until an explicit release train is approved.
 
@@ -2241,13 +2241,42 @@ observation: free-tier wakes land in a 30-55 s band — platform
 sleep, not application latency (server-side stays ~3 ms), exactly
 the distinction `PERFORMANCE.md` §3 records.
 
-## Pending (deliberately NOT claimed done)
+## Merge + post-merge verification (2026-08-20)
 
-Merge · merged-head CI · post-merge smoke. Rails J
-and K stay **Implementation Complete — Awaiting Merge** until then;
-nothing is marked Verified early. Rail D remains untouched (Merged —
-NOT Verified; Awaiting Vendor Evidence); Sprint 17 remains Planned.
-Recommended next sprint: **Sprint 15 — Privacy / Legal** (no
+**PR #23 owner-approved and MERGED as `c916208`** = `dev` head; all
+four CI jobs green on the merged head (SQLite 712 · PostgreSQL 712 ·
+frontend build + the bundle-budget gate · Security scans); `master`
+untouched at `13c4f815`/`v1.0.0-beta.6`; sprint feature branch
+deleted remote+local. Services restored: Render switched back to
+tracking `dev` (deployed `c916208`, `/health` release verified);
+Vercel's Production Branch was already `dev` and **auto-deployed the
+merged head** (served bundle SHA verified — no manual promote
+needed).
+
+**Post-merge smoke on the merged artifact PASSED, both roles**
+(Manager, then the owner's Lot Staff sign-in): one `/dashboard` per
+role landing; initial JS wire 169.2 kB compressed (fresh fetch of the
+merged assets); deferred PostHog + events flowing; Sentry present;
+zero console/CSP violations; first-Tab skip link → Enter → `<main>`
+on BOTH roles' authenticated loads; onboarding replay focus
+entry/announcement/Escape/return; Vehicle Detail cycles with truthful
+breadcrumbs; lazy Inventory Sync/Profile/User Management chunks;
+keyboard-focusable upload input; zero-mutation validate-only
+announcement (`role=status`, Rejected, Run disabled); QA search 3–9
+ms with caps dormant; Sold = 6-of-34; keyboard work-order both roles
+(one request, 245/269 ms); mobile drawer cycle + phone flow + 640 px
+with zero horizontal overflow and zero sub-24px targets; signature
+5.27:1 / badge 6.92:1 from the merged stylesheet; warm band 104–293
+ms after pool settle. Regression: API headers on 401/404 + request
+id, CORS allow/deny + exposure, CSP byte-identical, privacy flags in
+the merged entry, **QA dealership exactly intact (28-of-28 · 16 open
+· 58.82%) — zero mutations, no reseed**; production untouched and
+healthy.
+
+**Rails J + K → Verified. Sprint 14 → Complete.** Sprint 10 remains
+**Implementation Paused — Awaiting Vendor Evidence**; Rail D remains
+**Merged — NOT Verified**; Sprint 17 remains **Planned**. Next:
+**Sprint 15 — Privacy / Legal** on explicit owner go (no
 release-blocking perf/a11y prerequisite found).
 
 ---

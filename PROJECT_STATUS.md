@@ -7,7 +7,7 @@ for the full plan this tracks progress against. See
 [`SPRINT_HISTORY.md`](SPRINT_HISTORY.md) for the chronological
 DealerDOH infrastructure history and v1.1.0-beta release roadmap.
 
-**Last updated:** 2026-08-19 (Sprint 14 Implementation Complete — Awaiting Merge: Rails J + K at the PR gate; `PERFORMANCE.md` + `ACCESSIBILITY.md` canonical)
+**Last updated:** 2026-08-20 (Sprint 14 Complete — Rails J + K Verified; `PERFORMANCE.md` + `ACCESSIBILITY.md` canonical)
 
 ## ⚠️ Production is live and locked (2026-08-15)
 
@@ -160,7 +160,21 @@ plus small reality corrections (stale smoke-test workflow note;
 `dealerdoh.com` now owned). Planning only — no rail implementation,
 production untouched.
 
-**Sprint 14 (2026-08-19, Implementation Complete — Awaiting Merge):**
+**Sprint 14 (2026-08-20, merged + Complete):** **MERGED** (PR #23 →
+`dev` = `c916208`, CI green on the merged head including the new
+bundle-budget gate; sprint branch deleted). Both DEV services
+restored to `dev` and verified serving the merge SHA (Vercel
+auto-deployed on the Production-Branch push). **Merged-head
+both-role smoke PASSED** — one `/dashboard` per role landing, 169 kB
+initial wire, deferred PostHog + Sentry live with zero console/CSP
+violations, first-Tab skip link on both roles' authenticated loads,
+onboarding/drawer/Vehicle-Detail focus cycles, keyboard-operable
+uploads with a live zero-mutation validate-only announcement, QA
+search responsive with caps dormant, keyboard work-order both roles,
+phone/640 px flows clean, signature 5.27:1 / badge 6.92:1, QA
+dealership exactly intact (28-of-28 · 16 open · 58.82%) with zero
+mutations, production untouched. **Rails J + K: Verified. Sprint 14
+Complete.** Originally recorded at the PR gate as:**
 Performance, Resilience & Accessibility (Rails J + K) on branch
 `feature/sprint-14-performance-accessibility` from `dev` = `73dee99`.
 Measure-first audit at QA scale AND the 4,700-vehicle production

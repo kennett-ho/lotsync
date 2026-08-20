@@ -98,8 +98,22 @@ def resolve_env():
     return env
 
 
-def refuse_if_production(db_path: str = None) -> None:
-    if os.environ.get("ENVIRONMENT", "").strip().lower() == "production":
+# Sprint 13 (Rail H, finding F1): the ENVIRONMENT values that positively
+# identify a development target. The destructive PostgreSQL reset drops
+# every application table from whatever DATABASE_URL names -- and a DSN
+# can point anywhere (a shared/staging database, a mistakenly-pasted
+# production one). The ABSENCE of the literal "production" is not proof
+# of a safe target, so that path now fails CLOSED: it proceeds only when
+# ENVIRONMENT explicitly names a development environment. The DealerDOH
+# DEV Render service already sets ENVIRONMENT=development (DEV_ENVIRONMENT.md).
+_DEV_ENVIRONMENTS = frozenset({"development", "local", "test"})
+
+
+def refuse_if_production(db_path: str = None, *, resetting: bool = False,
+                          engine: str = "sqlite") -> None:
+    environment = os.environ.get("ENVIRONMENT", "").strip().lower()
+
+    if environment == "production":
         sys.exit(
             "seed_dev.py: refusing to run -- ENVIRONMENT=production. "
             "This seeder is for development environments only."
@@ -109,6 +123,19 @@ def refuse_if_production(db_path: str = None) -> None:
             "seed_dev.py: refusing to run -- LOTSYNC_DB_PATH is the "
             f"production database path ({PRODUCTION_DB_PATH}). "
             "Seeding production is never allowed; see PRODUCTION_BASELINE.md."
+        )
+    # Fail-closed guard for the one destructive path that is NOT bounded
+    # to a known file: dropping every table from a PostgreSQL DATABASE_URL.
+    if resetting and engine == "postgres" and environment not in _DEV_ENVIRONMENTS:
+        sys.exit(
+            "seed_dev.py: refusing to --reset a PostgreSQL database when "
+            f"ENVIRONMENT={environment or '(unset)'!r} does not explicitly "
+            "name a development environment. This reset DROPS every "
+            "application table from whatever DATABASE_URL points at, so it "
+            "requires positive confirmation of a dev target -- set "
+            "ENVIRONMENT to one of: "
+            f"{', '.join(sorted(_DEV_ENVIRONMENTS))}. (The absence of "
+            "'production' is not proof of a safe target.)"
         )
 
 
@@ -125,7 +152,7 @@ def main(argv=None) -> None:
     engine = _engine()
     env = resolve_env()
     db_path = env.get("LOTSYNC_DB_PATH")
-    refuse_if_production(db_path)
+    refuse_if_production(db_path, resetting=args.reset, engine=engine)
 
     if args.reset:
         if engine == "sqlite":

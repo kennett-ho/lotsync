@@ -38,5 +38,51 @@ class VercelSpaRewriteTest(unittest.TestCase):
         self.assertIn("ResetPassword", source)
 
 
+class SecurityHeadersConfigTest(unittest.TestCase):
+    """Sprint 13 (Rail H): CI can't exercise Vercel's edge, but it pins
+    the header configuration so the CSP and clickjacking/nosniff/referrer
+    controls can't be lost in a refactor without a red build. The
+    deployed headers themselves are on the DEV smoke checklist."""
+
+    def _headers(self):
+        with open(_VERCEL_JSON, encoding="utf-8") as fh:
+            config = json.load(fh)
+        rules = config.get("headers", [])
+        self.assertTrue(rules, "vercel.json must define security headers")
+        # Flatten every header from the catch-all rule into a dict.
+        flat = {}
+        for rule in rules:
+            for header in rule.get("headers", []):
+                flat[header["key"]] = header["value"]
+        return flat
+
+    def test_baseline_headers_present(self):
+        headers = self._headers()
+        self.assertEqual(headers.get("X-Content-Type-Options"), "nosniff")
+        self.assertEqual(headers.get("X-Frame-Options"), "DENY")
+        self.assertIn("Referrer-Policy", headers)
+        self.assertIn("Permissions-Policy", headers)
+        self.assertIn("Content-Security-Policy", headers)
+
+    def test_csp_forbids_framing_and_locks_defaults(self):
+        csp = self._headers()["Content-Security-Policy"]
+        self.assertIn("frame-ancestors 'none'", csp)
+        self.assertIn("default-src 'self'", csp)
+        self.assertIn("object-src 'none'", csp)
+        self.assertIn("base-uri 'self'", csp)
+        # No script eval, and scripts are not wide open.
+        self.assertNotIn("unsafe-eval", csp)
+
+    def test_csp_allows_every_origin_the_app_actually_contacts(self):
+        # Enumerated from the deployed bundle: the API, Supabase Auth,
+        # Sentry ingest, PostHog. A missing origin would break the app;
+        # this fails if one is dropped.
+        csp = self._headers()["Content-Security-Policy"]
+        connect = next(part for part in csp.split(";") if part.strip().startswith("connect-src"))
+        for origin in ("'self'", "https://*.onrender.com", "https://*.supabase.co",
+                       "https://*.posthog.com", "https://*.sentry.io"):
+            self.assertIn(origin, connect, f"connect-src must allow {origin}")
+
+
 if __name__ == "__main__":
     unittest.main()

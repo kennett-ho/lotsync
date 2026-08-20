@@ -36,11 +36,48 @@ from lotsync.api.routers import (
     reports, tasks, users, vehicles,
 )
 
+# Sprint 13 (Rail H): interactive API documentation is a deliberate,
+# environment-gated decision, not security-through-obscurity. The
+# OpenAPI schema and the Swagger/ReDoc explorers map every route and
+# DTO -- useful for integration in DEV, unnecessary attack-surface on a
+# production deployment that serves real dealership data. They stay ON
+# for development/local (integration convenience) and are turned OFF
+# only when a deployment explicitly identifies itself as production via
+# ENVIRONMENT=production. Current production predates this variable and
+# reports "unspecified", so this changes nothing there (the production
+# baseline is untouched); a future production release train that sets
+# ENVIRONMENT=production inherits the reduced surface automatically.
+_DOCS_ENABLED = observability.observability_environment() != "production"
+
 app = FastAPI(
     title="LotSync API",
     description="See API_CONTRACTS.md for the DTOs this serves.",
     version="0.2.0",
+    docs_url="/docs" if _DOCS_ENABLED else None,
+    redoc_url="/redoc" if _DOCS_ENABLED else None,
+    openapi_url="/openapi.json" if _DOCS_ENABLED else None,
 )
+
+# Sprint 13 (Rail H): security response headers for the JSON API. These
+# are the headers that matter for a Bearer-token JSON API that sets no
+# cookies and renders no HTML of its own:
+#   - nosniff: never let a browser MIME-sniff a JSON body into script.
+#   - DENY framing (header + CSP frame-ancestors): the API is data, not
+#     a page; it must never be embedded. Deliberately NOT a full
+#     script/style CSP -- that would break the Swagger UI (/docs loads
+#     its assets from a CDN) for no gain on non-executable JSON.
+#   - no-referrer: an API response should never leak a referrer.
+#   - no-store: authenticated dealership data must not be cached by the
+#     browser, shared proxies, or CDNs (Phase 24). Health is tiny and
+#     safe to include; it is never sensitive.
+# The frontend's own richer CSP lives in frontend/vercel.json.
+_SECURITY_HEADERS = {
+    "X-Content-Type-Options": "nosniff",
+    "X-Frame-Options": "DENY",
+    "Content-Security-Policy": "frame-ancestors 'none'",
+    "Referrer-Policy": "no-referrer",
+    "Cache-Control": "no-store",
+}
 
 # Sprint 11 (Rails F+G): structured logging is always on (JSON records
 # on the "dealerdoh" logger -- see api/observability.py); Sentry
@@ -83,6 +120,11 @@ async def observability_middleware(request: Request, call_next):
             **observability.auth_log_context(request),
         )
         response.headers[observability.REQUEST_ID_HEADER] = rid
+        # Sprint 13 (Rail H): stamp security headers on every response
+        # the app produces. setdefault so a route that deliberately sets
+        # its own value (e.g. a future cacheable public asset) wins.
+        for _name, _value in _SECURITY_HEADERS.items():
+            response.headers.setdefault(_name, _value)
         return response
     except Exception as exc:
         route = request.scope.get("route")
@@ -98,6 +140,9 @@ async def observability_middleware(request: Request, call_next):
         if event_id:
             fields["sentry_event_id"] = event_id
         observability.log_event(logging.ERROR, "http_request", **fields)
+        # Sprint 13 (Rail H): the generic 500 carries the same security
+        # headers as every other response (this handler owns the 500
+        # path inside CORS, so nothing else would add them here).
         return JSONResponse(
             status_code=500,
             content={"detail": {
@@ -106,7 +151,7 @@ async def observability_middleware(request: Request, call_next):
                            "Share the reference below if this keeps happening.",
                 "request_id": rid,
             }},
-            headers={observability.REQUEST_ID_HEADER: rid},
+            headers={observability.REQUEST_ID_HEADER: rid, **_SECURITY_HEADERS},
         )
     finally:
         observability.request_id_var.reset(rid_token)

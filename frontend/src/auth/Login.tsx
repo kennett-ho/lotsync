@@ -36,13 +36,18 @@ export default function Login() {
       password,
     })
     // On success AuthGate's onAuthStateChange unmounts this screen;
-    // only the failure path needs handling here. Supabase's message
-    // for bad credentials is already user-appropriate.
+    // only the failure path needs handling here. Sprint 13 (F5): every
+    // sign-in failure collapses to ONE generic message so the screen
+    // never reveals account state ("Email not confirmed", "user
+    // disabled", etc. all leak account existence and undercut the
+    // enumeration-safe recovery flow). The one exception is a genuine
+    // rate-limit notice, which reveals nothing about the account and
+    // tells the person to wait -- same carve-out the recovery path uses.
     if (signInError) {
       setError(
-        signInError.message === 'Invalid login credentials'
-          ? 'Invalid email or password.'
-          : signInError.message,
+        /security purposes|rate limit|seconds/i.test(signInError.message)
+          ? signInError.message
+          : 'Invalid email or password.',
       )
       setSubmitting(false)
     }

@@ -360,6 +360,14 @@ failures, which reject before anything runs).
   boundary (or retiring it) is deliberately left for a future
   decision — do not treat its existence as a second sanctioned
   ingestion path.
+- **CSV formula injection (Sprint 13 assessment):** the generated report
+  CSVs (`reports/writer.py`) contain vendor-controlled cells, but they
+  are written to disk server-side and **never served to a browser for
+  download** — no current reachable spreadsheet-injection path. If report
+  download is ever added, cells beginning `=` `+` `-` `@` must be escaped
+  at export. Recorded as a deferred control, not a present exposure
+  (`SECURITY_AUDIT.md`). The work-order PDF's own vendor text is already
+  markup-escaped (Sprint 13, `reports/work_order.py`).
 - **Telemetry**: the validation module stays transport-agnostic.
   Sprint 11 instruments the surrounding API lifecycle (validated /
   rejected / needs-review / sync started / completed / failed) through

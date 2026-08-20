@@ -40,17 +40,17 @@ Do not rewrite history when architecture changes later. Record what was true at 
 | **Production persistence** | SQLite on Render persistent disk |
 | **Production Auth** | Disabled / not yet rolled out |
 | **Development product** | DealerDOH |
-| **Development branch / current head** | `dev` / `bafd747` (PR #19 merged — Sprint 12 role-aware UX) |
+| **Development branch / current head** | `dev` / `384970b` (Sprint 12 closeout PR #20 merged). Sprint 13 (Security + Supply Chain) in progress on `feature/sprint-13-security-supply-chain` — **not merged** |
 | **Development persistence** | Supabase PostgreSQL |
 | **Development Auth** | Supabase Auth + FastAPI server-side authorization (`AUTH_MODE=required`) |
-| **Current backend regression baseline** | 625/625 SQLite and 625/625 PostgreSQL on merged `dev` = `bafd747` (Sprint 12) |
+| **Current backend regression baseline** | 625/625 SQLite and 625/625 PostgreSQL on merged `dev` (Sprint 12). Sprint 13 branch: **656/656** both engines (+31 security tests), pending merge |
 | **Standing DEV QA dataset** | 34 vehicles, 18 tasks, 2 recommendations, 98 events, 10 sync runs |
 | **Latest completed sprint** | Sprint 12 — Role-Aware UX, Onboarding & Contextual Help (Rails B + C Verified) |
 | **Migration readiness** | Technical rehearsal PASS / GO; real production cutover intentionally unscheduled |
 | **Current release target** | `v1.1.0-beta.1` |
 | **Open PRs** | tracked per sprint; see Git/PR records in each entry |
 | **Public domain** | `dealerdoh.com` owned; production domain cutover not yet performed |
-| **Immediate focus** | Sprint 12 **Complete** — PR #19 merged (`bafd747`), merged-head both-role verification PASSED, **Rails B + C Verified**; DEV services back on `dev`. Sprint 10 remains **Implementation Paused — Awaiting Vendor Evidence**; Rail D NOT Verified. Sprint 17 remains **Planned** (not started). Next: Sprint 13 — Security + Supply Chain (Rails H + I + §5.H.1 sanitation audit) on explicit owner go. |
+| **Immediate focus** | Sprint 13 — Security Hardening + Supply Chain (Rails H + I + §5.H.1) **Implementation Complete — Awaiting Merge** on `feature/sprint-13-security-supply-chain`: read-only audit → remediation → re-audit done, **0 Critical / 0 reachable High**, sanitation **Audit Clean** (no secret ever committed), 656/656 both engines. Awaiting owner approval + merge; deployed-DEV security smoke pending the branch-review window. Sprint 12 **Complete** (Rails B + C Verified). Sprint 10 remains **Paused**; Rail D NOT Verified. Sprint 17 remains **Planned**. Production untouched. |
 
 **Production rule:** `master` is what real dealership users are allowed to depend on. Normal development belongs on task branches and `dev`; production remains frozen until an explicit release train is approved.
 
@@ -1809,6 +1809,112 @@ local) after both services were confirmed on `dev`. Sprint 10 remains
 **Implementation Paused — Awaiting Vendor Evidence**; Rail D remains
 **Merged — NOT Verified**; Sprint 17 remains **Planned**. Sprint 13
 not begun.
+
+---
+
+# Sprint 13 — Security Hardening, Supply Chain & Repository Sanitation
+
+**Status:** **Implementation Complete — Awaiting Merge** — PR open at
+the approval gate on `feature/sprint-13-security-supply-chain` (from
+`dev` = `384970b`). Read-only audit → remediation → re-audit complete;
+**Rails H and I → Implementation Complete — Awaiting Merge**;
+Repository Public-Release Sanitation → **Audit Clean**. Not merged; not
+Verified.
+**Date:** 2026-08-19
+**Rails:** H (Production Security Hardening) + I (Dependency /
+Supply-Chain Security) + §5.H.1 Repository Public-Release Sanitation.
+
+## Method (read-only audit FIRST)
+
+Audited the system that actually exists against the "75 Common
+Vibe-Coded Web App Vulnerabilities" threat catalog and the read-only
+Security Audit Prompt — every check classified PASS / FAIL / UNKNOWN /
+N/A with file/line evidence, never converting UNKNOWN to PASS. Manual
+review of the auth boundary, routers, query/SQL layer, ingestion,
+telemetry, and frontend, plus a delegated file-by-file sweep and
+automated scans (`npm audit`, `pip-audit`, a full-Git-history secret
+scan across 685 blobs, a current-tree secret scan, and a production
+bundle scan). Canonical write-ups: **`SECURITY_ARCHITECTURE.md`**
+(enduring) and **`SECURITY_AUDIT.md`** (point-in-time findings +
+score + sanitation result).
+
+## Result: 0 Critical, 0 reachable High
+
+The architecture held up well: FastAPI is the tested authorization
+boundary, role comes only from the membership row (spoofing
+structurally impossible), SQL is parameterized throughout (dynamic
+identifiers are code constants only), uploads are hardened (Sprint 10),
+telemetry redaction holds (Sprint 11), no `dangerouslySetInnerHTML`
+anywhere, CORS is an explicit allowlist, and **no secret was ever
+committed to Git history**. CSRF is N/A (Bearer-token API, no cookie
+auth); SSRF is N/A (no user-supplied URL is ever fetched).
+
+## Remediations (evidence-backed, behavior-preserving, each tested)
+
+- **F7 — missing security headers (Medium):** API middleware
+  (`api/app.py`) adds `nosniff`, `X-Frame-Options: DENY`,
+  `frame-ancestors 'none'`, `Referrer-Policy`, `Cache-Control: no-store`
+  to every response; `frontend/vercel.json` adds a real CSP (connect-src
+  enumerated from the deployed bundle: self + API + Supabase + Sentry +
+  PostHog; no `unsafe-eval`; `frame-ancestors 'none'`) plus nosniff,
+  frame, referrer, and Permissions-Policy.
+- **F1 — destructive seed guard (Medium):** `seed_dev.py`'s PostgreSQL
+  `--reset` now **fails closed** — it drops tables only when
+  `ENVIRONMENT` explicitly names a development environment, not merely
+  when it is not `"production"`.
+- **API-docs gating (deliberate decision):** `/docs`, `/redoc`,
+  `/openapi.json` stay on in dev/local, off when `ENVIRONMENT=production`
+  (current production predates that variable and is untouched).
+- **F6 — ReportLab markup escaping (Low):** vendor stock numbers/VINs
+  and the store name are escaped before entering the work-order PDF's
+  Paragraph markup.
+- **F4 — `display_name` clamp (Low):** the self-set `user_metadata`
+  display name is length/character-bounded at the auth boundary and the
+  roster (never authoritative for authz).
+- **F5 — login-error genericization (Low):** every sign-in failure
+  collapses to one message, preserving enumeration-safety.
+- **Rail I — CI `security` job:** secret scan + production-dependency
+  audit as hard gates; `pip-audit` + full `npm audit` advisory. New
+  operator tool `tools/secret_scan.py` (also the CI gate).
+
+## Repository Public-Release Sanitation → Audit Clean
+
+Full-history scan of 685 blobs (all commits/branches/tags/deleted
+files) found **zero real secrets**; the only credential-shaped strings
+are the CI PostgreSQL container's throwaway `postgres:postgres@127.0.0.1`
+DSN and documentation/test placeholders. **No rotation required, no
+history rewrite warranted or performed, no force-push, repository stays
+PRIVATE.** One non-secret note (finding F8): the client dealership
+identity ("Mark Kia") is present throughout importers/fixtures/docs — an
+owner disclosure decision before any publication, not a secret and not a
+v1.1 blocker.
+
+## Deferred with rationale (owner-visible accepted risks)
+
+Rate limiting (provider throttles auth; multi-worker Render makes an
+in-memory limiter non-authoritative), RLS + per-row store scoping
+(blocking prerequisite before Store #2, not a current single-store
+exploit), source-map upload (none served today), CSV formula escaping
+(report CSVs not downloadable today), MFA (post-v1.1). The `nanoid` npm
+High is a build-only devDependency, unreachable — standing
+classification kept, not force-fixed.
+
+## Multi-tenancy answer: **NOT safe for Store #2 today**
+
+Safe as one-store-per-deployment (isolation verified); business rows are
+not yet per-row store-scoped. Exact prerequisites listed in
+`SECURITY_AUDIT.md` and `SECURITY_ARCHITECTURE.md` §4.
+
+## Tests
+
+656/656 SQLite · 656/656 PostgreSQL (baseline 625 + 31 new security
+tests: headers, docs-gating, secret-scan classifier, seed fail-closed
+guard, ReportLab escaping, display_name clamp). Frontend production
+build clean. **Pending: merge · CI on the merged head · deployed-DEV
+security smoke at the owner's branch-review window.** Production
+untouched: `master` = `13c4f815`/`v1.0.0-beta.6`. Sprint 10 remains
+**Paused**; Rail D **NOT Verified**; Sprint 17 remains **Planned** —
+none touched.
 
 ---
 

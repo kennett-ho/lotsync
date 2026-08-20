@@ -32,6 +32,7 @@ import re
 from dataclasses import dataclass
 from datetime import datetime
 from typing import Optional
+from xml.sax.saxutils import escape as _xml_escape
 
 from reportlab.lib import colors
 from reportlab.lib.pagesizes import letter
@@ -122,6 +123,18 @@ def _stock_of(task: dict) -> str:
     return vehicle.get("stock_number") or task.get("vin", "")
 
 
+def _markup_safe(text: str) -> str:
+    """Escape vendor/operator-controlled text before it is embedded in
+    reportlab's Paragraph mini-markup (Sprint 13, Rail H). Stock
+    numbers and VINs come from vendor CSVs and the store name from
+    oms_config.xlsx; a stray '<', '>', or '&' would otherwise be parsed
+    as Paragraph markup -- at best garbling the printed sheet, at worst
+    raising mid-render (the router turns that into a generic 500). Only
+    escapes the three markup-significant characters; the surrounding
+    <b>/<font> tags in the callers are DealerDOH's own and stay literal."""
+    return _xml_escape(str(text or ""))
+
+
 def _vehicle_detail(task: dict) -> Optional[str]:
     """Per-vehicle operational line, e.g. "Key checked out 4 days ago"."""
     if task.get("task_type") not in _DETAIL_TASK_TYPES:
@@ -188,9 +201,11 @@ def _detail_rows(group_tasks: list) -> list:
     for task in group_tasks:
         stock = _stock_of(task)
         detail = _vehicle_detail(task)
-        text = f"<b>{stock}</b>"
+        text = f"<b>{_markup_safe(stock)}</b>"
         if detail:
-            text += f'&nbsp;&nbsp;&nbsp;<font color="#64748B">{detail}</font>'
+            # detail is DealerDOH-generated (an integer day count in a
+            # fixed template), but escape defensively for consistency.
+            text += f'&nbsp;&nbsp;&nbsp;<font color="#64748B">{_markup_safe(detail)}</font>'
         row = Table([[_Checkbox(), Paragraph(text, _STYLES["stock_line"])]], colWidths=[0.2 * inch, None])
         row.setStyle(TableStyle([
             ("VALIGN", (0, 0), (-1, -1), "MIDDLE"),
@@ -222,7 +237,7 @@ def _compact_grid(group_tasks: list) -> list:
         cells = []
         for task in row_tasks:
             cells.append(_Checkbox())
-            cells.append(Paragraph(f"<b>{_stock_of(task)}</b>", _STYLES["stock_line"]))
+            cells.append(Paragraph(f"<b>{_markup_safe(_stock_of(task))}</b>", _STYLES["stock_line"]))
         while len(cells) < _GRID_COLUMNS * 2:
             cells.append("")
         rows.append(cells)
@@ -243,7 +258,7 @@ def _build_story(tasks: list, store_name: str, generated_at: datetime) -> list:
     story = [
         Paragraph("LotSync", _STYLES["brand"]),
         Paragraph("Daily Work Order", _STYLES["doc_title"]),
-        Paragraph(store_name, _STYLES["meta"]),
+        Paragraph(_markup_safe(store_name), _STYLES["meta"]),
         Paragraph(
             f"Generated: {generated_at.strftime('%B %d, %Y')} at "
             f"{generated_at.strftime('%I:%M %p').lstrip('0')}",

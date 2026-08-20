@@ -40,17 +40,17 @@ Do not rewrite history when architecture changes later. Record what was true at 
 | **Production persistence** | SQLite on Render persistent disk |
 | **Production Auth** | Disabled / not yet rolled out |
 | **Development product** | DealerDOH |
-| **Development branch / current head** | `dev` / `384970b` (Sprint 12 closeout PR #20 merged). Sprint 13 (Security + Supply Chain) in progress on `feature/sprint-13-security-supply-chain` — **not merged** |
+| **Development branch / current head** | `dev` / `6bb3a9c` (PR #21 merged — Sprint 13 security hardening, supply chain & sanitation) |
 | **Development persistence** | Supabase PostgreSQL |
 | **Development Auth** | Supabase Auth + FastAPI server-side authorization (`AUTH_MODE=required`) |
-| **Current backend regression baseline** | 625/625 SQLite and 625/625 PostgreSQL on merged `dev` (Sprint 12). Sprint 13 branch: **656/656** both engines (+31 security tests), pending merge |
+| **Current backend regression baseline** | 656/656 SQLite and 656/656 PostgreSQL on merged `dev` = `6bb3a9c` (Sprint 13; +31 security tests over the Sprint 12 baseline) |
 | **Standing DEV QA dataset** | 34 vehicles, 18 tasks, 2 recommendations, 98 events, 10 sync runs |
-| **Latest completed sprint** | Sprint 12 — Role-Aware UX, Onboarding & Contextual Help (Rails B + C Verified) |
+| **Latest completed sprint** | Sprint 13 — Security Hardening, Supply Chain & Repository Sanitation (Rails H + I Verified; sanitation Audit Clean, repo private) |
 | **Migration readiness** | Technical rehearsal PASS / GO; real production cutover intentionally unscheduled |
 | **Current release target** | `v1.1.0-beta.1` |
 | **Open PRs** | tracked per sprint; see Git/PR records in each entry |
 | **Public domain** | `dealerdoh.com` owned; production domain cutover not yet performed |
-| **Immediate focus** | Sprint 13 — Security Hardening + Supply Chain (Rails H + I + §5.H.1) **Implementation Complete — Awaiting Merge** on `feature/sprint-13-security-supply-chain`: read-only audit → remediation → re-audit done, **0 Critical / 0 reachable High**, sanitation **Audit Clean** (no secret ever committed), 656/656 both engines. Awaiting owner approval + merge; deployed-DEV security smoke pending the branch-review window. Sprint 12 **Complete** (Rails B + C Verified). Sprint 10 remains **Paused**; Rail D NOT Verified. Sprint 17 remains **Planned**. Production untouched. |
+| **Immediate focus** | Sprint 13 **Complete** — PR #21 merged (`6bb3a9c`), merged-head CI green incl. the Security scans job, deployed security smoke PASSED, **Rails H + I Verified**; sanitation **Audit Clean** (no secret ever in history; repository stays private — publication is a separate owner decision, with the customer-identity disclosure noted). One smoke-found Low (CSP blocked Google Fonts) fixed in the closeout PR. Sprint 10 remains **Implementation Paused — Awaiting Vendor Evidence**; Rail D NOT Verified. Sprint 17 remains **Planned**. Next: Sprint 14 — Performance + Accessibility on explicit owner go. |
 
 **Production rule:** `master` is what real dealership users are allowed to depend on. Normal development belongs on task branches and `dev`; production remains frozen until an explicit release train is approved.
 
@@ -1814,13 +1814,14 @@ not begun.
 
 # Sprint 13 — Security Hardening, Supply Chain & Repository Sanitation
 
-**Status:** **Implementation Complete — Awaiting Merge** — PR open at
-the approval gate on `feature/sprint-13-security-supply-chain` (from
-`dev` = `384970b`). Read-only audit → remediation → re-audit complete;
-**Rails H and I → Implementation Complete — Awaiting Merge**;
-Repository Public-Release Sanitation → **Audit Clean**. Not merged; not
-Verified.
-**Date:** 2026-08-19
+**Status:** **Complete** — PR #21 owner-approved and **MERGED** as
+`6bb3a9c` = `dev` head (merge commit, parents `384970b` + `0219c3e`;
+CI green on the merged head **including the new Security scans job**);
+merged-head deployed security smoke PASSED on both DEV services
+(auto-deployed from `dev`, verified serving the merge SHA);
+**Rails H and I → Verified**; Repository Public-Release Sanitation →
+**Audit Clean** (repository stays private).
+**Date:** 2026-08-19 (audit + merge + merged-head verification same day)
 **Rails:** H (Production Security Hardening) + I (Dependency /
 Supply-Chain Security) + §5.H.1 Repository Public-Release Sanitation.
 
@@ -1910,11 +1911,89 @@ not yet per-row store-scoped. Exact prerequisites listed in
 656/656 SQLite · 656/656 PostgreSQL (baseline 625 + 31 new security
 tests: headers, docs-gating, secret-scan classifier, seed fail-closed
 guard, ReportLab escaping, display_name clamp). Frontend production
-build clean. **Pending: merge · CI on the merged head · deployed-DEV
-security smoke at the owner's branch-review window.** Production
-untouched: `master` = `13c4f815`/`v1.0.0-beta.6`. Sprint 10 remains
-**Paused**; Rail D **NOT Verified**; Sprint 17 remains **Planned** —
-none touched.
+build clean. Production untouched: `master` =
+`13c4f815`/`v1.0.0-beta.6`. Sprint 10 remains **Paused**; Rail D
+**NOT Verified**; Sprint 17 remains **Planned** — none touched.
+
+## Merge + Merged-Head Deployed Security Smoke (2026-08-19, PASSED) — Rails H/I Verified
+
+PR #21 merged as **`6bb3a9c`** (merge commit, parents `384970b` +
+`0219c3e`; zero review threads; **CI green on the merged head — all
+four jobs including the new Security scans job**; the only annotation
+is the advisory full-tree `npm audit` step flagging the documented
+`nanoid` devDependency exception, `continue-on-error` by design). Both
+DEV services stayed tracking `dev` and auto-deployed the merge: API
+`/health` reports `release=6bb3a9c…`; the frontend bundle carries the
+merge SHA baked in (4 occurrences).
+
+- **Headers live:** API responses (200 AND 404 AND the 500 path per
+  test) carry nosniff, `X-Frame-Options: DENY`, `frame-ancestors
+  'none'`, `Referrer-Policy: no-referrer`, `Cache-Control: no-store`;
+  the frontend serves the full CSP + nosniff + DENY + Referrer-Policy +
+  Permissions-Policy (+ Vercel HSTS).
+- **CORS:** allowed DEV origin echoed with
+  `Access-Control-Expose-Headers: X-Request-ID`; evil origin gets zero
+  allow-origin headers; preflight for POST+authorization correct.
+- **Auth surface:** manager login live (session under CSP); public
+  signup **live-probed disabled** (`signup_disabled` 422 via the
+  bundle's own publishable key); tokenless → 401, garbage token → 401
+  generic, unknown VIN → 404; user-administration restrictions intact
+  in the live roster (manager may invite/administer lot_staff +
+  sales_manager only; no self/admin controls rendered — server policy
+  mirrored).
+- **CSP breakage check:** Overview, Vehicles (28-of-28 + Sold filter),
+  Tasks (7/4/2/3 groups), Help (manager variant WITH the sync
+  section), Profile & Settings, User Management, vehicle detail
+  (QA1013: 2 tasks, 3 timeline), and the work-order PDF (200, real
+  `%PDF`, request-id readable cross-origin) all functional; Supabase /
+  PostHog / Sentry / Render API traffic produced **zero CSP
+  violations**. The ONE violation found: `index.css` `@import`s Google
+  Fonts, blocked by the first CSP (cosmetic system-font fallback) —
+  **fixed in this closeout PR** (`style-src` + `font-src` allow the
+  fonts hosts; pinning test added). 
+- **Ingestion boundary live (zero mutation):** validate-only matrix —
+  unrecognized CSV → `UNRECOGNIZED_REPORT` rejected; Excel magic bytes
+  disguised as `.csv` → `UNSUPPORTED_FORMAT` rejected; valid Tekion
+  sample → `ready` (honest `NO_PRIOR_BASELINE` INFO — the baseline
+  table is legitimately empty since the post-Sprint-10 reseed). No
+  `/run`, no baseline write, **QA dealership intact** (34 tracked / 16
+  open / 2 recommendations / 28 active / 2 exceptions — exact standing
+  matrix), no reseed.
+- **Telemetry:** **Sentry showed ZERO issues across the whole probe
+  window** (all-projects, 1h) despite the deliberate 401/403-shaped
+  barrage — expected 4xx creates no noise, proven live. Deployed
+  bundle byte-verified: every PostHog privacy flag present
+  (autocapture/pageview/pageleave off, session recording + surveys
+  disabled, `identified_only`), **zero** replay code references.
+- **Fail-closed seed guard exercised non-destructively:** postgres
+  `--reset` refused with `ENVIRONMENT` unset and with `staging` and
+  with `production` (guard fires before any connection — DSN pointed
+  at a dead port); passes the guard only under `development`, then
+  fails at the deliberately unreachable DSN. Nothing was reset.
+- **Production docs gating test-proven without touching production:**
+  the fresh-interpreter `ENVIRONMENT=production` probe shows
+  `/docs`/`/redoc`/`/openapi.json` disabled; live DEV keeps `/docs`
+  (by design). **Production untouched:** `master` = `13c4f815` /
+  `v1.0.0-beta.6`; prod API `{"status":"ok"}`; prod frontend 200.
+- **Credential-gated items, stated honestly:** live Lot Staff /
+  outsider (cross-store) re-logins were not re-exercised this pass —
+  only the owner holds those passwords. Coverage: the merged-head CI
+  runs the full negative authz matrix (`test_auth`: role 403s,
+  cross-store denial, inactive membership) on the exact deployed SHA,
+  and Sprint 12's live smoke proved the same unchanged authz paths
+  deployed 20 hours earlier (live lot_staff 403 with request-id).
+  Sprint 13 changed no authorization logic. A live re-exercise is a
+  five-minute owner action in the pane if wanted.
+
+**Rails H + I → Verified. Sprint 13 Complete.** Repository
+Public-Release Sanitation stays **Audit Clean** — the repository
+remains **private**; publication is a separate owner decision, and the
+Mark Kia customer-identity disclosure (finding F8) is recorded as an
+owner consideration before any future publication. Sprint feature
+branch deleted after merge. Sprint 10 remains **Implementation Paused
+— Awaiting Vendor Evidence**; Rail D remains **Merged — NOT
+Verified**; Sprint 17 remains **Planned**. Next: Sprint 14
+(Performance + Accessibility) on explicit owner go.
 
 ---
 

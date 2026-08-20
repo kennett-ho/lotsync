@@ -2283,9 +2283,9 @@ release-blocking perf/a11y prerequisite found).
 
 # Sprint 15 — Privacy, Data Governance & Legal Readiness
 
-**Status:** **Implementation Complete — Awaiting Merge** — PR open
-at the approval gate (branch `feature/sprint-15-privacy-legal` from
-`dev` = `daf5ae0`).
+**Status:** **Implementation Complete — Awaiting Merge** — **PR #25
+OPEN at the approval gate** (branch `feature/sprint-15-privacy-legal`
+from `dev` = `daf5ae0`; head `48fa3c0` + this PR-fill).
 **Date:** 2026-08-20
 **Rails:** L (Privacy / Legal Readiness) — operative register
 lettering. Rail D, Sprint 10, and Sprint 17 states untouched.

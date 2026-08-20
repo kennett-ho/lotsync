@@ -166,7 +166,14 @@ PostHog PERSONAL/admin key is a secret and appears nowhere in this
 repository). Explicit flags pin the beta posture: `autocapture:
 false`, `capture_pageview: false`, `capture_pageleave: false`,
 `disable_session_recording: true`, `person_profiles:
-'identified_only'`. Identity = `auth_user_id` (internal UUID,
+'identified_only'`, and — Sprint 15 (Rail L) — `persistence:
+'localStorage'`: the SDK default (`localStorage+cookie`) made
+PostHog the source of the app's ONLY cookie (a first-party `ph_*`
+identifier cookie, measured on deployed DEV 2026-08-20); localStorage
+alone carries identical identity persistence for a single-origin
+app, so **DealerDOH sets no cookies at all**
+(`PRIVACY_ARCHITECTURE.md` §4; pinned in
+`tests/test_frontend_observability_config.py`). Identity = `auth_user_id` (internal UUID,
 identified only after `/me` confirms the membership server-side) with
 `role`/`dealership_id`/`organization_id`/`environment` person
 properties; `signOut()` — the single sign-out choke point — calls

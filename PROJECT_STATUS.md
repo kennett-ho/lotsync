@@ -7,7 +7,7 @@ for the full plan this tracks progress against. See
 [`SPRINT_HISTORY.md`](SPRINT_HISTORY.md) for the chronological
 DealerDOH infrastructure history and v1.1.0-beta release roadmap.
 
-**Last updated:** 2026-08-20 (Sprint 14 Complete — Rails J + K Verified; `PERFORMANCE.md` + `ACCESSIBILITY.md` canonical)
+**Last updated:** 2026-08-20 (Sprint 15 at the PR approval gate — Rail L **Implementation Complete — Awaiting Merge**; `PRIVACY_ARCHITECTURE.md` + `DATA_RETENTION.md` + `LEGAL_READINESS.md` canonical, five customer-facing legal drafts awaiting owner review)
 
 ## ⚠️ Production is live and locked (2026-08-15)
 
@@ -159,6 +159,40 @@ This sprint also landed the owner-staged
 plus small reality corrections (stale smoke-test workflow note;
 `dealerdoh.com` now owned). Planning only — no rail implementation,
 production untouched.
+
+**Sprint 15 (2026-08-20, PR gate):** Privacy, Data Governance &
+Legal Readiness (Rail L) on branch `feature/sprint-15-privacy-legal`
+from `dev` = `daf5ae0`. Audit-FIRST: full data inventory over the 13
+real tables and every persist path, **verified consumer-data
+boundary (no customer/consumer personal information ingested
+anywhere — with the raw-upload caveat recorded)**, workforce-data
+reality (no structured person names until the planned Sprint 17
+Keyper contract; incidental vendor free-text = accepted audit F2),
+browser-storage census **measured on deployed DEV** (one Supabase
+session key + PostHog persistence + exactly one cookie — see
+remediation), deployed-bundle telemetry-flag byte-check, honest
+platform-layer IP/device-metadata statement, upload/output/file
+lifecycle (the `/run` raw-upload indefinite-retention finding →
+owner decision D4, **no deletion behavior changed**), backups, and
+an internal incident-response procedure. Legal assessment from
+authoritative sources with per-area classifications (FTC §5
+Applicable; A.R.S. 18-551/552 incident frame; **GLBA/Safeguards
+precisely not triggered at current scope, expansion trigger
+recorded**; CCPA/state/GDPR/COPPA classified) + owner decision
+register **D1–D10** + counsel register **C1–C8**
+(`LEGAL_READINESS.md`). New canonical docs `PRIVACY_ARCHITECTURE.md`
++ `DATA_RETENTION.md`; five customer-facing **drafts** (Privacy
+Policy, Beta Terms, Accessibility Statement, Security Overview,
+Subprocessors) — all "Draft — Owner Review Required", zero invented
+facts, placeholders where owner input is genuinely required. One
+evidence-backed remediation: PostHog `persistence: 'localStorage'` —
+**DealerDOH now sets no cookies at all** (the SDK default had set
+the app's only cookie; measured live, test-pinned). Suites 712/712
+BOTH engines on the branch; frontend build clean; QA dataset
+untouched (read-only checks); production untouched and verified
+healthy. **Rail L: Implementation Complete — Awaiting Merge**
+(Verified additionally gates on owner decisions D1/D2/D5/D9 +
+publication). Rail D / Sprint 10 / Sprint 17 states untouched.
 
 **Sprint 14 (2026-08-20, merged + Complete):** **MERGED** (PR #23 →
 `dev` = `c916208`, CI green on the merged head including the new

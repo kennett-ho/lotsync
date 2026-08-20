@@ -386,6 +386,11 @@ Sprint 17 evidence must include:
 - Targeted Rail L update covering the inbound-email provider as a
   subprocessor, report/attachment and message-metadata retention,
   Keyper user/comment context, deletion, and affected policy text.
+  The Sprint 15 baseline to amend: `PRIVACY_ARCHITECTURE.md` (§9
+  records this future boundary and the purpose grounding for the
+  workforce fields), `DATA_RETENTION.md`, `SUBPROCESSORS.md`
+  (provider currently listed as Planned / not active), and
+  `LEGAL_READINESS.md`.
 - Targeted post-Rail-M human verification of every new HOLD review,
   freshness/staleness, and Keyper work surface; the full Sprint 16 UAT
   cannot silently stand in for workflows added afterward.

@@ -13,6 +13,12 @@ Where this document and the code disagree, the code and its tests win —
 fix the document. Governing rail contract:
 [`V1_1_RELEASE_READINESS.md`](V1_1_RELEASE_READINESS.md) §5.H / §5.I.
 
+Privacy companion (Sprint 15, Rail L):
+[`PRIVACY_ARCHITECTURE.md`](PRIVACY_ARCHITECTURE.md) — the verified
+data inventory, data flows, browser storage, retention, and
+incident-response-to-privacy link for the assets these trust
+boundaries protect.
+
 ---
 
 ## 1. Assets, actors, trust boundaries (the working threat model)

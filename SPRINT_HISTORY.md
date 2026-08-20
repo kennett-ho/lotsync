@@ -40,17 +40,17 @@ Do not rewrite history when architecture changes later. Record what was true at 
 | **Production persistence** | SQLite on Render persistent disk |
 | **Production Auth** | Disabled / not yet rolled out |
 | **Development product** | DealerDOH |
-| **Development branch / current head** | `dev` / `c916208` (PR #23 merged — Sprint 14 performance, resilience & accessibility) |
+| **Development branch / current head** | `dev` / `daf5ae0` (PR #24 merged — Sprint 14 closeout; Rails J + K Verified) |
 | **Development persistence** | Supabase PostgreSQL |
 | **Development Auth** | Supabase Auth + FastAPI server-side authorization (`AUTH_MODE=required`) |
-| **Current backend regression baseline** | 712/712 SQLite and 712/712 PostgreSQL on merged `dev` = `c916208` (Sprint 14; +55 perf/a11y guards over the Sprint 13 baseline) |
+| **Current backend regression baseline** | 712/712 SQLite and 712/712 PostgreSQL on merged `dev` = `c916208` (Sprint 14; +55 perf/a11y guards over the Sprint 13 baseline) — re-verified 2026-08-20 on the Sprint 15 branch (712/712 both engines; one posture pin extended, no new tests) |
 | **Standing DEV QA dataset** | 34 vehicles, 18 tasks, 2 recommendations, 98 events, 10 sync runs |
 | **Latest completed sprint** | Sprint 14 — Performance, Resilience & Accessibility (Rails J + K Verified) |
 | **Migration readiness** | Technical rehearsal PASS / GO; real production cutover intentionally unscheduled |
 | **Current release target** | `v1.1.0-beta.1` |
 | **Open PRs** | tracked per sprint; see Git/PR records in each entry |
 | **Public domain** | `dealerdoh.com` owned; production domain cutover not yet performed |
-| **Immediate focus** | Sprint 14 **Complete** — PR #23 merged (`c916208`), merged-head CI green incl. the bundle-budget gate, both DEV services restored to `dev` and serving the merge SHA, post-merge both-role smoke PASSED (one `/dashboard` per landing · 169 kB initial wire · skip-link/focus/modal/drawer cycles live · zero-mutation validation announcement · QA intact, zero mutations). **Rails J + K Verified** (`PERFORMANCE.md` / `ACCESSIBILITY.md` canonical). Sprint 10 remains **Implementation Paused — Awaiting Vendor Evidence**; Rail D NOT Verified. Sprint 17 remains **Planned**. Next: Sprint 15 — Privacy / Legal on explicit owner go. |
+| **Immediate focus** | Sprint 15 — Privacy / Legal (Rail L) at the **PR approval gate** on branch `feature/sprint-15-privacy-legal`: audit-first privacy/data-flow inventory (`PRIVACY_ARCHITECTURE.md`), retention record (`DATA_RETENTION.md`), legal-readiness assessment + owner/counsel registers (`LEGAL_READINESS.md`), five customer-facing DRAFTS (Privacy Policy · Beta Terms · Accessibility Statement · Security Overview · Subprocessors — all Draft, Owner Review Required), and the no-cookie remediation (PostHog `persistence: 'localStorage'`, test-pinned). Rail L register = **Implementation Complete — Awaiting Merge**; Verified additionally gates on owner decisions D1/D2/D5/D9 + publication. Sprint 10 remains **Implementation Paused — Awaiting Vendor Evidence**; Rail D NOT Verified; Sprint 17 remains **Planned**. Production untouched. |
 
 **Production rule:** `master` is what real dealership users are allowed to depend on. Normal development belongs on task branches and `dev`; production remains frozen until an explicit release train is approved.
 
@@ -2278,6 +2278,147 @@ healthy.
 **Merged — NOT Verified**; Sprint 17 remains **Planned**. Next:
 **Sprint 15 — Privacy / Legal** on explicit owner go (no
 release-blocking perf/a11y prerequisite found).
+
+---
+
+# Sprint 15 — Privacy, Data Governance & Legal Readiness
+
+**Status:** **Implementation Complete — Awaiting Merge** — PR open
+at the approval gate (branch `feature/sprint-15-privacy-legal` from
+`dev` = `daf5ae0`).
+**Date:** 2026-08-20
+**Rails:** L (Privacy / Legal Readiness) — operative register
+lettering. Rail D, Sprint 10, and Sprint 17 states untouched.
+
+## Method: prove the facts, then write the words
+
+The sprint deliberately did NOT start from policy templates. Order
+of work: read every governing architecture doc → inventory the
+actual schemas (all 13 tables, both engines), API surface, importer
+columns, reconciler persist paths, upload/output file lifecycle,
+browser storage, telemetry configs, backups, and providers →
+research current law from authoritative sources → only then draft
+documents, each claim carrying an evidence tag
+([repo]/[measured]/[provider]/[research]/[decision]).
+
+## What the audit established (canonical: `PRIVACY_ARCHITECTURE.md`)
+
+- **Consumer-data boundary — NONE, verified:** no current report
+  contract, importer, or persist path ingests customer/consumer
+  personal information of any kind; the Tekion sold report asserts
+  sale events without purchaser identity. Recorded caveat: raw
+  uploaded files are retained verbatim, so an operator-exported
+  variant with extra columns would persist as bytes (control =
+  export hygiene + retention decision D4). Scope-expansion trigger
+  recorded (feeds the GLBA analysis).
+- **Workforce data reality:** DealerDOH's own DB stores no
+  email/name — only the Supabase auth UUID + role/store membership;
+  Supabase Auth owns email/password/session; display name is
+  self-set `user_metadata` (clamped). The current Keyper contract
+  ingests NO person-name column (`User`/`Issue Comment` arrive only
+  with the planned Sprint 17 extension — purpose grounding
+  pre-recorded). Incidental names can ride vendor free text
+  (`recon_note` — audit F2, Accepted). The `employee` table
+  (migration 0006) exists and is empty everywhere; no write path.
+- **Browser storage — MEASURED on deployed DEV (2026-08-20):**
+  exactly one Supabase session localStorage key, PostHog
+  localStorage/sessionStorage persistence (distinct_id verified
+  UUID-shaped, person props exactly role/dealership_id/
+  organization_id/environment), and **one first-party cookie** —
+  the posthog-js default `localStorage+cookie` persistence. The
+  cookie was the app's ONLY cookie.
+- **Telemetry posture re-verified:** deployed-bundle byte-check —
+  `autocapture:!1`, `capture_pageview:!1`, `capture_pageleave:!1`,
+  `disable_session_recording:!0`, `disable_surveys:!0`,
+  `person_profiles: identified_only`, zero `replayIntegration`
+  refs, `sendDefaultPii:!1`, `tracesSampleRate:0`. Sprint 11–14
+  live payload evidence stands on unchanged code.
+- **IP/device metadata answered honestly:** none in DealerDOH's own
+  records; present at the platform layer (uvicorn access lines in
+  Render logs ~7d; Supabase free-plan logs 1d; PostHog ingest;
+  provider edges) — customer-facing copy must say so.
+- **File lifecycle:** `/validate` uploads deleted pre-response
+  (pinned); **`/run` uploads retained indefinitely** (accepted AND
+  rejected) — production accumulates raw vendor CSVs on the 1 GB
+  disk. THE retention finding → owner decision D4 (status-quo vs
+  bounded cleanup); **no deletion behavior changed this sprint**.
+  Output CSVs are fixed-name, overwritten per sync; work-order PDF
+  is in-memory only.
+
+## Legal assessment (canonical: `LEGAL_READINESS.md`, sources cited)
+
+FTC Act §5 **Applicable** (the truthfulness duty that shaped every
+draft). A.R.S. §§ 18-551/552 = the incident frame (45-day/1,000-
+person mechanics recorded; no timeline pre-promised). **GLBA/FTC
+Safeguards: precisely NOT currently triggered** — DealerDOH holds no
+"customer information" in the Rule's sense, so it sits outside the
+dealership's service-provider-oversight perimeter today; the
+scope-expansion trigger (any consumer/financing/CRM/payment data →
+reassess BEFORE implementation, counsel C4) is recorded in three
+places. CCPA (thresholds), other-state laws, GDPR, COPPA, DPPA,
+CAN-SPAM/TCPA, HIPAA, PCI: classified Likely-Not-Applicable /
+Triggered-If-Scope-Expands with rationale. **Owner decision register
+D1–D10** (operating identity, contact address, jurisdiction, D4
+upload retention, publication venue/timing, acceptance mechanics =
+notice-only recommended, dealership-name disclosure, provider-plan
+verification, attorney-review disposition, production data-platform
+funding) and **counsel register C1–C8** organize everything human.
+
+## Documents
+
+New enduring/internal: `PRIVACY_ARCHITECTURE.md`,
+`DATA_RETENTION.md`, `LEGAL_READINESS.md`. New customer-facing
+DRAFTS (all "Draft — Owner Review Required", placeholders only where
+owner input is genuinely required, zero invented
+entities/addresses/dates/claims): `PRIVACY_POLICY.md`,
+`BETA_TERMS.md`, `ACCESSIBILITY_STATEMENT.md` (strictly from Rail
+K's record — AA-quality target language, no conformance claim),
+`SECURITY_OVERVIEW.md` (practices without internal threat-model
+detail; explicit "what we do not claim"), `SUBPROCESSORS.md`
+(environment-honest: today's production processors are Vercel +
+Render ONLY; Supabase/Sentry/PostHog process synthetic DEV data
+until the release train; GitHub determined NOT a customer-data
+subprocessor with reasoning; inbound-email provider = Planned, not
+active). Amended: register Rail L row, this file, `PROJECT_STATUS.md`,
+`OBSERVABILITY.md` §6 (persistence), `SECURITY_ARCHITECTURE.md` +
+`ACCESSIBILITY.md` + `KEYPER_AUTOMATED_INTEGRATION_PLAN.md`
+cross-references, `API_CONTRACTS.md` (two dated corrections: the
+employee/dealership tables DO exist since 0006 — stale
+pre-0006 notes).
+
+## Remediation (evidence-backed, bounded)
+
+One product change: PostHog `persistence: 'localStorage'`
+(`frontend/src/observability/analytics.ts`) — eliminates the app's
+only cookie with zero functional loss; pinned in
+`tests/test_frontend_observability_config.py`. Nothing else
+changed at runtime; no migration 0011 (data-migration workflow not
+triggered); no legal links added to the UI (deliberate — Phase 31
+defers surfaces until the drafts' approval state is decided, D5/D6).
+
+## Verification
+
+- Suites: **712/712 SQLite** (10 engine skips) and **712/712
+  PostgreSQL** (1 engine skip; portable cluster port 5544,
+  `sprint15_tests` created → dropped, cluster stopped after).
+  Frontend production build clean.
+- Deployed-DEV read-only checks: `/health` ok (postgres,
+  development), storage census + bundle byte-checks above;
+  **zero mutations** to the QA dealership (read-only inspection
+  only); production checked read-only (`/health` ok, master
+  `13c4f815` = `v1.0.0-beta.6` intact, frontend 200).
+- Pre-existing observation (not caused by this sprint): the Render
+  DEV API still reports `release=c916208` — the docs-only closeout
+  merge `daf5ae0` produced no Render redeploy (Vercel did rebuild;
+  app code identical). Heals on the next `dev` merge; noted for the
+  merge-time service check.
+
+**Rail L → Implementation Complete — Awaiting Merge.** Verified
+requires: merge + merged-head CI, owner decisions D1/D2/D5/D9, and
+publication of the internal-beta set per §5.L exit 2. Next sprint
+recommendation: **Sprint 16 — Human UAT** (no v1.1 legal/privacy
+blocker found; UAT can run while owner decisions settle, but
+publication should precede real-staff onboarding).
 
 ---
 

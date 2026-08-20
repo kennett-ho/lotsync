@@ -58,8 +58,12 @@ class BoundedRenderingTest(unittest.TestCase):
         self.assertIn("const RENDER_CAP = 100", src)
         self.assertIn("filtered.slice(0, RENDER_CAP)", src)
         self.assertIn("Show all {filtered.length}", src)
-        # a new query resets to the bounded view
-        self.assertIn("setShowAll(false) }, [search, filter]", src)
+        # A new query is bounded on its VERY NEXT render: the expansion
+        # is keyed to the result set it was requested for (derived
+        # state, not an effect -- the effect-based reset was measured
+        # landing one frame late, re-rendering the full roster once).
+        self.assertIn("const showAll = showAllFor === resultSetKey", src)
+        self.assertNotIn("useEffect(() => { setShowAll(false)", src)
 
     def test_vehicle_timeline_render_cap(self):
         src = read("VehicleDetail.tsx")

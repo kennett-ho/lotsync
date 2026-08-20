@@ -19,7 +19,7 @@
 // dropped for the same reason: none exist anywhere in DATA_MODEL.md's
 // Vehicle shape, so none are fabricated client-side.
 
-import { useEffect, useMemo, useState } from 'react'
+import { useMemo, useState } from 'react'
 import { getVehicles } from '../api/vehicles'
 import { useApi } from '../api/useApi'
 import { isBackendUnavailable } from '../api/client'
@@ -255,13 +255,23 @@ export default function VehiclesList({ onVehicleSelect }: { onVehicleSelect: (vi
   const [filter,   setFilter]   = useState<FilterKey>('all')
   const [sortKey,  setSortKey]  = useState<SortKey>('open_task_count')
   const [sortDir,  setSortDir]  = useState<'asc' | 'desc'>('desc')
-  const [showAll,  setShowAll]  = useState(false)
 
   // A new search/filter starts back at the bounded view -- "show all"
-  // is a per-result-set choice, not a sticky mode (keeping it sticky
-  // would silently reintroduce the multi-hundred-ms keystroke blocks
-  // the cap exists to prevent).
-  useEffect(() => { setShowAll(false) }, [search, filter])
+  // is a ONE-SHOT choice for the result set it was clicked on, never a
+  // sticky mode (sticky would silently reintroduce the multi-hundred-
+  // ms keystroke blocks the cap exists to prevent). DERIVED, not an
+  // effect: the Sprint 14 review-window measurement caught the
+  // effect-based reset landing one frame late -- the first keystroke
+  // after "Show all" re-rendered the full roster once (a 1.4 s block
+  // at production scale) before the cap re-engaged. Keying the
+  // expansion to the result set makes the very next render bounded;
+  // dropping the key as soon as the query moves off it (the
+  // adjust-state-during-render pattern) keeps a RETURN to that query
+  // bounded too, instead of surprise-re-expanding.
+  const [showAllFor, setShowAllFor] = useState<string | null>(null)
+  const resultSetKey = `${search.trim().toLowerCase()}|${filter}`
+  if (showAllFor !== null && showAllFor !== resultSetKey) setShowAllFor(null)
+  const showAll = showAllFor === resultSetKey
 
   // The Sold mode fetches the wider roster; every other mode keeps the
   // server's default active-only response, so the standing behavior of
@@ -455,7 +465,7 @@ export default function VehiclesList({ onVehicleSelect }: { onVehicleSelect: (vi
                 <p className="text-[12px] text-slate-500 mb-1.5">
                   Showing the first {rendered.length} of {filtered.length} matching vehicles.
                 </p>
-                <button onClick={() => setShowAll(true)}
+                <button onClick={() => setShowAllFor(resultSetKey)}
                   className="text-[12px] font-semibold text-blue-700 bg-blue-50 border border-blue-200 hover:bg-blue-100 px-3.5 py-1.5 rounded-lg transition-colors">
                   Show all {filtered.length}
                 </button>

@@ -1,16 +1,24 @@
 # DealerDOH Beta Terms
 
-> **DRAFT — OWNER REVIEW REQUIRED · COUNSEL REVIEW RECOMMENDED —
-> NOT IN EFFECT, NOT PUBLISHED.**
+> **DRAFT — NOT IN EFFECT, NOT PUBLISHED.**
 > Deliberately a lightweight **internal-beta / evaluation notice**,
 > not a commercial SaaS agreement — DealerDOH is not commercial GA,
 > and drafting a heavyweight contract now would misstate the
 > relationship (`LEGAL_READINESS.md` §7 records the real commercial
-> agreement as a v2/counsel deliverable, C1/C7). Publication blocks
-> on owner decisions D1 (operating identity), D2 (contact), D3
-> (governing law), D5 (venue/timing), D6 (acceptance mechanics),
-> D9 (attorney-review disposition). Nothing here is a binding
-> representation until the owner approves it.
+> agreement as a v2/counsel deliverable, C1/C7). Owner decisions
+> D1–D10 are **resolved** (2026-08-20, `LEGAL_READINESS.md` §5):
+> this draft carries the decided operating identity (D1), Arizona
+> governing law / U.S.-only scope (D3), and notice-only acceptance
+> (D6). Publication happens on `dealerdoh.com` (planned `/terms`)
+> **before the v1.1 production cutover** (D5), after the monitored
+> contact exists (D2) and the owner approves the final text.
+> **Attorney-review disposition (D9), recorded honestly: no
+> attorney review has been completed for the v1.1 controlled beta;
+> this is a beta/evaluation readiness document; qualified legal
+> review is recommended/required before commercial GA / v2
+> contractual deployment. Nothing here has been reviewed or
+> approved by counsel, and nothing is a binding representation
+> until the owner approves the final published text.**
 
 **Effective date:** [OWNER: actual publication date] ·
 **Version:** draft-1
@@ -19,9 +27,10 @@
 
 ## 1. What this is
 
-DealerDOH is a dealership operations product operated by
-[OWNER: operating legal name / identity — decision D1]
-("the operator"). It is currently a **beta**: features, data
+DealerDOH is a dealership operations product **operated by Kennett
+Ho** ("the operator" — the resolved v1.1 operating identity, D1; no
+separate corporate entity is implied). It is currently a **beta**:
+features, data
 handling, and availability are still changing, and the product is
 offered for internal evaluation and operational use by a
 participating dealership — not as a general commercial service.
@@ -105,17 +114,25 @@ dealership relationship.]
 
 ## 11. Governing law
 
-[OWNER: confirm — expected Arizona, decision D3.]
+These terms are governed by the laws of the State of Arizona
+(resolved decision D3 — the v1.1 beta is U.S.-only, with the
+initial controlled beta operating at an Arizona dealership).
+[COUNSEL: venue/forum and related provisions remain subject to the
+pre-commercial legal review (D9 / C7).]
 
 ## 12. Acceptance
 
-[OWNER: decision D6 — recommended for v1.1: these terms are
-provided as **notice** (linked at sign-in and in Help); continued
-use of the beta constitutes acceptance. Click-acceptance is
-deliberately not implemented for the internal beta; commercial
-onboarding (v2) will use organization-level contractual acceptance
-instead.]
+Per resolved decision D6 (2026-08-20): these terms are provided as
+**notice** — linked at sign-in and in Help once published — and
+continued use of the beta by authorized dealership staff
+constitutes acceptance. Individual click-acceptance is deliberately
+**not** required for authorized workplace accounts in the
+controlled v1.1 employee beta. Commercial (v2) onboarding will be
+reassessed and is expected to use contractual acceptance primarily
+at the organization/administrator/customer-contract level.
 
 ## 13. Contact
 
-[OWNER: monitored contact address — decision D2.]
+[AT PUBLICATION — D2 (resolved 2026-08-20): the monitored
+`dealerdoh.com` contact address, created before publication. This
+document must not be published while this placeholder remains.]

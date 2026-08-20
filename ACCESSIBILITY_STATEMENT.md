@@ -1,11 +1,15 @@
 # DealerDOH Accessibility Statement
 
-> **DRAFT — OWNER REVIEW REQUIRED — NOT PUBLISHED.**
+> **DRAFT — NOT PUBLISHED.**
 > Derived strictly from the Sprint 14 (Rail K) audit record in
 > [`ACCESSIBILITY.md`](ACCESSIBILITY.md) — every sentence below is
-> backed by that document's evidence. Publication blocks on owner
-> decisions D2 (feedback contact) and D5 (venue/timing) in
-> `LEGAL_READINESS.md` §5.
+> backed by that document's evidence. Owner decisions resolved
+> 2026-08-20 (`LEGAL_READINESS.md` §5): publication happens on
+> `dealerdoh.com` (planned `/accessibility`) before the v1.1
+> production cutover (D5), once the monitored contact exists (D2)
+> and the owner approves the final text. D9 disposition applies to
+> the whole document set: beta/evaluation readiness material; no
+> attorney review has been completed for the v1.1 controlled beta.
 
 **Last reviewed:** 2026-08-20 (against the Sprint 14 audit,
 completed 2026-08-20) · **Version:** draft-1
@@ -76,4 +80,5 @@ user management):
 
 If you hit an accessibility barrier in DealerDOH, please tell us —
 it will be treated as a defect, not a request:
-[OWNER: monitored contact address — decision D2].
+[AT PUBLICATION — D2 (resolved 2026-08-20): the monitored
+`dealerdoh.com` contact address, created before publication].

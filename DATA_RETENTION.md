@@ -70,33 +70,81 @@ sync runs, report baselines, event freshness, pending identities.
   text cells and any extra columns an operator's export happens to
   carry (`PRIVACY_ARCHITECTURE.md` §2.3 caveat). They also consume
   the production disk without bound.
-- **v1.1 policy — [OWNER DECISION D4 — must be resolved before the
-  v1.1 release; owner direction 2026-08-20: indefinite retention
-  must NOT ship as the unexamined default]:**
-  - **A′. Recorded, deliberate, time-limited status quo** — keep
-    current behavior through the beta window **only** as an explicit
-    decision with a scheduled operator prune practice and a hard
-    revisit deadline no later than Sprint 17's acquisition-retention
-    design (that decision point already exists:
-    `KEYPER_AUTOMATED_INTEGRATION_PLAN.md` §12 item 4). Plain
-    "leave it indefinite" is off the table per the owner direction.
-  - **B. Bounded cleanup** — keep the most recent N days (or N runs)
-    of raw uploads; delete older batches on a schedule or at
-    run-time. Honest note: no operationally-grounded N exists yet —
-    per the sprint rule, no 30/90/365 number is invented here. If B
-    is chosen, N should come from real usage (how far back has
-    rejection evidence ever actually been consulted?) and ship as a
-    tested, documented change.
-  - Either way, the **operator-side control available today** (no
-    code change, no approval needed beyond the owner doing it):
-    periodic manual review/pruning of `/var/data/api_uploads`
-    during maintenance, exactly like the existing backup procedure.
-- **Why this cannot stay open past the release:** beyond disk
-  growth, the retained verbatim bytes are the stated reason
+- **v1.1 policy — RESOLVED DIRECTION (owner D4, 2026-08-20):** raw
+  vendor uploads are **temporary operational evidence, not permanent
+  archives** — indefinite raw-file retention is **not** the intended
+  v1.1 policy. Successful validated reports get **short temporary
+  retention, then deletion**; rejected/HOLD reports get a **longer
+  bounded investigation window, then deletion**; the durable record
+  remains the normalized operational evidence, fingerprints,
+  SyncRuns, baselines, and history under their own rules (§1).
+- **Proposed concrete policy — AWAITING OWNER RATIFICATION. No
+  destructive cleanup is implemented until the durations and design
+  below are approved; nothing was deleted or built in Sprint 15.**
+  Durations are grounded in actual troubleshooting/recovery needs,
+  not convention, and are initial-beta values tunable from real
+  operational evidence (the same propose → ratify → pin pattern as
+  the Sprint 10 suspicious-count thresholds):
+  - **Accepted batches (validated + successfully executed): retain
+    7 days, then delete.** Grounding: the manual sync cadence is
+    1–2×/day per source with same-day outcome review by the
+    operator who ran it (the recorded Rail E rationale); the
+    longest routine attention gap is a holiday-weekend span of
+    ~3–4 days — 7 days covers it with margin. After a successful
+    run the authoritative record is the database, and the vendor
+    system remains the source of truth for any re-export.
+  - **Rejected / unacknowledged-warning batches (zero-mutation):
+    retain 30 days, then delete.** Grounding: for a rejected run
+    the raw file is the *only* evidence of what was rejected;
+    investigating one realistically spans a vendor
+    re-export/support exchange (days to weeks), bounded by a
+    monthly operational review cycle. These files are also
+    precisely the ones most likely to carry unexpected content —
+    a reason they must not live forever (`LEGAL_READINESS.md` §4).
+  - **Future Sprint 17 HOLD state:** governed by that sprint's
+    dead-letter/retention design
+    (`KEYPER_AUTOMATED_INTEGRATION_PLAN.md` §12 item 4), defaulting
+    to ≤ the rejected window unless that design justifies
+    otherwise.
+- **Technical cleanup design (submitted for approval with the
+  durations; additive, no schema change, no new infrastructure):**
+  1. At request end, the router writes a small `outcome.json`
+     marker (accepted / rejected / warnings-unacknowledged +
+     timestamp) into the batch directory.
+  2. An **opportunistic sweep** at the start of `/run` and
+     `/validate` (no scheduler exists on the current hosting tier;
+     files only accumulate when these endpoints are used) deletes
+     batch directories older than their outcome's window.
+     Unmarked/legacy directories (pre-feature, or crash-before-
+     marker) age under the *longer* rejected window, conservatively;
+     orphaned `validate-*` temp directories older than 24 h (crash
+     leftovers) are also removed.
+  3. Safety: the in-flight batch is never touched; deletion happens
+     only under the uploads root; an environment kill-switch
+     disables the sweep during investigations; one structured INFO
+     record per sweep (counts and batch timestamps only — never
+     filenames beyond the server-generated names, never contents);
+     boundary tests pin both windows, the marker writing, and the
+     never-delete-inside-window rule.
+  4. Rollout includes a **one-time, operator-executed prune of the
+     accumulated legacy production directories** — an explicit
+     approved step in the deploy notes, never automatic.
+  5. Implementation vehicle: a small dedicated chore PR after
+     ratification (preferred, so the behavior soaks before RC), or
+     folded into Sprint 17's acquisition-retention design at the
+     owner's option. Either way it lands, tested, **before the v1.1
+     release train** (Sprint 18 readiness checks it).
+- Until ratification+implementation, the **operator-side control
+  available today** (no code change): periodic manual
+  review/pruning of `/var/data/api_uploads` during maintenance,
+  exactly like the existing backup procedure.
+- **Why this cannot slip past the release:** beyond disk growth,
+  the retained verbatim bytes are the stated reason
   `LEGAL_READINESS.md` §4's GLBA/Safeguards conclusion is
-  deliberately non-categorical — incidental receipt of unexpected
-  columns in a raw vendor export is a data-minimization risk, and
-  time-bounding the store is the control DealerDOH itself owns.
+  deliberately non-categorical — indefinite raw-file retention
+  creates a potential incidental-receipt path for unexpected
+  sensitive columns, and time-bounding the store is the control
+  DealerDOH itself owns.
 - **Also unverified and worth one operator look:** the CLI-era
   `/var/data/uploads` folder's current production contents
   (pre-API workflow; repo cannot see the disk).
@@ -123,7 +171,11 @@ sync runs, report baselines, event freshness, pending identities.
 
 - **v1.1 policy (adopted):** accept provider defaults for the beta;
   no log export/archival pipeline (would be premature
-  infrastructure). Consequence, stated honestly: diagnostic and
+  infrastructure). Per owner **D8** (2026-08-20): every provider
+  figure in this section must be **re-verified against the actual
+  plan/configuration before any published statement relies on it** —
+  tracked as manual release-readiness actions
+  (`LEGAL_READINESS.md` §5 D8). Consequence, stated honestly: diagnostic and
   incident evidence at the platform layer is short-lived — the
   incident procedure (`PRIVACY_ARCHITECTURE.md` §10) therefore says
   to export relevant provider logs immediately when an incident is
@@ -157,10 +209,15 @@ sync runs, report baselines, event freshness, pending identities.
   frozen legacy SQLite file is renamed ~day 7 and deleted ~day 90
   with explicit owner approval (G9); the off-host final backup is
   kept ≥ 1 year; the migration-epoch artifact is retained as the
-  long-term record; Supabase **Pro** (daily provider backups) is
-  the recommended production tier. Any retention/deletion statement
-  in customer-facing copy must stay consistent with these decisions
-  (Rail L exit condition 2).
+  long-term record. Adopting an appropriate **paid Supabase tier**
+  is the recorded direction for production (migration plan §22;
+  owner **D10**, 2026-08-20: a production/commercial-readiness
+  decision, not a compliance claim — the tier's actual
+  backup/retention/operational benefits must be **verified before
+  being relied on** in any security/privacy language, and no
+  benefit is claimed until confirmed). Any retention/deletion
+  statement in customer-facing copy must stay consistent with these
+  decisions (Rail L exit condition 2).
 - **Backups contain what the database contains** — vehicle
   operational data and (post-migration) membership rows; Supabase
   Auth identities are backed up by the provider, not by DealerDOH.

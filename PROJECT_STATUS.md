@@ -7,7 +7,7 @@ for the full plan this tracks progress against. See
 [`SPRINT_HISTORY.md`](SPRINT_HISTORY.md) for the chronological
 DealerDOH infrastructure history and v1.1.0-beta release roadmap.
 
-**Last updated:** 2026-08-20 (Sprint 15 at the PR approval gate — Rail L **Implementation Complete — Awaiting Merge**; `PRIVACY_ARCHITECTURE.md` + `DATA_RETENTION.md` + `LEGAL_READINESS.md` canonical, five customer-facing legal drafts awaiting owner review)
+**Last updated:** 2026-08-20 (Sprint 15 at the PR approval gate — Rail L **Implementation Complete — Awaiting Merge**; `PRIVACY_ARCHITECTURE.md` + `DATA_RETENTION.md` + `LEGAL_READINESS.md` canonical; owner decisions D1–D10 **resolved**, five customer-facing drafts decision-complete and unpublished pending D2/D5 execution)
 
 ## ⚠️ Production is live and locked (2026-08-15)
 
@@ -185,8 +185,8 @@ not appear to involve Safeguards customer information and DealerDOH
 does not currently appear to act as a Safeguards service provider —
 retained raw uploads keep incidental receipt a live
 data-minimization risk, and the reassessment trigger covers
-receiving, maintaining, processing, or being permitted access to
-customer information**; CCPA/state/GDPR/COPPA classified) + owner decision
+receiving, retaining, maintaining, processing, or being permitted
+access to customer information**; CCPA/state/GDPR/COPPA classified) + owner decision
 register **D1–D10** + counsel register **C1–C8**
 (`LEGAL_READINESS.md`). New canonical docs `PRIVACY_ARCHITECTURE.md`
 + `DATA_RETENTION.md`; five customer-facing **drafts** (Privacy
@@ -198,9 +198,23 @@ evidence-backed remediation: PostHog `persistence: 'localStorage'` —
 the app's only cookie; measured live, test-pinned). Suites 712/712
 BOTH engines on the branch; frontend build clean; QA dataset
 untouched (read-only checks); production untouched and verified
-healthy. **Rail L: Implementation Complete — Awaiting Merge**
-(Verified additionally gates on owner decisions D1/D2/D5/D9 +
-publication). Rail D / Sprint 10 / Sprint 17 states untouched.
+healthy. **Owner decisions D1–D10 RESOLVED at the gate
+(2026-08-20)**: identity "DealerDOH, operated by Kennett Ho";
+monitored dealerdoh.com contact created before publication;
+U.S.-only/Arizona beta; raw uploads = temporary evidence with a
+concrete 7-day-accepted/30-day-rejected retention proposal awaiting
+ratification (**no destructive cleanup until approved;
+release-gating**); publication on dealerdoh.com before the v1.1
+production cutover, never on current LotSync production;
+notice-only acceptance; customer-neutral public copy; provider
+claims verified pre-publication (manual release-readiness actions);
+**honest D9 disposition — no attorney review completed for the
+beta, qualified review recommended/required before commercial GA**;
+paid-Supabase as a verified-benefits readiness decision. **Rail L:
+Implementation Complete — Awaiting Merge** — Verified now waits on
+execution only (merge + merged-head CI, then D2 mailbox +
+owner-approved final text + D5 pre-cutover publication). Rail D /
+Sprint 10 / Sprint 17 states untouched.
 
 **Sprint 14 (2026-08-20, merged + Complete):** **MERGED** (PR #23 →
 `dev` = `c916208`, CI green on the merged head including the new

@@ -50,7 +50,7 @@ Do not rewrite history when architecture changes later. Record what was true at 
 | **Current release target** | `v1.1.0-beta.1` |
 | **Open PRs** | tracked per sprint; see Git/PR records in each entry |
 | **Public domain** | `dealerdoh.com` owned; production domain cutover not yet performed |
-| **Immediate focus** | Sprint 15 — Privacy / Legal (Rail L) at the **PR approval gate** on branch `feature/sprint-15-privacy-legal`: audit-first privacy/data-flow inventory (`PRIVACY_ARCHITECTURE.md`), retention record (`DATA_RETENTION.md`), legal-readiness assessment + owner/counsel registers (`LEGAL_READINESS.md`), five customer-facing DRAFTS (Privacy Policy · Beta Terms · Accessibility Statement · Security Overview · Subprocessors — all Draft, Owner Review Required), and the no-cookie remediation (PostHog `persistence: 'localStorage'`, test-pinned). Rail L register = **Implementation Complete — Awaiting Merge**; Verified additionally gates on owner decisions D1/D2/D5/D9 + publication. Sprint 10 remains **Implementation Paused — Awaiting Vendor Evidence**; Rail D NOT Verified; Sprint 17 remains **Planned**. Production untouched. |
+| **Immediate focus** | Sprint 15 — Privacy / Legal (Rail L) at the **PR approval gate** on branch `feature/sprint-15-privacy-legal`: audit-first privacy/data-flow inventory (`PRIVACY_ARCHITECTURE.md`), retention record (`DATA_RETENTION.md`), legal-readiness assessment + owner/counsel registers (`LEGAL_READINESS.md`), five customer-facing DRAFTS (Privacy Policy · Beta Terms · Accessibility Statement · Security Overview · Subprocessors — all Draft, Owner Review Required), and the no-cookie remediation (PostHog `persistence: 'localStorage'`, test-pinned). Rail L register = **Implementation Complete — Awaiting Merge**; owner decisions **D1–D10 RESOLVED 2026-08-20** (identity "DealerDOH, operated by Kennett Ho" · U.S.-only/AZ beta · bounded raw-upload retention with a 7d/30d proposal awaiting ratification, release-gating · dealerdoh.com publication before the v1.1 cutover · notice-only acceptance · customer-neutral copy · provider claims verified pre-publication · honest no-attorney-review disposition · paid-Supabase verify-then-rely) — Verified now waits on execution only (D2 mailbox + owner-approved final text + D5 pre-cutover publication). Sprint 10 remains **Implementation Paused — Awaiting Vendor Evidence**; Rail D NOT Verified; Sprint 17 remains **Planned**. Production untouched. |
 
 **Production rule:** `master` is what real dealership users are allowed to depend on. Normal development belongs on task branches and `dev`; production remains frozen until an explicit release train is approved.
 
@@ -2362,8 +2362,8 @@ acting** as a Safeguards service provider for such information —
 deliberately NOT a categorical claim, because retained raw uploads
 (D4) keep incidental receipt of unexpected columns a live
 data-minimization risk; the reassessment trigger covers
-**receiving, maintaining, processing, or being permitted access
-to** customer information (reassess before implementation, or
+**receiving, retaining, maintaining, processing, or being permitted
+access to** customer information (reassess before implementation, or
 immediately upon discovery for the incidental case; counsel C4) and
 is recorded in three places. CCPA (thresholds), other-state laws, GDPR, COPPA, DPPA,
 CAN-SPAM/TCPA, HIPAA, PCI: classified Likely-Not-Applicable /
@@ -2464,6 +2464,80 @@ Verified, D4 gates the release — §8 note, C4), `DATA_RETENTION.md`
 Rail L register row, `PROJECT_STATUS.md`, this record, and the PR
 body. Rail L remains **Implementation Complete — Awaiting Merge /
 PENDING OWNER**; no draft published; Sprint 16 not begun.
+
+## Owner decisions D1–D10 RESOLVED (2026-08-20, at the gate)
+
+All ten Sprint 15 owner decisions were resolved at the PR gate and
+recorded into the register (`LEGAL_READINESS.md` §5 — now a
+resolutions-plus-execution register, no open decision remains):
+
+- **D1** operating identity for the v1.1 beta = **"DealerDOH,
+  operated by Kennett Ho"** — no corporation/LLC invented or
+  implied; replaceable by a future legal entity before commercial
+  GA. Drafts updated in place.
+- **D2** a **real monitored `dealerdoh.com` contact** will be
+  created before policies are published (one address may serve both
+  support and privacy); placeholder addresses are never published
+  as real. Draft contact sections now carry the
+  fill-at-publication phrasing.
+- **D3** DealerDOH v1.1 is **U.S.-only**, initial controlled beta
+  at an Arizona dealership; no international claims. Beta Terms
+  governing law = Arizona.
+- **D4** raw uploads are **temporary operational evidence, not
+  permanent archives** — bounded retention with deletion is the
+  policy; the smallest-technically-safe concrete proposal is
+  drafted for ratification in `DATA_RETENTION.md` §3: **7-day
+  accepted / 30-day rejected windows** (cadence-grounded, not
+  conventional), outcome-marker + opportunistic-sweep design,
+  kill-switch, boundary tests, one-time approved legacy prune.
+  **No destructive cleanup is implemented until the owner approves
+  the durations/design; release-gating (Sprint 18 checks it).**
+- **D5** approved versions are **published on `dealerdoh.com`
+  before the v1.1 production cutover** (planned `/privacy`,
+  `/terms`, `/accessibility`, `/security` if appropriate) — never
+  added to current LotSync production; drafts stay internal until
+  then.
+- **D6** **notice-only acceptance** for the controlled employee
+  beta — no individual clickwrap for authorized workplace
+  accounts; commercial v2 reassessed at the
+  organization/admin/contract level. Beta Terms §12 updated.
+- **D7** public policies are **customer-neutral** ("participating
+  dealership" language); Mark Kia is not named in standard policies
+  (drafts swept clean 2026-08-20); it may appear in separately
+  approved case-study/pilot/marketing material.
+- **D8** provider statements must be **verified against actual
+  plans/configuration before publication** — no unsupported
+  retention/residency/backup/availability/security/support claims;
+  the specific dashboard confirmations are tracked as **manual
+  release-readiness actions** (register D8 row).
+- **D9** attorney review is **not required to continue the
+  controlled beta**; recorded honestly: **no attorney review has
+  been completed for the v1.1 controlled beta; current documents
+  are beta/evaluation readiness materials; qualified legal review
+  is recommended/required before commercial GA / v2 contractual
+  deployment** — the rail's owner-accepted-risk record; every
+  draft banner carries the disposition; nothing implies counsel
+  approval.
+- **D10** paid Supabase = a **production/commercial-readiness
+  decision, not a compliance claim** — likely adopt an appropriate
+  paid tier before commercial production **if verified benefits
+  justify it**; benefits are not claimed until the actual
+  plan/configuration is confirmed.
+
+**Rail L criteria after resolution:** exits 1 (data-flow inventory)
+and 4 (traceability) **satisfied**; exit 3 (Accessibility
+Statement) **drafted** — needs only the D2 contact at publication;
+exit 2 = **content complete, publication execution pending** (D2
+mailbox → owner final-text approval → D5 pre-cutover publication).
+Rail L remains **Implementation Complete — Awaiting Merge**;
+Verified = merge + merged-head CI + that execution chain. D4's
+ratified durations + tested implementation remain release-gating.
+GLBA/Safeguards language re-confirmed appears-based with the
+incidental-receipt caveat (trigger verbs now include *retains*);
+the Arizona statement stands as no-enacted-law + SB 1815's
+introduced/not-enacted 2026 disposition. Drafts updated in place
+and **still NOT published**. Rail D / Sprint 10 / Sprint 17
+untouched; Sprint 16 not begun.
 
 ---
 

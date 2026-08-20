@@ -1,16 +1,23 @@
 # DealerDOH Privacy Policy
 
-> **DRAFT — OWNER REVIEW REQUIRED · COUNSEL REVIEW RECOMMENDED —
-> NOT IN EFFECT, NOT PUBLISHED.**
-> This draft describes the **DealerDOH v1.1 internal-beta stack**
-> (authenticated, Supabase/Render/Vercel architecture). It must not
-> be published for the current unauthenticated LotSync beta, and it
-> must not be published at all until the owner decisions recorded in
-> `LEGAL_READINESS.md` §5 (operating identity D1, contact address
-> D2, publication venue/timing D5, attorney-review disposition D9)
-> are resolved. Bracketed `[OWNER: …]` items are genuinely-required
-> owner input — not to be filled by guesswork. Grounding for every
-> statement: `PRIVACY_ARCHITECTURE.md`.
+> **DRAFT — NOT IN EFFECT, NOT PUBLISHED.**
+> Describes the **DealerDOH v1.1 internal-beta stack**
+> (authenticated, Supabase/Render/Vercel architecture) — never the
+> current unauthenticated LotSync beta. Owner decisions D1–D10 are
+> **resolved** (2026-08-20, `LEGAL_READINESS.md` §5): this draft now
+> carries the decided operating identity (D1), U.S.-only scope
+> (D3), notice-only acceptance model (D6), and customer-neutral
+> naming (D7). Publication happens on `dealerdoh.com` (planned
+> `/privacy`) **before the DealerDOH v1.1 production cutover** (D5)
+> — never on current LotSync production — and only after the
+> monitored `dealerdoh.com` contact exists (D2) and the owner
+> approves the final text. **Attorney-review disposition (D9),
+> recorded honestly: no attorney review has been completed for the
+> v1.1 controlled beta; this is a beta/evaluation readiness
+> document; qualified legal review is recommended/required before
+> commercial GA / v2 contractual deployment. Nothing here has been
+> reviewed or approved by counsel.** Grounding for every statement:
+> `PRIVACY_ARCHITECTURE.md`.
 
 **Effective date:** [OWNER: actual publication date — do not
 backdate] · **Version:** draft-1 (Git-versioned; see § "Changes")
@@ -19,11 +26,14 @@ backdate] · **Version:** draft-1 (Git-versioned; see § "Changes")
 
 ## Who we are
 
-DealerDOH ("we") is a dealership operations product operated by
-[OWNER: operating legal name / identity — decision D1]. It is
-currently offered as an **internal beta** to authorized staff of a
-participating dealership — access is by administrator invitation
-only; there is no public signup.
+DealerDOH ("we") is a dealership operations product **operated by
+Kennett Ho** (per resolved decision D1, no separate corporate
+entity exists or is implied; a future legal entity may replace this
+identity before commercial availability). It is currently offered
+as an **internal beta** to authorized staff of a participating
+dealership — access is by administrator invitation only; there is
+no public signup. DealerDOH v1.1 is offered in the **United States
+only**; no international availability or compliance is claimed.
 
 This policy covers the DealerDOH application (web app and its API).
 It is written for the people who use it: dealership staff.
@@ -150,8 +160,10 @@ for what is and is not in place.
 You can set or change your display name in Settings, and use the
 password-reset flow at any time. To access, correct, or ask about
 information connected to your account — or to request offboarding —
-contact [OWNER: monitored contact address — decision D2] or your
-dealership administrator. We will handle requests honestly and
+contact [AT PUBLICATION — D2: the monitored `dealerdoh.com`
+contact address, created before this policy is published; one
+address may serve both support and privacy] or your dealership
+administrator. We will handle requests honestly and
 manually; this is a small internal beta and we do not promise
 statutory response timelines that do not apply to it.
 
@@ -169,6 +181,9 @@ history is preserved in the document repository.
 
 ## Contact
 
-[OWNER: monitored support/privacy/security contact address —
-decision D2. Do not publish this document while this placeholder
-exists.]
+[AT PUBLICATION — D2 (resolved 2026-08-20): a real, monitored
+`dealerdoh.com` contact address will be created **before** this
+policy is published; one address may initially serve both support
+and privacy functions. **This document must not be published while
+this placeholder remains — placeholder addresses are never
+published as real contact information.**]

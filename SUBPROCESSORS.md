@@ -1,14 +1,21 @@
 # DealerDOH Service Providers / Subprocessors
 
-> **DRAFT — OWNER REVIEW REQUIRED — NOT PUBLISHED.**
+> **DRAFT — NOT PUBLISHED.**
 > The provider inventory behind the Privacy Policy's "Service
 > providers" section. Environment-honest: it distinguishes what
 > processes dealership data **today** from the **v1.1 target stack**
 > that activates at the release train. Regions are current
-> configuration facts, not contractual residency guarantees.
-> Publication blocks on owner decision D5; retention figures marked
-> plan-dependent must be re-verified against the actual provider
-> plans at publication (decision D8).
+> configuration facts, not contractual residency guarantees. Owner
+> decisions resolved 2026-08-20 (`LEGAL_READINESS.md` §5):
+> publication with the policy set on `dealerdoh.com` before the
+> v1.1 production cutover (D5). Per **D8**, every plan-dependent
+> figure here must be verified against the actual provider
+> plans/configuration before publication — tracked as manual
+> release-readiness actions — and no unsupported claim about
+> retention, residency, backups, availability, security guarantees,
+> or support may survive that pass. D9 disposition:
+> beta/evaluation readiness material; no attorney review has been
+> completed for the v1.1 controlled beta.
 
 **Last reviewed:** 2026-08-20 · **Version:** draft-1
 

@@ -117,17 +117,19 @@ file is retained verbatim** (§7). If a dealership operator ever
 exports a report variant containing customer fields, those bytes
 would sit in the upload store even though nothing reads them. The
 controls are operator export hygiene plus the raw-upload retention
-decision in `DATA_RETENTION.md` (**D4 — owner-directed 2026-08-20
-to be resolved before the v1.1 release, never left as an indefinite
-default**; this incidental-receipt possibility is also why the
-GLBA/Safeguards assessment in `LEGAL_READINESS.md` §4 is stated
-non-categorically). Today's real export shapes carry no such columns
+decision in `DATA_RETENTION.md` (**D4 resolved 2026-08-20: raw
+uploads are temporary operational evidence — bounded retention with
+deletion, never an indefinite default; concrete durations/design
+proposed in §3 there, awaiting ratification before any destructive
+cleanup ships, and release-gating for v1.1**; this
+incidental-receipt possibility is also why the GLBA/Safeguards
+assessment in `LEGAL_READINESS.md` §4 is stated non-categorically). Today's real export shapes carry no such columns
 (evidenced by the contract registry and the synthetic fixtures that
 mirror them).
 
 **Trigger (recorded, owner-refined 2026-08-20):** if DealerDOH ever
-**receives, maintains, processes, or is permitted access to**
-consumer/customer information — by deliberate ingestion (financing,
+**receives, retains, maintains, processes, or is permitted access
+to** consumer/customer information — by deliberate ingestion (financing,
 deal, CRM, credit, payment, or consumer-identity data), by
 integration/DMS access, or by **discovering such content in
 retained raw uploads** — the legal posture changes materially:
@@ -302,9 +304,11 @@ not "we do not collect IP addresses."
 The raw-upload indefinite retention is the sprint's main retention
 finding — current behavior, business rationale, risk, and the
 proposed bounded policy are in [`DATA_RETENTION.md`](DATA_RETENTION.md)
-§3 (owner decision **D4, directed 2026-08-20 to be resolved before
-the v1.1 release** rather than shipping as an indefinite default;
-**no deletion behavior was changed in Sprint 15**).
+§3 (**D4 resolved 2026-08-20: raw uploads are temporary operational
+evidence — bounded retention with deletion is the v1.1 policy
+direction; the concrete durations/cleanup design proposed there
+awaits owner ratification, and no destructive cleanup ships until
+approved**; **no deletion behavior was changed in Sprint 15**).
 
 ## 8. Backups and operator-held copies
 
@@ -324,10 +328,14 @@ the v1.1 release** rather than shipping as an indefinite default;
   decisions already governed in `PRODUCTION_MIGRATION_PLAN.md`
   (§17–§18: legacy file deleted ~day 90 with owner approval G9;
   off-host backups kept ≥ 1 year; epoch artifact retained).
-- **v1.1 production target**: Supabase Pro (daily backups) is the
-  migration plan's recommendation (§22 register) — a privacy-
-  relevant reason to fund it: real workforce/vehicle data deserves
-  provider-managed backup + restore.
+- **v1.1 production target**: adopting an appropriate paid Supabase
+  tier is the migration plan's recorded direction (§22 register) —
+  a privacy-relevant reason to fund it: real workforce/vehicle data
+  deserves provider-managed backup + restore. Per owner **D10**
+  (2026-08-20): a production/commercial-readiness decision, not a
+  compliance claim — verify the tier's actual backup/retention
+  benefits before relying on them in any published language; no
+  benefit is claimed until the plan/configuration is confirmed.
 
 ## 9. Future integration boundary (Sprint 17 — documented, not current)
 

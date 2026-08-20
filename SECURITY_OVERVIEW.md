@@ -1,12 +1,17 @@
 # DealerDOH Security Overview
 
-> **DRAFT — OWNER REVIEW REQUIRED — NOT PUBLISHED.**
+> **DRAFT — NOT PUBLISHED.**
 > A customer-facing summary of security practices, written strictly
 > from the verified internal records (`SECURITY_ARCHITECTURE.md`,
 > `SECURITY_AUDIT.md`, `OBSERVABILITY.md`) — it deliberately
 > publishes practices and posture, not internal threat-model detail.
-> Describes the **v1.1 stack**. Publication blocks on owner
-> decisions D2 (disclosure contact) and D5 (venue/timing).
+> Describes the **v1.1 stack**. Owner decisions resolved 2026-08-20
+> (`LEGAL_READINESS.md` §5): publication on `dealerdoh.com`
+> (`/security` if appropriate) before the v1.1 production cutover
+> (D5), once the monitored contact exists (D2), with provider
+> statements re-verified against actual plans first (D8). D9
+> disposition: beta/evaluation readiness material; no attorney
+> review has been completed for the v1.1 controlled beta.
 
 **Last reviewed:** 2026-08-20 · **Version:** draft-1
 
@@ -81,9 +86,11 @@ information** — is described in the
 Current beta posture, stated honestly: the production database has a
 **verified manual backup procedure** (integrity-checked, stored off
 the production host); backups are not yet on an automated schedule.
-Moving production to a managed database tier with provider-managed
-daily backups is a planned, recorded step of the v1.1 release plan.
-There is **no uptime SLA** during the beta.
+Moving production to a paid managed-database tier is a planned,
+recorded step of the v1.1 release plan; its specific backup and
+retention capabilities will be verified against the actual plan
+before this document relies on them. There is **no uptime SLA**
+during the beta.
 
 ## Incident response
 
@@ -104,6 +111,7 @@ on this page, DealerDOH is not making it.
 ## Reporting a security concern
 
 Please report suspected vulnerabilities or security concerns to
-[OWNER: monitored security contact — decision D2]. Good-faith
-reports are welcome; we will acknowledge, investigate, and fix
-verified issues.
+[AT PUBLICATION — D2 (resolved 2026-08-20): the monitored
+`dealerdoh.com` contact address, created before publication].
+Good-faith reports are welcome; we will acknowledge, investigate,
+and fix verified issues.

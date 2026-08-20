@@ -7,7 +7,7 @@ for the full plan this tracks progress against. See
 [`SPRINT_HISTORY.md`](SPRINT_HISTORY.md) for the chronological
 DealerDOH infrastructure history and v1.1.0-beta release roadmap.
 
-**Last updated:** 2026-08-19 (Sprint 13 Complete — Rails H + I Verified; sanitation Audit Clean, repository private)
+**Last updated:** 2026-08-19 (Sprint 14 Implementation Complete — Awaiting Merge: Rails J + K at the PR gate; `PERFORMANCE.md` + `ACCESSIBILITY.md` canonical)
 
 ## ⚠️ Production is live and locked (2026-08-15)
 
@@ -159,6 +159,44 @@ This sprint also landed the owner-staged
 plus small reality corrections (stale smoke-test workflow note;
 `dealerdoh.com` now owned). Planning only — no rail implementation,
 production untouched.
+
+**Sprint 14 (2026-08-19, Implementation Complete — Awaiting Merge):**
+Performance, Resilience & Accessibility (Rails J + K) on branch
+`feature/sprint-14-performance-accessibility` from `dev` = `73dee99`.
+Measure-first audit at QA scale AND the 4,700-vehicle production
+shape, then only evidence-backed fixes, then re-measurement —
+canonical records in **`PERFORMANCE.md`** and **`ACCESSIBILITY.md`**.
+Performance: hot-path `sync_run` reads bounded in SQL (no migration;
+semantics pinned), the live-verified duplicate `/dashboard` fetch
+collapsed to one shared per-view request, PostHog deferred off the
+critical path + role-gated surfaces code-split (initial JS **885→592
+kB raw / 256→167 kB gzip, −35%**; production-posture builds never
+fetch the PostHog chunk), bounded list/timeline rendering with
+truthful "Show all/older" escapes (production-scale keystroke blocks
+**400–850 ms → 27–74 ms**; 131k-DOM-node Sold paint bounded), 30 s
+request timeouts; validation benchmark re-measured 0.033 s / 4,700
+rows (no Sprint 11/13 regression); Render cold start measured and
+separated (32.3 s platform wake vs ~3 ms warm server-side — not an
+application defect). Accessibility: four-pass audit → full
+remediation → **axe zero violations** on Overview/Vehicles/Tasks/
+Vehicle Detail/Inventory Sync at desktop + mobile (was: unnamed dead
+buttons ×5 critical, keyboard-locked file uploads, hidden-focusable
+drawer controls, clickable-div rows, missing landmarks/headings,
+color-only status, sub-AA contrast on informative text). Inert
+drawer + full focus cycle, modal onboarding (containment, Escape=Skip,
+step announcements — Sprint 12 clamp intact), announced outcomes,
+labeled controls, skip link, per-surface titles/h1s, aria-current/
+expanded/pressed/sort, AA contrast sweep (canvas-measured against the
+Tailwind v4 oklch palette), reduced-motion, :focus-visible, 375/640 px
+reflow with zero horizontal scroll. **No formal WCAG conformance
+claimed** — remediated toward WCAG 2.2 AA-quality behavior; SR-user
+study is a Rail M UAT risk. Guards in CI: bundle-budget gate
+(`tools/check_bundle_budget.py`) + 51 structural tests. **708/708
+SQLite · 708/708 PostgreSQL · build green.** Production untouched;
+production-posture invariant verified byte-identical (54 pre-existing
+pin tests). Rails J/K become Verified only after merge + merged-head
+CI + deployed remeasure/keyboard/mobile/zoom smoke. Rail D and Sprint
+17 untouched. Recommended next: Sprint 15 — Privacy / Legal.
 
 **Sprint 13 (2026-08-19, merged + Complete same day):** Security
 Hardening + Supply Chain (Rails H + I + §5.H.1 sanitation) —

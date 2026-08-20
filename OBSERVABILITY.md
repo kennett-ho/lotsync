@@ -174,6 +174,22 @@ properties; `signOut()` — the single sign-out choke point — calls
 User A. Every event carries `environment` + `release` via
 `posthog.register`.
 
+**Sprint 14 (Rail J) loading change — behavior identical, timing
+not:** the SDK (the bundle's single largest contributor, ~235 kB
+minified) now loads via dynamic `import()` off the render-critical
+path, per invariant 1 (telemetry is secondary and must never gate
+first paint). The wrapper API is unchanged and synchronous; calls
+made before the SDK resolves are queued **in order** and replayed on
+readiness, so identify-before-events and reset-severs-identity
+sequencing is preserved exactly, and `app_loaded` still fires (it is
+simply delivered when the SDK lands, moments later). If the chunk
+fails to load, analytics degrades to the unconfigured no-op posture.
+Builds without `VITE_POSTHOG_KEY` — including current production —
+never fetch the chunk at all. Sentry is deliberately NOT deferred:
+early-error capture is its purpose. Posture flags and the
+`tests/test_frontend_observability_config.py` pins are unchanged;
+`tests/test_frontend_performance.py` pins the deferral itself.
+
 ### Event taxonomy (stable names; add sparingly, with the authority noted)
 
 | Event | Authority | Properties |

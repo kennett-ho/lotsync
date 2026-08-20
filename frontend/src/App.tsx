@@ -257,12 +257,14 @@ function Sidebar({ items, activeNav, onNav, mobileOpen, onCloseMobile }: {
 
         {/* A tiny, tasteful signature -- not branding. Sits beneath the
             nav/profile block so it never competes with anything
-            interactive; low enough contrast (white/15 at 9px) to read
-            as an easter egg, not a footer. Deliberately decorative, so
-            it is hidden from assistive technology rather than forced
-            to a readable contrast. */}
-        <div className="px-4 pb-3 pt-1 flex-shrink-0" aria-hidden="true">
-          <p className="text-[9px] text-white/15 leading-tight select-none">Developed by Kennett Ho</p>
+            interactive. Sprint 14 (Rail K, owner decision): visible,
+            meaningful attribution is TEXT, not decoration -- it meets
+            AA contrast (white/50 on the sidebar navy ~5:1, the same
+            quiet tone as the identity footer's secondary line) and is
+            exposed to assistive technology. Subtlety comes from the
+            9px size and placement, never from sub-AA contrast. */}
+        <div className="px-4 pb-3 pt-1 flex-shrink-0">
+          <p className="text-[9px] text-white/50 leading-tight select-none">Developed by Kennett Ho</p>
         </div>
       </aside>
     </>
@@ -277,10 +279,15 @@ function Sidebar({ items, activeNav, onNav, mobileOpen, onCloseMobile }: {
 // the real answer. Two status indicators on screen that can disagree
 // is worse than one that's occasionally amber; this one is now driven
 // by the same GET /dashboard connected_systems data.
+// Sprint 14 (Rail K): the slate tone is text-slate-600 -- slate-500 on
+// slate-100 measures 4.34:1, just under AA. Found by re-running axe
+// with the backend unreachable: the "Sync Status Unavailable" /
+// "No Syncs Yet" states only render then, so data-full audit passes
+// never painted them.
 const syncBadgeTone: Record<'green' | 'amber' | 'slate', string> = {
   green: 'text-emerald-700 bg-emerald-50 border-emerald-200',
   amber: 'text-amber-700 bg-amber-50 border-amber-200',
-  slate: 'text-slate-500 bg-slate-100 border-slate-200',
+  slate: 'text-slate-600 bg-slate-100 border-slate-200',
 }
 const syncBadgeDot: Record<'green' | 'amber' | 'slate', string> = {
   green: 'bg-emerald-400', amber: 'bg-amber-400', slate: 'bg-slate-400',

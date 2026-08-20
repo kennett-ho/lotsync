@@ -226,6 +226,23 @@ class MotionAndContrastTest(unittest.TestCase):
     def test_visually_hidden_helper_exists(self):
         self.assertIn(".visually-hidden", self.css)
 
+    def test_sidebar_attribution_is_aa_text_not_hidden_decoration(self):
+        # Owner ruling at the PR gate: visible, meaningful attribution
+        # is TEXT — AA contrast (white/50 on the sidebar navy measured
+        # 5.27:1), exposed to assistive technology. Never again a
+        # sub-AA "decorative" carve-out for readable words.
+        app = read("App.tsx")
+        self.assertIn(
+            'text-white/50 leading-tight select-none">Developed by Kennett Ho', app)
+        self.assertNotIn('aria-hidden="true">\n          <p className="text-[9px]', app)
+
+    def test_header_sync_badge_slate_tone_meets_aa(self):
+        # slate-500 on slate-100 measures 4.34:1 — found by an axe pass
+        # with the backend unreachable (the only time this badge state
+        # renders). Error/empty visual branches are audit surface too.
+        app = read("App.tsx")
+        self.assertIn("slate: 'text-slate-600 bg-slate-100 border-slate-200'", app)
+
     def test_no_informative_slate_300_or_400_body_text_on_live_surfaces(self):
         # slate-400 measures 2.63:1 on white (Tailwind v4 oklch palette)
         # -- below AA for normal text. It remains legitimate for

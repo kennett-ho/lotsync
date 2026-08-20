@@ -48,9 +48,17 @@ finding → fix → guard.
 |---|---|---|
 | axe, five audited surfaces | `button-name` (critical) ×5 · `scrollable-region-focusable` (serious) ×2 · `region` ×20–116/surface · `landmark-one-main`, `page-has-heading-one`, `landmark-unique`, `heading-order`, `aria-prohibited-attr` ×300, `color-contrast` | **0 violations** on every audited surface |
 
-The one intentionally remaining low-contrast element is the sidebar's
-"Developed by Kennett Ho" signature: pure decoration by design,
-`aria-hidden`, exempt under WCAG 1.4.3's decorative-text clause.
+Two follow-up findings closed at the PR gate (owner review): the
+sidebar's "Developed by Kennett Ho" signature was initially carried
+as an `aria-hidden` decorative exemption — the owner's ruling is that
+**visible, meaningful attribution is text**, so it now meets AA
+(white/50 on the sidebar navy, canvas-measured **5.27:1**) and is
+exposed to assistive technology; subtlety comes from its 9px size and
+placement, never from sub-AA contrast. And re-running axe with the
+backend unreachable surfaced the header sync badge's slate tone
+("Sync Status Unavailable" / "No Syncs Yet") at 4.34:1 — states the
+data-full audit runs never painted — fixed to slate-600. Final axe
+result including both: **0 violations**.
 
 ---
 
@@ -123,6 +131,7 @@ The one intentionally remaining low-contrast element is the sidebar's
 | No reduced-motion handling (Moderate) | Global reduce block | MotionAndContrast test |
 | Profile/User-Management label association gaps (Moderate) | `htmlFor`/`id`; named invite controls | SurfaceSemantics tests |
 | Unsplash hero image — external host, already CSP-blocked, not the actual vehicle (cross-cutting) | Removed; badge moved to identity card; external-media scan added | ExternalContent test |
+| PR-gate follow-ups (owner review): visible attribution carried as decorative exemption; slate sync-badge tone 4.34:1 in error/empty states (Minor) | Signature → AA text at white/50 (5.27:1 measured), AT-exposed; badge slate tone → slate-600; no-backend axe pass added to the playbook | MotionAndContrast test (signature AA + badge tone) |
 
 Already good and deliberately untouched: Login/Reset/Profile's
 wrapped-label + `role="alert"` patterns (Sprint 09), honest empty
@@ -152,7 +161,7 @@ safe auth copy, the Error Boundary (now announced).
 | Screen-reader user study | Not performed — structural + tree evidence only; carried as a Rail M UAT risk |
 | Work-order PDF | Readable text, logical order, sufficient contrast, prints cleanly (reviewed proportionally); **not** a tagged/PDF-UA document and no such claim is made — formal PDF accessibility exceeds v1.1 scope |
 | axe + oklch | axe 4.10 under-reports contrast on oklch colors; contrast evidence here comes from direct measurement (recorded tooling limitation) |
-| Sidebar signature | Deliberately faint pure decoration (`aria-hidden`; WCAG 1.4.3 exemption) |
+| Error/empty-state visual branches | Audit sweeps should include unreachable-backend states — the slate sync-badge contrast gap hid in exactly such a branch until the PR-gate re-measure (§1); the playbook now includes a no-backend axe pass |
 | Legacy dead dashboards | Unaudited by design — outside the bundle graph, unreachable |
 | Windows High Contrast / forced-colors | Not specifically audited this sprint |
 | Voice control | Accessible names now match visible labels (the prerequisite); no dedicated voice-control pass yet |

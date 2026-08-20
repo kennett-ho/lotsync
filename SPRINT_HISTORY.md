@@ -40,17 +40,17 @@ Do not rewrite history when architecture changes later. Record what was true at 
 | **Production persistence** | SQLite on Render persistent disk |
 | **Production Auth** | Disabled / not yet rolled out |
 | **Development product** | DealerDOH |
-| **Development branch / current head** | `dev` / `0fe3733` (PR #17 merged — Sprint 11 closeout; Sprint 11 code merge remains `5ae6c79`) |
+| **Development branch / current head** | `dev` / `bafd747` (PR #19 merged — Sprint 12 role-aware UX) |
 | **Development persistence** | Supabase PostgreSQL |
 | **Development Auth** | Supabase Auth + FastAPI server-side authorization (`AUTH_MODE=required`) |
-| **Current backend regression baseline** | 588/588 SQLite and 588/588 PostgreSQL on Sprint 11's merged code `5ae6c79`; current `dev` `0fe3733` adds docs-only closeout |
+| **Current backend regression baseline** | 625/625 SQLite and 625/625 PostgreSQL on merged `dev` = `bafd747` (Sprint 12) |
 | **Standing DEV QA dataset** | 34 vehicles, 18 tasks, 2 recommendations, 98 events, 10 sync runs |
-| **Latest completed sprint** | Sprint 11 — Observability, Structured Logging & Product Analytics (Rails F + G Verified) |
+| **Latest completed sprint** | Sprint 12 — Role-Aware UX, Onboarding & Contextual Help (Rails B + C Verified) |
 | **Migration readiness** | Technical rehearsal PASS / GO; real production cutover intentionally unscheduled |
 | **Current release target** | `v1.1.0-beta.1` |
 | **Open PRs** | tracked per sprint; see Git/PR records in each entry |
 | **Public domain** | `dealerdoh.com` owned; production domain cutover not yet performed |
-| **Immediate focus** | Sprint 11 **Complete** — PR #16 code merged (`5ae6c79`), PR #17 closeout merged (`0fe3733`), post-merge verification PASSED, **Rails F + G Verified**. Sprint 10 remains **Implementation Paused — Awaiting Vendor Evidence**; Rail D NOT Verified. Next: Sprint 12 on explicit owner go. Owner-amended release train now includes **planned Sprint 17 — Vendor Integration & Automated Evidence Acquisition (Keyper Scheduled All Vehicles)**, then Sprint 18 RC Freeze. Sprint 17 is not started. |
+| **Immediate focus** | Sprint 12 **Complete** — PR #19 merged (`bafd747`), merged-head both-role verification PASSED, **Rails B + C Verified**; DEV services back on `dev`. Sprint 10 remains **Implementation Paused — Awaiting Vendor Evidence**; Rail D NOT Verified. Sprint 17 remains **Planned** (not started). Next: Sprint 13 — Security + Supply Chain (Rails H + I + §5.H.1 sanitation audit) on explicit owner go. |
 
 **Production rule:** `master` is what real dealership users are allowed to depend on. Normal development belongs on task branches and `dev`; production remains frozen until an explicit release train is approved.
 
@@ -1673,8 +1673,8 @@ Repository publication remains a separate owner decision, deliberately decoupled
 
 # Sprint 12 — Role-Aware UX, Onboarding & Contextual Help
 
-**Status:** In Progress on `feature/sprint-12-role-aware-ux` (from `dev` = `d434b7f`) — at the branch review window; **PR pending**.
-**Date:** 2026-08-19
+**Status:** **Complete** — PR #19 owner-approved and **MERGED** as `bafd747` = `dev` head (merge commit, parents `d434b7f` + `4a5a02b`; CI green on the merged head), merged-head both-role verification PASSED on DEV services redeployed from `dev`, **Rails B and C → Verified** (register updated via the closeout docs PR). Sprint branch deleted.
+**Date:** 2026-08-19 (built, merged, and closed same day)
 **Rails:** B (Onboarding & Contextual Help) + C (Role-Aware Presentation) — operative register lettering.
 
 ## Scope delivered on the branch
@@ -1770,6 +1770,45 @@ API healthy pre-sprint body; frontend 200.
 Rails B and C: **Implementation Complete — Awaiting Merge** (register
 updated). Sprint 10 unchanged (Implementation Paused — Awaiting
 Vendor Evidence); Rail D unchanged; Sprint 17 scope untouched.
+
+## Merge + Merged-Head Verification (2026-08-19, PASSED) — Rails B/C Verified
+
+PR #19 merged as **`bafd747`** (merge commit, parents `d434b7f` +
+`4a5a02b`; zero review threads; CI green on the merged head — both
+backend engines + frontend build). Owner restored Render and the
+Vercel Production Branch to `dev`; Vercel auto-deployed the merged
+revision (verified — the review window's Preview-vs-Production quirk
+did not recur once the Production Branch was restored). Both services
+byte-verified serving `bafd747`.
+
+- **Lot Staff merged-head smoke (PASS):** Today's Work landing with
+  freshness line, all four groups with per-vehicle "why"; nav without
+  Inventory Sync; vehicle open → breadcrumb "Today's Work" → sidebar
+  dismissal clean; Sold "6 of 34"; Help without the sync section;
+  replay opened at Welcome and **survived the 8-rapid-click clamp
+  assault pinned at the last step**; work order generated; **live
+  `POST /inventory-sync/run` → 403 "Your role does not permit this
+  action"** with request-id — zero authorization drift.
+- **Manager merged-head smoke (PASS):** Overview landing, manager
+  nav, onboarding completion persisted (no re-show), Help WITH the
+  Inventory Sync section, replay clean, sync surface reachable with
+  translated exception reasons.
+- **Onboarding truth:** first-run/completion/replay correct for both
+  roles; completion in `user_metadata` survived sign-outs and
+  redeploys by design.
+- **Telemetry:** the six Sprint 12 events arriving from the merged
+  head stamped `release: bafd747…`, zero `@`-signs, **zero
+  `$autocapture`/`$pageview`**; **Sentry: zero issues in the
+  merged-head smoke window**; console clean.
+- **QA dealership intact** — zero mutations (the only run attempts
+  were the deliberate 403 probes); **no reseed**. **Production
+  untouched:** `master` = `13c4f815`/`v1.0.0-beta.6`.
+
+Sprint branch `feature/sprint-12-role-aware-ux` deleted (remote +
+local) after both services were confirmed on `dev`. Sprint 10 remains
+**Implementation Paused — Awaiting Vendor Evidence**; Rail D remains
+**Merged — NOT Verified**; Sprint 17 remains **Planned**. Sprint 13
+not begun.
 
 ---
 
@@ -3372,7 +3411,8 @@ Never mark planned work as completed before it is actually merged and verified.
 2. ~~Begin Sprint 09 — Account Lifecycle & Settings.~~ Done and merged (PR #12 `02958f2`, PR #13 `b19a56a`) — Rail A Verified.
 2a. ~~Land Sprint 10 — Inventory Ingestion Safety.~~ **MERGED** (PR #14 → `b389072`, CI green on merged head; smoke passed pre-merge). Sprint state: **Implementation Paused — Awaiting Vendor Evidence** — the real Keyper Event contract (discovery item, §6.2) is the trigger to close it and complete Rail D's exit-4 Keyper half. Rail D NOT Verified until then.
 2b. ~~Sprint 11 (Observability & Structured Logging).~~ **Complete** (PR #16 → `5ae6c79`, CI green on merged head; post-merge verification passed on both DEV services; Rails F + G **Verified**; the DEV-only verification trigger route was removed pre-merge — no crash endpoint ships).
-2c. Sprint 12 (Role-Aware UX + Onboarding/Help, Rails B + C) starts only on explicit owner initiation — not begun.
+2c. ~~Sprint 12 (Role-Aware UX + Onboarding/Help, Rails B + C).~~ **Complete** (PR #19 → `bafd747`, CI green on merged head; merged-head both-role smoke passed; Rails B + C **Verified**; the sprint's deployed smoke found and fixed a real onboarding rapid-click crash, captured live by the Sprint 11 boundary).
+2d. Sprint 13 (Security Hardening + Supply Chain, Rails H + I + §5.H.1 repository sanitation audit) starts only on explicit owner initiation — not begun.
 3. Prepare planned Sprint 17 only at its explicit owner kickoff: Keyper Scheduled All Vehicles is the bounded v1.1 adapter; obtain representative scheduled-message evidence and the real Event sample before unattended activation/verification. Other vendor automation remains outside Sprint 17.
 4. Continue feature and production-readiness work only through task branch → PR → `dev`.
 5. Keep real production frozen on `v1.0.0-beta.6`.

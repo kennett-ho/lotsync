@@ -114,20 +114,22 @@ export default function UserManagement() {
     <div className="flex flex-col gap-5">
       {/* Invite */}
       <div className="bg-white rounded-xl border border-slate-100 p-5">
-        <p className="text-[13px] font-semibold text-slate-700 mb-1">Invite a user</p>
-        <p className="text-[11px] text-slate-400 mb-4">
+        <h2 className="text-[13px] font-semibold text-slate-700 mb-1">Invite a user</h2>
+        <p className="text-[11px] text-slate-500 mb-4">
           They&rsquo;ll receive an email link to set their password. Accounts are
           created for this dealership only.
         </p>
         <form onSubmit={handleInvite} className="flex flex-col sm:flex-row gap-3">
           <input
             type="email" required value={inviteEmail}
+            aria-label="Email address to invite"
             onChange={e => setInviteEmail(e.target.value)}
             placeholder="person@dealership.com"
             className="flex-1 px-3 py-2 text-[13px] border border-slate-200 rounded-lg bg-white text-slate-800 placeholder:text-slate-300 focus:outline-none focus:border-blue-400 focus:ring-2 focus:ring-blue-100 transition-all"
           />
           <select
             value={inviteRole}
+            aria-label="Role for the invited user"
             onChange={e => setInviteRole(e.target.value)}
             className="px-3 py-2 text-[13px] border border-slate-200 rounded-lg bg-white text-slate-700 focus:outline-none focus:border-blue-400"
           >
@@ -156,14 +158,14 @@ export default function UserManagement() {
       {/* Roster */}
       <div className="bg-white rounded-xl border border-slate-100 overflow-hidden">
         <div className="px-5 py-4 border-b border-slate-100">
-          <p className="text-[13px] font-semibold text-slate-700">Dealership users</p>
-          <p className="text-[11px] text-slate-400 mt-0.5">
+          <h2 className="text-[13px] font-semibold text-slate-700">Dealership users</h2>
+          <p className="text-[11px] text-slate-500 mt-0.5">
             Deactivating removes access immediately; the account and its
             history are kept and can be reactivated.
           </p>
         </div>
         {roster === null && !loadError && (
-          <div className="px-5 py-6 text-[12px] text-slate-400">Loading users…</div>
+          <div role="status" className="px-5 py-6 text-[12px] text-slate-500">Loading users…</div>
         )}
         {loadError && (
           <div className="px-5 py-6 text-[12px] text-red-600" role="alert">{loadError}</div>
@@ -176,7 +178,7 @@ export default function UserManagement() {
         {roster !== null && (
           <div className="divide-y divide-slate-50">
             {roster.length === 0 && (
-              <div className="px-5 py-6 text-[12px] text-slate-400">
+              <div className="px-5 py-6 text-[12px] text-slate-500">
                 No users yet. Invite the first one above.
               </div>
             )}
@@ -191,7 +193,7 @@ export default function UserManagement() {
                     <p className={`text-[13px] font-medium truncate ${entry.active ? 'text-slate-700' : 'text-slate-400 line-through'}`}>
                       {name}
                     </p>
-                    <p className="text-[11px] text-slate-400 truncate">
+                    <p className="text-[11px] text-slate-500 truncate">
                       {entry.display_name ? entry.email : null}
                     </p>
                   </div>

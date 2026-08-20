@@ -15,7 +15,7 @@
  * one seam owns the taxonomy.
  */
 
-import { useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 
 interface Step { title: string; body: string[] }
 
@@ -102,13 +102,57 @@ export default function Onboarding({ role, onFinish, onSkip }: {
   // the Sprint 12 deployed smoke; Sentry ref 9f338b8d).
   const step = steps[Math.max(0, Math.min(index, steps.length - 1))]
   const last = index >= steps.length - 1
+  const clampedIndex = Math.max(0, Math.min(index, steps.length - 1))
+
+  // Sprint 14 (Rail K): real modal behavior to match the dialog
+  // semantics the markup already claimed. Focus moves INTO the dialog
+  // on open (the panel itself, so the title reads first), Tab cycles
+  // inside it (aria-modal told AT the background is inert; the trap
+  // makes that true for the keyboard too), and Escape dismisses via
+  // onSkip -- the same never-nag semantics as the Skip button
+  // (ROLE_AWARE_UX.md S12-10: skip records completion). App.tsx
+  // returns focus afterward through its surface-focus seam.
+  const panelRef = useRef<HTMLDivElement>(null)
+  useEffect(() => { panelRef.current?.focus() }, [])
+
+  const handleKeyDown = (e: React.KeyboardEvent) => {
+    if (e.key === 'Escape') {
+      e.stopPropagation()
+      onSkip()
+      return
+    }
+    if (e.key !== 'Tab') return
+    const panel = panelRef.current
+    if (!panel) return
+    const focusables = Array.from(
+      panel.querySelectorAll<HTMLElement>('button, [href], input, select, textarea, [tabindex]:not([tabindex="-1"])'),
+    )
+    if (focusables.length === 0) return
+    const first = focusables[0]
+    const lastEl = focusables[focusables.length - 1]
+    const active = document.activeElement
+    if (e.shiftKey && (active === first || active === panel)) {
+      e.preventDefault()
+      lastEl.focus()
+    } else if (!e.shiftKey && active === lastEl) {
+      e.preventDefault()
+      first.focus()
+    }
+  }
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center px-4"
       style={{ backgroundColor: 'rgba(11, 18, 32, 0.62)' }}
-      role="dialog" aria-modal="true" aria-label="Getting started">
-      <div className="w-full max-w-md bg-white rounded-2xl shadow-2xl overflow-hidden">
+      role="dialog" aria-modal="true" aria-label="Getting started"
+      onKeyDown={handleKeyDown}>
+      <div ref={panelRef} tabIndex={-1}
+        className="w-full max-w-md bg-white rounded-2xl shadow-2xl overflow-hidden outline-none">
         <div className="px-6 pt-6 pb-5">
+          {/* Sprint 14 (Rail K): the current position is announced on
+              every step change (the dots below are visual-only). */}
+          <p role="status" className="visually-hidden">
+            Step {clampedIndex + 1} of {steps.length}: {step.title}
+          </p>
           <div className="flex items-start justify-between gap-3">
             <h2 className="text-[17px] font-bold text-slate-900 leading-snug">{step.title}</h2>
             <button onClick={onSkip} aria-label="Skip the tour"
@@ -126,7 +170,7 @@ export default function Onboarding({ role, onFinish, onSkip }: {
         <div className="flex items-center justify-between px-6 py-4 bg-slate-50 border-t border-slate-100">
           <div className="flex items-center gap-1.5" aria-hidden="true">
             {steps.map((_, i) => (
-              <span key={i} className={`w-1.5 h-1.5 rounded-full ${i === index ? 'bg-blue-600' : 'bg-slate-300'}`} />
+              <span key={i} className={`w-1.5 h-1.5 rounded-full ${i === clampedIndex ? 'bg-blue-600' : 'bg-slate-300'}`} />
             ))}
           </div>
           <div className="flex items-center gap-2">

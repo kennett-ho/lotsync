@@ -33,6 +33,29 @@ export const API_BASE_URL: string =
   (import.meta as unknown as { env?: Record<string, string | undefined> }).env
     ?.VITE_API_BASE_URL ?? DEFAULT_API_BASE_URL
 
+// Sprint 14 (Rail J, slow-network resilience): no request may hang
+// forever -- a dead network fails as a comprehensible "unreachable"
+// error instead of an eternal spinner. 30 s is generous headroom over
+// every measured operation (largest: the full-roster vehicles fetch at
+// production scale, ~160 ms server-side; multi-file validation upload
+// dominated by upload bandwidth) while still bounding a hung socket.
+const REQUEST_TIMEOUT_MS = 30_000
+
+function requestTimeoutSignal(): AbortSignal | undefined {
+  // Older WebViews may lack AbortSignal.timeout; a missing timeout
+  // degrades to the previous behavior rather than breaking fetch.
+  return typeof AbortSignal !== 'undefined' && 'timeout' in AbortSignal
+    ? AbortSignal.timeout(REQUEST_TIMEOUT_MS)
+    : undefined
+}
+
+function unreachableError(): ApiError {
+  return new ApiError(
+    `Could not reach the LotSync API at ${API_BASE_URL}. Is the backend running?`,
+    0,
+  )
+}
+
 export class ApiError extends Error {
   readonly status: number
   // Sprint 11: the server-generated X-Request-ID from the failed
@@ -115,12 +138,9 @@ export async function apiGet<T>(
 
   let response: Response
   try {
-    response = await fetch(url.toString(), { headers: await authHeaders() })
+    response = await fetch(url.toString(), { headers: await authHeaders(), signal: requestTimeoutSignal() })
   } catch {
-    throw new ApiError(
-      `Could not reach the LotSync API at ${API_BASE_URL}. Is the backend running?`,
-      0,
-    )
+    throw unreachableError()
   }
 
   if (response.status === 404) {
@@ -149,12 +169,10 @@ export async function apiPostJson<T>(path: string, body: unknown): Promise<T> {
       method: 'POST',
       headers: { 'Content-Type': 'application/json', ...(await authHeaders()) },
       body: JSON.stringify(body ?? {}),
+      signal: requestTimeoutSignal(),
     })
   } catch {
-    throw new ApiError(
-      `Could not reach the LotSync API at ${API_BASE_URL}. Is the backend running?`,
-      0,
-    )
+    throw unreachableError()
   }
 
   if (!response.ok) {
@@ -186,12 +204,9 @@ export async function apiGetBlob(path: string): Promise<{ blob: Blob; filename: 
 
   let response: Response
   try {
-    response = await fetch(url.toString(), { headers: await authHeaders() })
+    response = await fetch(url.toString(), { headers: await authHeaders(), signal: requestTimeoutSignal() })
   } catch {
-    throw new ApiError(
-      `Could not reach the LotSync API at ${API_BASE_URL}. Is the backend running?`,
-      0,
-    )
+    throw unreachableError()
   }
 
   if (!response.ok) {
@@ -222,12 +237,10 @@ export async function apiPostForm<T>(path: string, formData: FormData): Promise<
       method: 'POST',
       body: formData,
       headers: await authHeaders(),
+      signal: requestTimeoutSignal(),
     })
   } catch {
-    throw new ApiError(
-      `Could not reach the LotSync API at ${API_BASE_URL}. Is the backend running?`,
-      0,
-    )
+    throw unreachableError()
   }
 
   if (!response.ok) {

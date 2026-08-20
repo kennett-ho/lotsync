@@ -1,21 +1,25 @@
-import { useState, useCallback, useEffect } from 'react'
+import { Suspense, lazy, useCallback, useEffect, useRef, useState } from 'react'
 import { track } from './observability/analytics'
 import VehicleDetailPage from './VehicleDetail'
 import Dashboard from './dashboards/Dashboard'
 import VehiclesList from './dashboards/VehiclesList'
 import Tasks from './dashboards/Tasks'
 import TodaysWork from './dashboards/TodaysWork'
-import InventorySync from './dashboards/InventorySync'
-import Profile from './dashboards/Profile'
-import Help from './help/Help'
-import Onboarding from './onboarding/Onboarding'
 import { getOnboardingRecord, recordOnboardingComplete } from './onboarding/state'
-import { getDashboard } from './api/dashboard'
-import { useApi } from './api/useApi'
+import { DashboardDataProvider, useDashboardData } from './api/dashboardData'
 import { useAccess, useMe } from './auth/AccessProvider'
 import IdentityFooter from './auth/IdentityFooter'
 import { isAuthEnabled as IS_AUTH_ENABLED } from './auth/supabase'
 import { landingForRole, navForRole, type RoleNavItem } from './roleNav'
+
+// Sprint 14 (Rail J): surfaces that are role-gated or reached rarely
+// load as their own chunks -- the landing experiences (Overview,
+// Today's Work, Vehicles, Tasks, Vehicle Detail) stay in the initial
+// bundle deliberately so first use never waits on a second fetch.
+const InventorySync = lazy(() => import('./dashboards/InventorySync'))
+const Profile = lazy(() => import('./dashboards/Profile'))
+const Help = lazy(() => import('./help/Help'))
+const Onboarding = lazy(() => import('./onboarding/Onboarding'))
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -23,7 +27,7 @@ interface NavItem { id: string; label: string; icon: JSX.Element }
 
 function svgIcon(d: string, d2?: string) {
   return (
-    <svg width="15" height="15" fill="none" viewBox="0 0 24 24">
+    <svg width="15" height="15" fill="none" viewBox="0 0 24 24" aria-hidden="true">
       <path d={d} stroke="currentColor" strokeWidth="1.75" strokeLinecap="round" strokeLinejoin="round" />
       {d2 && <path d={d2} stroke="currentColor" strokeWidth="1.75" strokeLinecap="round" strokeLinejoin="round" />}
     </svg>
@@ -59,6 +63,17 @@ const NAV_ICONS: Record<string, JSX.Element> = {
 function toNavItems(items: RoleNavItem[]): NavItem[] {
   return items.map(item => ({ id: item.id, label: item.label, icon: NAV_ICONS[item.id] }))
 }
+
+// Sprint 14 (Rail K): the document title names the current surface so
+// browser tabs, history, and screen-reader window announcements are
+// distinguishable. Controlled labels only -- never a VIN or stock
+// number. The base title comes from the built document shell
+// (.figma/make/site.json); taking the LAST " · " segment makes the
+// capture idempotent when dev-mode HMR re-evaluates this module after
+// a surface title was already applied.
+const BASE_TITLE =
+  (typeof document !== 'undefined' && document.title
+    ? document.title.split(' · ').pop() : undefined) || 'LotSync'
 
 // ─── Development environment banner ──────────────────────────────────────────
 
@@ -101,13 +116,47 @@ function DevBanner() {
 // off-canvas drawer opened by Header's hamburger button; the drawer
 // closes itself on nav so a one-handed user doesn't have to dismiss it
 // separately.
+//
+// Sprint 14 (Rail K): while CLOSED below lg the drawer is `inert`, so
+// its controls leave the tab order and accessibility tree -- previously
+// a keyboard user tabbed through six off-screen buttons. Opening moves
+// focus to the close button; Escape closes and App returns focus to
+// the hamburger. (inert rather than a visibility transition: it is
+// deterministic, and the slide stays a pure transform animation.)
+function useIsDesktop(): boolean {
+  const [isDesktop, setIsDesktop] = useState(
+    () => typeof window !== 'undefined' && window.matchMedia('(min-width: 1024px)').matches,
+  )
+  useEffect(() => {
+    const mq = window.matchMedia('(min-width: 1024px)')
+    const onChange = () => setIsDesktop(mq.matches)
+    mq.addEventListener('change', onChange)
+    return () => mq.removeEventListener('change', onChange)
+  }, [])
+  return isDesktop
+}
+
 function Sidebar({ items, activeNav, onNav, mobileOpen, onCloseMobile }: {
   items: NavItem[]; activeNav: string; onNav: (id: string) => void; mobileOpen: boolean; onCloseMobile: () => void
 }) {
+  const isDesktop = useIsDesktop()
+  const closeButtonRef = useRef<HTMLButtonElement>(null)
+  const wasOpen = useRef(false)
+  useEffect(() => {
+    if (mobileOpen && !wasOpen.current) closeButtonRef.current?.focus()
+    wasOpen.current = mobileOpen
+  }, [mobileOpen])
 
   const handleNav = (id: string) => {
     onNav(id)
     onCloseMobile()
+  }
+
+  const handleKeyDown = (e: React.KeyboardEvent) => {
+    if (e.key === 'Escape' && mobileOpen) {
+      e.stopPropagation()
+      onCloseMobile()
+    }
   }
 
   return (
@@ -116,6 +165,10 @@ function Sidebar({ items, activeNav, onNav, mobileOpen, onCloseMobile }: {
         <div className="fixed inset-0 bg-slate-900/50 z-30 lg:hidden" onClick={onCloseMobile} aria-hidden="true" />
       )}
       <aside
+        id="app-sidebar"
+        aria-label="Sidebar"
+        onKeyDown={handleKeyDown}
+        inert={!isDesktop && !mobileOpen}
         className={`fixed inset-y-0 left-0 z-40 w-64 flex-shrink-0 flex flex-col h-screen transform transition-transform duration-200 ease-out
           lg:static lg:z-auto lg:w-52 lg:translate-x-0
           ${mobileOpen ? 'translate-x-0' : '-translate-x-full'}`}
@@ -124,22 +177,23 @@ function Sidebar({ items, activeNav, onNav, mobileOpen, onCloseMobile }: {
         <div className="px-4 pt-5 pb-4 border-b border-white/10 flex items-center justify-between">
           <div className="flex items-center gap-2.5">
             <div className="w-7 h-7 rounded-md flex items-center justify-center flex-shrink-0 overflow-hidden">
-              <img src="/img/logo/lotsynclogo.png" alt="LotSync" className="w-full h-full object-contain" />
+              <img src="/img/logo/lotsynclogo.png" alt="" className="w-full h-full object-contain" />
             </div>
             <div className="text-white font-bold text-[24px] tracking-tight leading-none">LotSync</div>
           </div>
-          <button onClick={onCloseMobile} aria-label="Close menu"
+          <button onClick={onCloseMobile} aria-label="Close menu" ref={closeButtonRef}
             className="lg:hidden w-8 h-8 flex items-center justify-center rounded-md text-white/50 hover:text-white hover:bg-white/10 transition-colors">
-            <svg width="16" height="16" fill="none" viewBox="0 0 24 24"><path d="M18 6 6 18M6 6l12 12" stroke="currentColor" strokeWidth="2" strokeLinecap="round"/></svg>
+            <svg width="16" height="16" fill="none" viewBox="0 0 24 24" aria-hidden="true"><path d="M18 6 6 18M6 6l12 12" stroke="currentColor" strokeWidth="2" strokeLinecap="round"/></svg>
           </button>
         </div>
 
         {/* Nav */}
-        <nav className="flex-1 px-3 py-3 overflow-y-auto space-y-0.5" style={{ scrollbarWidth: 'none' }}>
+        <nav aria-label="Main navigation" className="flex-1 px-3 py-3 overflow-y-auto space-y-0.5" style={{ scrollbarWidth: 'none' }}>
           {items.map(item => {
             const active = activeNav === item.id
             return (
               <button key={item.id} onClick={() => handleNav(item.id)}
+                aria-current={active ? 'page' : undefined}
                 className="w-full flex items-center gap-3 px-2.5 py-2.5 lg:py-2 rounded-md text-left transition-all duration-150"
                 style={{ backgroundColor: active ? '#1D4ED8' : 'transparent', color: active ? '#fff' : 'rgba(255,255,255,0.55)' }}
                 onMouseEnter={e => { if (!active) (e.currentTarget as HTMLButtonElement).style.backgroundColor = '#162236' }}
@@ -165,12 +219,13 @@ function Sidebar({ items, activeNav, onNav, mobileOpen, onCloseMobile }: {
         {IS_AUTH_ENABLED && (
         <div className="px-3 pt-2 border-t border-white/10">
           <button onClick={() => handleNav('help')}
+            aria-current={activeNav === 'help' ? 'page' : undefined}
             className="w-full flex items-center gap-2.5 px-2.5 py-2 rounded-md transition-all text-left"
             style={{ backgroundColor: activeNav === 'help' ? '#1D4ED8' : 'transparent' }}
             onMouseEnter={e => { if (activeNav !== 'help') (e.currentTarget as HTMLButtonElement).style.backgroundColor = '#162236' }}
             onMouseLeave={e => { if (activeNav !== 'help') (e.currentTarget as HTMLButtonElement).style.backgroundColor = 'transparent' }}>
             <div className="w-7 h-7 rounded-full flex items-center justify-center text-white/70 flex-shrink-0" style={{ backgroundColor: '#1E293B' }}>
-              <svg width="14" height="14" fill="none" viewBox="0 0 24 24"><circle cx="12" cy="12" r="9" stroke="currentColor" strokeWidth="1.75"/><path d="M9.5 9.3a2.6 2.6 0 0 1 5.1.6c0 1.6-2.4 2-2.4 3.3M12 16.8h.01" stroke="currentColor" strokeWidth="1.75" strokeLinecap="round"/></svg>
+              <svg width="14" height="14" fill="none" viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="9" stroke="currentColor" strokeWidth="1.75"/><path d="M9.5 9.3a2.6 2.6 0 0 1 5.1.6c0 1.6-2.4 2-2.4 3.3M12 16.8h.01" stroke="currentColor" strokeWidth="1.75" strokeLinecap="round"/></svg>
             </div>
             <div className="flex-1 min-w-0">
               <div className="text-white text-[12px] font-semibold truncate">Help</div>
@@ -183,17 +238,18 @@ function Sidebar({ items, activeNav, onNav, mobileOpen, onCloseMobile }: {
             just a generic icon/label; see Profile.tsx for the page itself. */}
         <div className={`px-3 pb-4 ${IS_AUTH_ENABLED ? 'pt-1' : 'pt-2 border-t border-white/10'}`}>
           <button onClick={() => handleNav('profile')}
+            aria-current={activeNav === 'profile' ? 'page' : undefined}
             className="w-full flex items-center gap-2.5 px-2.5 py-2 rounded-md transition-all text-left"
             style={{ backgroundColor: activeNav === 'profile' ? '#1D4ED8' : 'transparent' }}
             onMouseEnter={e => { if (activeNav !== 'profile') (e.currentTarget as HTMLButtonElement).style.backgroundColor = '#162236' }}
             onMouseLeave={e => { if (activeNav !== 'profile') (e.currentTarget as HTMLButtonElement).style.backgroundColor = 'transparent' }}>
             <div className="w-7 h-7 rounded-full flex items-center justify-center text-white/70 flex-shrink-0" style={{ backgroundColor: '#1E293B' }}>
-              <svg width="14" height="14" fill="none" viewBox="0 0 24 24"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2" stroke="currentColor" strokeWidth="1.75" strokeLinecap="round" strokeLinejoin="round"/><circle cx="12" cy="7" r="4" stroke="currentColor" strokeWidth="1.75"/></svg>
+              <svg width="14" height="14" fill="none" viewBox="0 0 24 24" aria-hidden="true"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2" stroke="currentColor" strokeWidth="1.75" strokeLinecap="round" strokeLinejoin="round"/><circle cx="12" cy="7" r="4" stroke="currentColor" strokeWidth="1.75"/></svg>
             </div>
             <div className="flex-1 min-w-0">
               <div className="text-white text-[12px] font-semibold truncate">Profile &amp; Settings</div>
             </div>
-            <svg width="10" height="10" fill="none" viewBox="0 0 24 24" className="flex-shrink-0 text-white/30">
+            <svg width="10" height="10" fill="none" viewBox="0 0 24 24" className="flex-shrink-0 text-white/30" aria-hidden="true">
               <path d="M9 18l6-6-6-6" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
             </svg>
           </button>
@@ -202,8 +258,10 @@ function Sidebar({ items, activeNav, onNav, mobileOpen, onCloseMobile }: {
         {/* A tiny, tasteful signature -- not branding. Sits beneath the
             nav/profile block so it never competes with anything
             interactive; low enough contrast (white/15 at 9px) to read
-            as an easter egg, not a footer. */}
-        <div className="px-4 pb-3 pt-1 flex-shrink-0">
+            as an easter egg, not a footer. Deliberately decorative, so
+            it is hidden from assistive technology rather than forced
+            to a readable contrast. */}
+        <div className="px-4 pb-3 pt-1 flex-shrink-0" aria-hidden="true">
           <p className="text-[9px] text-white/15 leading-tight select-none">Developed by Kennett Ho</p>
         </div>
       </aside>
@@ -228,9 +286,18 @@ const syncBadgeDot: Record<'green' | 'amber' | 'slate', string> = {
   green: 'bg-emerald-400', amber: 'bg-amber-400', slate: 'bg-slate-400',
 }
 
-function Header({ onVehicleSelect, onOpenMobileNav }: { onVehicleSelect: (s: string) => void; onOpenMobileNav: () => void }) {
+function Header({ onVehicleSelect, onOpenMobileNav, mobileNavOpen, hamburgerRef }: {
+  onVehicleSelect: (s: string) => void
+  onOpenMobileNav: () => void
+  mobileNavOpen: boolean
+  hamburgerRef: React.RefObject<HTMLButtonElement | null>
+}) {
   const [search, setSearch] = useState('')
-  const dashboardState = useApi(() => getDashboard(), [])
+  // Sprint 14 (Rail J): the shared per-view /dashboard state -- the
+  // header consumes passively (surfaces own the refreshes), which
+  // also means this badge now UPDATES when a surface refreshes
+  // instead of staying frozen at its first mount.
+  const dashboardState = useDashboardData().state
 
   // Sprint 12 (audit D2): the ⌘K hint used to be decorative -- no
   // handler existed. Now it does what it advertises: focus the search.
@@ -277,23 +344,25 @@ function Header({ onVehicleSelect, onOpenMobileNav }: { onVehicleSelect: (s: str
     <header className="bg-white border-b border-slate-200 flex items-center px-3 sm:px-5 gap-2 sm:gap-3 flex-shrink-0" style={{ height: '52px' }}>
       {/* Hamburger -- opens the off-canvas drawer below lg; the permanent
           sidebar takes over at lg, so this button simply doesn't render there. */}
-      <button onClick={onOpenMobileNav} aria-label="Open menu"
+      <button onClick={onOpenMobileNav} aria-label="Open menu" ref={hamburgerRef}
+        aria-expanded={mobileNavOpen} aria-controls="app-sidebar"
         className="lg:hidden flex-shrink-0 w-9 h-9 flex items-center justify-center rounded-lg text-slate-500 hover:bg-slate-100 transition-colors">
-        <svg width="18" height="18" fill="none" viewBox="0 0 24 24"><path d="M4 6h16M4 12h16M4 18h16" stroke="currentColor" strokeWidth="1.9" strokeLinecap="round"/></svg>
+        <svg width="18" height="18" fill="none" viewBox="0 0 24 24" aria-hidden="true"><path d="M4 6h16M4 12h16M4 18h16" stroke="currentColor" strokeWidth="1.9" strokeLinecap="round"/></svg>
       </button>
 
       {/* Search -- fills available width on mobile, fixed 288px from lg up
           (unchanged desktop sizing). ⌘K hint hidden below lg -- a keyboard
           shortcut hint is meaningless on a touch device and just costs space. */}
       <div className="relative flex-1 min-w-0 lg:flex-none lg:w-72">
-        <span className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400">
+        <span className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" aria-hidden="true">
           <svg width="14" height="14" fill="none" viewBox="0 0 24 24"><circle cx="11" cy="11" r="7" stroke="currentColor" strokeWidth="1.8"/><path d="m16.5 16.5 4 4" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round"/></svg>
         </span>
         <input value={search} onChange={e => setSearch(e.target.value)} onKeyDown={handleKey}
           id="vehicle-search-input"
+          aria-label="Search vehicles by VIN"
           type="text" placeholder="Search by VIN…"
           className="w-full h-8 pl-8 pr-3 lg:pr-10 text-[13px] bg-slate-50 border border-slate-200 rounded-lg text-slate-900 placeholder:text-slate-400 outline-none focus:border-blue-400 focus:ring-2 focus:ring-blue-100 transition-all" />
-        <kbd className="hidden lg:block absolute right-2.5 top-1/2 -translate-y-1/2 text-[10px] text-slate-400 bg-white border border-slate-200 rounded px-1 font-mono">⌘K</kbd>
+        <kbd className="hidden lg:block absolute right-2.5 top-1/2 -translate-y-1/2 text-[10px] text-slate-500 bg-white border border-slate-200 rounded px-1 font-mono" aria-hidden="true">⌘K</kbd>
       </div>
 
       <div className="flex-1 hidden sm:block" />
@@ -303,7 +372,7 @@ function Header({ onVehicleSelect, onOpenMobileNav }: { onVehicleSelect: (s: str
           attention" signal at the narrowest widths. */}
       {syncBadge && (
         <div className={`hidden sm:flex items-center gap-1.5 text-[12px] font-semibold border px-3 py-1 rounded-full ${syncBadgeTone[syncBadge.tone]}`}>
-          <span className={`w-1.5 h-1.5 rounded-full ${syncBadgeDot[syncBadge.tone]}`} />
+          <span className={`w-1.5 h-1.5 rounded-full ${syncBadgeDot[syncBadge.tone]}`} aria-hidden="true" />
           {syncBadge.label}
         </div>
       )}
@@ -311,7 +380,7 @@ function Header({ onVehicleSelect, onOpenMobileNav }: { onVehicleSelect: (s: str
       {/* Sync timestamp -- live; hidden below lg, least essential item when space is tight */}
       {lastSyncAt && (
         <div className="hidden lg:flex items-center gap-1.5 text-[11px] text-slate-500">
-          <svg width="12" height="12" fill="none" viewBox="0 0 24 24"><path d="M23 4v6h-6M1 20v-6h6" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/><path d="M3.51 9a9 9 0 0 1 14.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0 0 20.49 15" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/></svg>
+          <svg width="12" height="12" fill="none" viewBox="0 0 24 24" aria-hidden="true"><path d="M23 4v6h-6M1 20v-6h6" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/><path d="M3.51 9a9 9 0 0 1 14.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0 0 20.49 15" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/></svg>
           Synced <span className="font-semibold text-slate-700 ml-1">{relativeTime(lastSyncAt)}</span>
         </div>
       )}
@@ -341,9 +410,31 @@ function NavContent({ activeNav, onVehicleSelect, onNavigate, onReplayOnboarding
   return <Dashboard onVehicleSelect={onVehicleSelect} onNavigate={onNavigate} />
 }
 
+// Fallback while a lazy surface chunk loads -- same quiet language as
+// every other loading state; role=status so the wait is perceivable
+// without vision.
+function SurfaceFallback() {
+  return (
+    <div role="status" className="flex-1 flex items-center justify-center text-slate-500 text-[13px]">
+      Loading…
+    </div>
+  )
+}
+
+// Document titles per surface -- controlled labels only (never a VIN).
+const SURFACE_TITLES: Record<string, string> = {
+  dashboard: 'Overview',
+  today: "Today's Work",
+  vehicles: 'Vehicles',
+  tasks: 'Tasks',
+  'inventory-sync': 'Inventory Sync',
+  profile: 'Profile & Settings',
+  help: 'Help',
+}
+
 // ─── App ──────────────────────────────────────────────────────────────────────
 
-export default function App() {
+function AppShell() {
   const me = useMe()
   const { state: accessState } = useAccess()
   // The role is real only once the SERVER confirmed the membership --
@@ -362,6 +453,8 @@ export default function App() {
   // "Dashboard" while landing elsewhere).
   const [vehicleOrigin, setVehicleOrigin] = useState<string | null>(null)
   const [mobileNavOpen, setMobileNavOpen] = useState(false)
+  const hamburgerRef = useRef<HTMLButtonElement>(null)
+  const mainRef = useRef<HTMLDivElement>(null)
 
   // A stale explicit choice (e.g. a surface this role's nav doesn't
   // offer, after a role resolves mid-session) falls back to the landing.
@@ -424,6 +517,13 @@ export default function App() {
     if (selectedVehicle) track('vehicle_detail_opened', { source: activeNav })
   }, [activeNav, selectedVehicle])
 
+  // Sprint 14 (Rail K): the same seam keeps the document title naming
+  // the current surface (controlled labels only).
+  useEffect(() => {
+    const label = selectedVehicle ? 'Vehicle Detail' : (SURFACE_TITLES[activeNav] ?? BASE_TITLE)
+    document.title = label === BASE_TITLE ? BASE_TITLE : `${label} · ${BASE_TITLE}`
+  }, [activeNav, selectedVehicle])
+
   const handleVehicleSelect = useCallback((stock: string) => {
     if (selectedVehicle === null) setVehicleOrigin(activeNav)
     setSelectedVehicle(stock)
@@ -444,6 +544,42 @@ export default function App() {
     setVehicleOrigin(null)
   }, [])
 
+  // Sprint 14 (Rail K): closing the mobile drawer returns focus to the
+  // hamburger IF the close wasn't a navigation (the surface-change
+  // effect below runs after this one in the same commit and wins focus
+  // on nav, which is the right destination there).
+  const drawerWasOpen = useRef(false)
+  useEffect(() => {
+    if (drawerWasOpen.current && !mobileNavOpen) hamburgerRef.current?.focus()
+    drawerWasOpen.current = mobileNavOpen
+  }, [mobileNavOpen])
+
+  // Sprint 14 (Rail K): state navigation moves keyboard/AT reading
+  // position to the new surface -- the SPA equivalent of a page load.
+  // Keyed on the surface identity (not a first-render flag) so the
+  // initial mount never steals focus, including under StrictMode's
+  // double-invoked effects.
+  const prevSurface = useRef<string | null>(null)
+  useEffect(() => {
+    const surfaceKey = `${activeNav}|${selectedVehicle ?? ''}`
+    if (prevSurface.current !== null && prevSurface.current !== surfaceKey) {
+      mainRef.current?.focus()
+    }
+    prevSurface.current = surfaceKey
+  }, [activeNav, selectedVehicle])
+
+  // Sprint 14 (Rail K): Escape closes an open Vehicle Detail (it
+  // behaves as an overlay surface). The onboarding dialog and the
+  // drawer handle their own Escape and stop propagation first.
+  useEffect(() => {
+    if (!selectedVehicle) return
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') handleBack()
+    }
+    window.addEventListener('keydown', onKey)
+    return () => window.removeEventListener('keydown', onKey)
+  }, [selectedVehicle, handleBack])
+
   // Truthful breadcrumb: the label of the surface Vehicle Detail was
   // actually opened from.
   const originId = vehicleOrigin ?? activeNav
@@ -457,7 +593,7 @@ export default function App() {
   // (production) never hit this branch.
   if (IS_AUTH_ENABLED && accessState.status === 'loading') {
     return (
-      <div className="min-h-screen flex items-center justify-center"
+      <div className="min-h-screen flex items-center justify-center" role="status"
            style={{ backgroundColor: '#0B1220' }}>
         <div className="text-white/40 text-[13px]">Loading DealerDOH…</div>
       </div>
@@ -466,10 +602,19 @@ export default function App() {
 
   return (
     <div className="flex flex-col h-screen overflow-hidden" style={{ fontFamily: "'Plus Jakarta Sans', system-ui, sans-serif", backgroundColor: '#F8FAFC' }}>
+      {/* Sprint 14 (Rail K): keyboard bypass for the repeated sidebar/
+          header blocks -- visually hidden until focused (index.css). */}
+      <a href="#main-content" className="skip-link"
+        onClick={e => { e.preventDefault(); mainRef.current?.focus() }}>
+        Skip to main content
+      </a>
+
       {IS_DEV_ENVIRONMENT && <DevBanner />}
 
       {(onboarding === 'first-run' || onboarding === 'replay') && (
-        <Onboarding role={role} onFinish={finishOnboarding} onSkip={skipOnboarding} />
+        <Suspense fallback={null}>
+          <Onboarding role={role} onFinish={finishOnboarding} onSkip={skipOnboarding} />
+        </Suspense>
       )}
 
       <div className="flex flex-1 overflow-hidden min-h-0">
@@ -479,9 +624,12 @@ export default function App() {
           mobileOpen={mobileNavOpen} onCloseMobile={() => setMobileNavOpen(false)} />
 
         <div className="flex-1 flex flex-col overflow-hidden min-w-0">
-          <Header onVehicleSelect={handleVehicleSelect} onOpenMobileNav={() => setMobileNavOpen(true)} />
+          <Header onVehicleSelect={handleVehicleSelect} onOpenMobileNav={() => setMobileNavOpen(true)}
+            mobileNavOpen={mobileNavOpen} hamburgerRef={hamburgerRef} />
 
-          <div key={`${activeNav}-${selectedVehicle ?? 'dash'}`} className="flex-1 flex flex-col overflow-hidden min-h-0"
+          <main id="main-content" ref={mainRef} tabIndex={-1}
+            key={`${activeNav}-${selectedVehicle ?? 'dash'}`}
+            className="flex-1 flex flex-col overflow-hidden min-h-0 outline-none"
             style={{ animation: 'fadeSlideIn 0.18s ease-out' }}>
             {selectedVehicle
               // Sprint 3: Vehicle Detail is wired to GET /vehicles/{vin} --
@@ -491,12 +639,26 @@ export default function App() {
               // "not found" state rather than a crash -- see
               // PHASE_3_SPRINT_3_REVIEW.md for which callers were updated.
               ? <VehicleDetailPage vin={selectedVehicle} onBack={handleBack} backLabel={backLabel} />
-              : <NavContent activeNav={activeNav} onVehicleSelect={handleVehicleSelect}
-                  onNavigate={handleNav} onReplayOnboarding={replayOnboarding} />
+              : (
+                <Suspense fallback={<SurfaceFallback />}>
+                  <NavContent activeNav={activeNav} onVehicleSelect={handleVehicleSelect}
+                    onNavigate={handleNav} onReplayOnboarding={replayOnboarding} />
+                </Suspense>
+              )
             }
-          </div>
+          </main>
         </div>
       </div>
     </div>
+  )
+}
+
+export default function App() {
+  // Sprint 14 (Rail J): every dashboard consumer under one shared
+  // fetch -- see api/dashboardData.tsx.
+  return (
+    <DashboardDataProvider>
+      <AppShell />
+    </DashboardDataProvider>
   )
 }

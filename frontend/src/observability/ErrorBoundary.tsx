@@ -41,7 +41,7 @@ export default class ErrorBoundary extends React.Component<
           </div>
         )}
         <div className="flex-1 flex items-center justify-center px-4">
-          <div className="w-full max-w-md bg-white border border-slate-200 rounded-2xl p-6 text-center shadow-sm">
+          <div role="alert" className="w-full max-w-md bg-white border border-slate-200 rounded-2xl p-6 text-center shadow-sm">
             <div className="text-[15px] font-semibold text-slate-900 mb-2">
               DealerDOH hit an unexpected problem
             </div>
@@ -57,7 +57,7 @@ export default class ErrorBoundary extends React.Component<
               Reload DealerDOH
             </button>
             {this.state.eventId && (
-              <p className="mt-4 text-[11px] text-slate-400 font-mono">
+              <p className="mt-4 text-[11px] text-slate-500 font-mono">
                 Reference: {this.state.eventId}
               </p>
             )}

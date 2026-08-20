@@ -89,7 +89,7 @@ export default function Login() {
       <div className="flex-1 flex items-center justify-center px-4">
         <div className="w-full max-w-sm">
           <div className="text-center mb-8">
-            <div className="text-white text-2xl font-bold tracking-tight">DealerDOH</div>
+            <h1 className="text-white text-2xl font-bold tracking-tight">DealerDOH</h1>
             <div className="text-white/50 text-[13px] mt-1">
               Sign in to the development dealership
             </div>
@@ -203,7 +203,7 @@ export default function Login() {
             </div>
           )}
 
-          <div className="text-center text-white/30 text-[11px] mt-6">
+          <div className="text-center text-white/50 text-[11px] mt-6">
             Development accounts are provisioned by an administrator.
           </div>
         </div>

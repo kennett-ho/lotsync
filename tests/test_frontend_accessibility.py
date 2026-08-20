@@ -96,7 +96,18 @@ class ShellLandmarksTest(unittest.TestCase):
         self.assertIn("hamburgerRef.current?.focus()", self.app)
 
     def test_surface_change_moves_focus_to_main(self):
+        # User-initiated navigation only: the flag is set in the nav/
+        # select/back handlers and consumed after commit -- the role-
+        # resolution landing swap on fresh loads must NOT steal focus
+        # (it made the first Tab skip the skip link; found deployed).
         self.assertIn("mainRef.current?.focus()", self.app)
+        self.assertIn("focusMainPending.current = true", self.app)
+
+    def test_onboarding_close_returns_focus_to_main(self):
+        # Closing the tour (finish OR skip/Escape) hands focus to
+        # <main> -- unmounting the overlay dropped it to <body>
+        # (measured live in the deployed review window).
+        self.assertIn("focusMainAfterOverlay()", self.app)
 
     def test_document_title_names_the_surface_with_controlled_labels(self):
         self.assertIn("SURFACE_TITLES", self.app)
@@ -242,6 +253,20 @@ class MotionAndContrastTest(unittest.TestCase):
         # renders). Error/empty visual branches are audit surface too.
         app = read("App.tsx")
         self.assertIn("slate: 'text-slate-600 bg-slate-100 border-slate-200'", app)
+
+    def test_no_sub_aa_tinted_chip_or_dimmed_count_patterns(self):
+        # Two patterns the production-shaped-data axe sweep caught that
+        # the QA-scale sweeps never rendered: slate-500 text sitting on
+        # a slate-100 chip measures 4.34:1 (passes on white, fails on
+        # the tint), and opacity-dimmed count text bottomed out at
+        # 1.98:1. Chip text on slate-100 uses slate-600+; dimming for
+        # hierarchy uses font-weight or an AA-passing color, never
+        # opacity over already-mid-tone text.
+        for rel in LIVE_SURFACES:
+            src = read(rel)
+            self.assertNotIn("text-slate-500 bg-slate-100", src, rel)
+            self.assertNotIn("bg-slate-100 text-slate-500", src, rel)
+            self.assertNotIn("opacity-50 font-normal", src, rel)
 
     def test_no_informative_slate_300_or_400_body_text_on_live_surfaces(self):
         # slate-400 measures 2.63:1 on white (Tailwind v4 oklch palette)

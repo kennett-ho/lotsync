@@ -196,7 +196,7 @@ export default function TodaysWork({ onVehicleSelect }: { onVehicleSelect: (vin:
                   <div className={`absolute left-0 top-0 bottom-0 w-[3px] ${pb.bar}`} />
                   <div className="flex items-center justify-between gap-2">
                     <span className="text-[14px] font-bold text-slate-900">{display.groupTitle}</span>
-                    <span className="flex-shrink-0 text-[11px] font-semibold text-slate-500 bg-slate-100 px-2 py-0.5 rounded-full">
+                    <span className="flex-shrink-0 text-[11px] font-semibold text-slate-600 bg-slate-100 px-2 py-0.5 rounded-full">
                       {group.tasks.length} vehicle{group.tasks.length === 1 ? '' : 's'}
                     </span>
                   </div>

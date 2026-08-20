@@ -48,17 +48,36 @@ finding → fix → guard.
 |---|---|---|
 | axe, five audited surfaces | `button-name` (critical) ×5 · `scrollable-region-focusable` (serious) ×2 · `region` ×20–116/surface · `landmark-one-main`, `page-has-heading-one`, `landmark-unique`, `heading-order`, `aria-prohibited-attr` ×300, `color-contrast` | **0 violations** on every audited surface |
 
-Two follow-up findings closed at the PR gate (owner review): the
-sidebar's "Developed by Kennett Ho" signature was initially carried
-as an `aria-hidden` decorative exemption — the owner's ruling is that
-**visible, meaningful attribution is text**, so it now meets AA
-(white/50 on the sidebar navy, canvas-measured **5.27:1**) and is
-exposed to assistive technology; subtlety comes from its 9px size and
-placement, never from sub-AA contrast. And re-running axe with the
-backend unreachable surfaced the header sync badge's slate tone
-("Sync Status Unavailable" / "No Syncs Yet") at 4.34:1 — states the
-data-full audit runs never painted — fixed to slate-600. Final axe
-result including both: **0 violations**.
+Follow-up findings closed at the PR gate and in the deployed
+feature-branch review window — each one a render branch the original
+QA-scale sweeps never painted, which is itself the lesson:
+
+- **Owner ruling — attribution is text.** The sidebar's "Developed by
+  Kennett Ho" signature was initially carried as an `aria-hidden`
+  decorative exemption; the ruling is that **visible, meaningful
+  attribution is text**. It now meets AA (white/50 on the sidebar
+  navy, canvas-measured **5.27:1** — re-confirmed on the deployed
+  build) and is exposed to assistive technology; subtlety comes from
+  its 9px size and placement, never sub-AA contrast.
+- **No-backend states:** the header sync badge's slate tone ("Sync
+  Status Unavailable" / "No Syncs Yet") measured 4.34:1 — it only
+  renders with the backend unreachable/empty. Fixed to slate-600
+  (deployed stylesheet measures **6.92:1**).
+- **Production-shaped-data states:** re-running axe against the
+  production-shaped dataset surfaced tones the 34-vehicle QA set
+  never triggers: slate-500 text on slate-100 chips (count pills,
+  ratification/"Sold"/"N open" badges — 4.34:1 on the tint despite
+  passing on white), opacity-dimmed filter-chip counts (**1.98:1**),
+  the active-chip count on a lightened blue (3.75:1), the "· done/
+  total" fraction (2.4:1), one missed timeline date at slate-400,
+  and emerald/amber-600 status text (3.2–3.69:1) on system-status
+  rows and pills. All fixed to AA-passing tones (slate-600 on tints,
+  700-series status text, weight-based dimming instead of opacity);
+  large bold stat values (22–28px) legitimately pass at the 3:1
+  large-text threshold and were deliberately left.
+
+Final axe including every one of these: **0 violations** on all five
+audited surfaces, at the production data shape.
 
 ---
 
@@ -149,10 +168,19 @@ safe auth copy, the Error Boundary (now announced).
   containment); 375 px and 640 px (200%-zoom-equivalent) reflow with
   zero horizontal scroll on Overview/Vehicles/Tasks/Detail;
   contrast measurements canvas-resolved from the live palette.
-- **Deployed (sprint smoke phases):** authenticated Manager and Lot
-  Staff keyboard walkthroughs, onboarding first-run/replay, mobile
-  Lot Staff flow, 200% zoom — recorded in `SPRINT_HISTORY.md`'s
-  Sprint 14 entry as they are executed.
+- **Deployed (feature-branch review window, authenticated Lot
+  Staff):** zero console/CSP violations on a fresh tab with the lazy
+  chunk graph live; Vehicle Detail open/Escape focus cycle; truthful
+  breadcrumb; drawer inert-closed → focus-on-Close → Escape →
+  hamburger cycle; onboarding replay with real-key Tab containment
+  both directions, Back/Next operation, live step announcements, and
+  Escape-close (which exposed and fixed the focus-to-body gap);
+  Sold filter via `aria-pressed`; keyboard-operated work-order
+  generation; phone-width Today's Work → Detail → back with zero
+  horizontal scroll and zero sub-24px targets; 640 px
+  zoom-equivalent pass; signature (5.27:1) and badge (6.92:1) tones
+  measured from the deployed stylesheet. Manager-role deployed
+  walkthrough recorded in `SPRINT_HISTORY.md` alongside.
 
 ## 5. Known limitations (tracked, honest)
 
@@ -161,7 +189,8 @@ safe auth copy, the Error Boundary (now announced).
 | Screen-reader user study | Not performed — structural + tree evidence only; carried as a Rail M UAT risk |
 | Work-order PDF | Readable text, logical order, sufficient contrast, prints cleanly (reviewed proportionally); **not** a tagged/PDF-UA document and no such claim is made — formal PDF accessibility exceeds v1.1 scope |
 | axe + oklch | axe 4.10 under-reports contrast on oklch colors; contrast evidence here comes from direct measurement (recorded tooling limitation) |
-| Error/empty-state visual branches | Audit sweeps should include unreachable-backend states — the slate sync-badge contrast gap hid in exactly such a branch until the PR-gate re-measure (§1); the playbook now includes a no-backend axe pass |
+| Error/empty-state and data-shape visual branches | Audit sweeps must include unreachable-backend states AND production-shaped data — the slate sync-badge, tinted-chip, and dimmed-count contrast gaps all hid in branches the happy-path QA-scale sweeps never painted (§1); the playbook now requires both passes, and structural pins forbid the two failing patterns |
+| axe on the deployed origin | The Sprint 13 CSP (`script-src 'self' https://*.posthog.com`, no `unsafe-eval`/`blob:`) blocks injecting axe into the deployed pages — the security control working as designed. Deployed axe evidence is therefore the SAME final build run locally (identical app code; only baked env differs) plus accessibility-tree/computed-style checks performed directly on the deployed origin |
 | Legacy dead dashboards | Unaudited by design — outside the bundle graph, unreachable |
 | Windows High Contrast / forced-colors | Not specifically audited this sprint |
 | Voice control | Accessible names now match visible labels (the prerequisite); no dedicated voice-control pass yet |

@@ -71,15 +71,15 @@ const deriveDisplayStatus = taskStatusDisplay
 const toneClasses: Record<StatusTone, string> = {
   slate: 'text-slate-500',
   blue: 'text-blue-600 font-semibold',
-  amber: 'text-amber-600 font-semibold',
-  green: 'text-emerald-600 font-semibold',
+  amber: 'text-amber-700 font-semibold',
+  green: 'text-emerald-700 font-semibold',
 }
 
 const priorityBadge: Record<string, { stripe: string; badge: string }> = {
   Critical: { stripe: 'bg-red-500',    badge: 'bg-red-100 text-red-700 border border-red-200' },
   High:     { stripe: 'bg-orange-400', badge: 'bg-orange-100 text-orange-700 border border-orange-200' },
   Medium:   { stripe: 'bg-amber-400',  badge: 'bg-amber-50 text-amber-700 border border-amber-200' },
-  Low:      { stripe: 'bg-slate-300',  badge: 'bg-slate-100 text-slate-500 border border-slate-200' },
+  Low:      { stripe: 'bg-slate-300',  badge: 'bg-slate-100 text-slate-600 border border-slate-200' },
 }
 
 function ratificationLabel(t: TaskDTO): string {
@@ -151,7 +151,7 @@ function Sidebar({ tasks, filter, onFilter }: { tasks: TaskDTO[]; filter: Sideba
         {label}
         {c > 0 && (
           <span className={`text-[10px] font-bold px-1.5 py-0.5 rounded-full ${
-            on ? 'bg-white/20' : warn ? 'bg-amber-100 text-amber-700' : 'bg-slate-100 text-slate-500'
+            on ? 'bg-black/20' : warn ? 'bg-amber-100 text-amber-700' : 'bg-slate-100 text-slate-600'
           }`}>{c}</span>
         )}
       </button>
@@ -251,7 +251,7 @@ function GroupCard({ group, onSelectTask, onVehicleSelect }: {
               {topPriority && (
                 <span className={`text-[10px] font-bold px-1.5 py-0.5 rounded uppercase tracking-wide ${pb.badge}`}>{topPriority}</span>
               )}
-              <span className="text-[10px] font-bold px-1.5 py-0.5 rounded bg-slate-100 text-slate-500 border border-slate-200">
+              <span className="text-[10px] font-bold px-1.5 py-0.5 rounded bg-slate-100 text-slate-600 border border-slate-200">
                 {ratificationLabel(group.tasks[0])}
               </span>
             </div>
@@ -266,9 +266,9 @@ function GroupCard({ group, onSelectTask, onVehicleSelect }: {
             <h2 className="text-[14px] font-bold text-slate-900 leading-snug">{humanize(group.taskType)}</h2>
             {isMulti && (
               <button onClick={() => setExpanded(e => !e)} aria-expanded={expanded}
-                className="flex-shrink-0 flex items-center gap-1 text-[10px] font-bold text-slate-500 bg-slate-100 hover:bg-slate-200 border border-slate-200 px-2 py-0.5 rounded-full transition-colors">
+                className="flex-shrink-0 flex items-center gap-1 text-[10px] font-bold text-slate-600 bg-slate-100 hover:bg-slate-200 border border-slate-200 px-2 py-0.5 rounded-full transition-colors">
                 {group.tasks.length} Vehicles
-                <span className="text-slate-400 font-normal">· {doneCount}/{group.tasks.length}</span>
+                <span className="text-slate-600 font-normal">· {doneCount}/{group.tasks.length}</span>
                 <svg width="9" height="9" fill="none" viewBox="0 0 24 24" className={`transition-transform ${expanded ? 'rotate-180' : ''}`}>
                   <path d="m6 9 6 6 6-6" stroke="currentColor" strokeWidth="2" strokeLinecap="round"/>
                 </svg>
@@ -561,7 +561,7 @@ export default function Tasks({ onVehicleSelect }: { onVehicleSelect: (s: string
         <div className="flex-shrink-0 flex items-center justify-between px-4 sm:px-5 py-2.5 bg-white border-b border-slate-200 flex-wrap gap-2">
           <div className="flex items-center gap-3">
             <h1 className="text-[14px] font-bold text-slate-900">Dispatch Queue</h1>
-            {outstanding > 0 && <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-slate-100 text-slate-500">{outstanding} open</span>}
+            {outstanding > 0 && <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-slate-100 text-slate-600">{outstanding} open</span>}
             {inProgress  > 0 && <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-blue-100 text-blue-700">{inProgress} in progress</span>}
           </div>
           <div className="flex items-center gap-3">

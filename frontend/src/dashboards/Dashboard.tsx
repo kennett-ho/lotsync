@@ -140,7 +140,7 @@ function TaskGroupRow({ group, expanded, onToggle, onVehicleSelect }: {
         <div className={`absolute left-0 top-0 bottom-0 w-[3px] ${p.bar}`} aria-hidden="true" />
         <div className="flex items-center justify-between gap-2">
           <span className="text-[13px] font-semibold text-slate-900">{display.groupTitle}</span>
-          <span className="flex-shrink-0 text-[11px] font-semibold text-slate-500 bg-slate-100 px-2 py-0.5 rounded-full">
+          <span className="flex-shrink-0 text-[11px] font-semibold text-slate-600 bg-slate-100 px-2 py-0.5 rounded-full">
             {group.tasks.length} vehicle{group.tasks.length === 1 ? '' : 's'}
           </span>
         </div>
@@ -316,7 +316,7 @@ export default function Dashboard({ onVehicleSelect, onNavigate }: {
             <div className="flex items-center justify-between px-4 py-3 border-b border-slate-50 flex-shrink-0">
               <div className="flex items-center gap-2">
                 <h2 className="text-[13px] font-semibold text-slate-900">Open Tasks</h2>
-                <span className="bg-slate-100 text-slate-500 text-[11px] font-semibold px-2 py-0.5 rounded-full">
+                <span className="bg-slate-100 text-slate-600 text-[11px] font-semibold px-2 py-0.5 rounded-full">
                   {tasksState.status === 'success' ? tasks.length : '…'}
                 </span>
               </div>
@@ -360,7 +360,7 @@ export default function Dashboard({ onVehicleSelect, onNavigate }: {
             <div className="flex items-center justify-between px-4 py-3 border-b border-slate-50">
               <div className="flex items-center gap-2">
                 <h2 className="text-[13px] font-semibold text-slate-900">Recommendations</h2>
-                <span className="bg-slate-100 text-slate-500 text-[11px] font-semibold px-2 py-0.5 rounded-full">
+                <span className="bg-slate-100 text-slate-600 text-[11px] font-semibold px-2 py-0.5 rounded-full">
                   {recsState.status === 'success' ? recommendations.length : '…'}
                 </span>
               </div>
@@ -422,11 +422,11 @@ export default function Dashboard({ onVehicleSelect, onNavigate }: {
               <h2 className="text-[13px] font-semibold text-slate-900">Inventory Sync</h2>
               {systemEntries.length > 0 && (
                 hasSyncIssue ? (
-                  <span className="text-[10px] font-semibold text-amber-600 bg-amber-50 border border-amber-200 px-1.5 py-0.5 rounded-full">
+                  <span className="text-[10px] font-semibold text-amber-700 bg-amber-50 border border-amber-200 px-1.5 py-0.5 rounded-full">
                     Attention
                   </span>
                 ) : (
-                  <span className="text-[10px] font-semibold text-emerald-600 bg-emerald-50 border border-emerald-200 px-1.5 py-0.5 rounded-full">
+                  <span className="text-[10px] font-semibold text-emerald-700 bg-emerald-50 border border-emerald-200 px-1.5 py-0.5 rounded-full">
                     Healthy
                   </span>
                 )
@@ -450,7 +450,7 @@ export default function Dashboard({ onVehicleSelect, onNavigate }: {
                 </div>
                 <div className="w-px h-8 bg-slate-200" />
                 <div className="text-center flex-1">
-                  <div className="text-[16px] font-bold text-emerald-600">{inventoryHealth.healthy_vehicles.toLocaleString()}</div>
+                  <div className="text-[16px] font-bold text-emerald-700">{inventoryHealth.healthy_vehicles.toLocaleString()}</div>
                   <div className="text-[10px] text-slate-500">no open tasks</div>
                 </div>
               </div>
@@ -464,13 +464,13 @@ export default function Dashboard({ onVehicleSelect, onNavigate }: {
                     {sys.status === 'complete' ? (
                       <div className="flex items-center gap-1">
                         <CheckCircle className="text-emerald-500" />
-                        <span className="text-[11px] text-emerald-600 font-medium">OK</span>
+                        <span className="text-[11px] text-emerald-700 font-medium">OK</span>
                       </div>
                     ) : (
                       <div className="flex items-start gap-1">
                         <WarnIcon className="text-amber-500 mt-0.5 flex-shrink-0" />
                         <div className="text-right">
-                          <div className="text-[11px] text-amber-600 font-semibold leading-tight capitalize">{sys.status.replace(/_/g, ' ')}</div>
+                          <div className="text-[11px] text-amber-700 font-semibold leading-tight capitalize">{sys.status.replace(/_/g, ' ')}</div>
                         </div>
                       </div>
                     )}

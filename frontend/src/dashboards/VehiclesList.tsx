@@ -159,7 +159,7 @@ function VehicleRow({ v, query, onSelect }: {
           <div className="flex items-center gap-1.5 mt-0.5">
             {v.new_or_used && <span className="text-[11px] text-slate-400">{v.new_or_used}</span>}
             {v.tekion_status === 'Sold' && (
-              <span className="text-[10px] font-bold px-1.5 py-0.5 rounded bg-slate-100 text-slate-500 border border-slate-200">Sold</span>
+              <span className="text-[10px] font-bold px-1.5 py-0.5 rounded bg-slate-100 text-slate-600 border border-slate-200">Sold</span>
             )}
           </div>
         </button>
@@ -209,7 +209,7 @@ function VehicleCard({ v, query, onSelect }: {
           </span>
           <TasksBadge count={v.open_task_count} />
           {v.tekion_status === 'Sold' && (
-            <span className="text-[10px] font-bold px-1.5 py-0.5 rounded bg-slate-100 text-slate-500 border border-slate-200">Sold</span>
+            <span className="text-[10px] font-bold px-1.5 py-0.5 rounded bg-slate-100 text-slate-600 border border-slate-200">Sold</span>
           )}
         </div>
         <div className="text-[13px] font-semibold text-slate-900 mt-0.5 leading-snug">
@@ -361,7 +361,7 @@ export default function VehiclesList({ onVehicleSelect }: { onVehicleSelect: (vi
                     ? 'bg-slate-800 text-white border-slate-800'
                     : 'bg-white text-slate-500 border-slate-200 hover:border-slate-300 hover:text-slate-700'
                 }`}>
-                {label}{(key !== 'sold' || active) && <span className="opacity-50 font-normal"> {count}</span>}
+                {label}{(key !== 'sold' || active) && <span className={active ? 'font-normal text-white/80' : 'font-normal'}> {count}</span>}
               </button>
             )
           })}

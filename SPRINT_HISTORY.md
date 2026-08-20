@@ -2148,18 +2148,78 @@ real-key keyboard walkthroughs (skip link first-tab, drawer cycle,
 visible focus), 375/640 px reflow, production-scale interaction
 timings.
 
+## Owner review pass + deployed feature-branch review window (2026-08-19/20)
+
+Two owner-gated passes ran before PR approval, and each one earned
+its keep by finding something real:
+
+**Owner contrast ruling (pre-window):** visible, meaningful
+attribution is TEXT, never an `aria-hidden` decorative exemption —
+the sidebar signature became AA text (white/50, measured 5.27:1,
+AT-exposed), and the re-measure caught the header sync badge's slate
+tone at 4.34:1 in the unreachable/empty states the data-full sweeps
+never painted (→ slate-600, 6.92:1).
+
+**Production-build + production-data pass (local, pre-deploy):** the
+exact branch-head build against the production-shaped dataset caught
+the Show-all cap reset landing one frame late (first keystroke after
+expansion re-rendered the full roster once, a 1.4 s block; returning
+to the expanded query surprise-re-expanded) — fixed as derived
+one-shot state (171 ms / 42 ms after). It also surfaced residual
+sub-AA tones only production-shaped data renders: slate-500-on-
+slate-100 chips (4.34), opacity-dimmed chip counts (1.98), the
+active-chip count on lightened blue (3.75), the done-fraction (2.4),
+one missed timeline date, and emerald/amber-600 status text
+(3.2–3.69) — all fixed (600-on-tint, 700-series status, weight-based
+dimming); large bold stat values legitimately pass as large text and
+were left. Final axe on the final build: **0 violations on all five
+surfaces at production data shape**; two new structural pins forbid
+the failing patterns.
+
+**Deployed window (owner pointed Render + Vercel at the branch;
+authenticated Lot Staff = the owner's own lot-staff account):** both
+services verified serving the branch head (API `/health` release +
+bundle-baked SHA + live chunk graph). Evidence recorded: zero
+console/CSP violations on a fresh tab with lazy chunks + deferred
+PostHog live (`/e/` events flowing, Sentry present); **exactly one
+`/dashboard` per view** on the real landing (the production build has
+no StrictMode noise); warm latencies /me 149 · /dashboard 213 ·
+/tasks 114 ms; initial-JS wire 173.9 kB compressed; Today's Work
+landing + per-surface titles; Vehicle Detail keyboard cycle (row →
+focus-enters-main → truthful "Today's Work" breadcrumb → Escape
+returns); drawer cycle (inert closed → open focuses Close → Escape →
+hamburger, `aria-expanded` correct); onboarding replay as a REAL
+modal live (lazy chunk, focus entry, real-key Tab containment both
+directions, Back/Next with step announcements, Escape-skip) — which
+exposed one more gap, **focus fell to `<body>` on close** → fixed
+(close hands focus to `<main>`); Sold filter `aria-pressed` +
+6-of-34; keyboard work-order generation (pending state, one request,
+227 ms); caps correctly DORMANT at QA scale; phone-width Lot Staff
+flow (drawer → Today's Work → Detail → back) with zero horizontal
+scroll and zero sub-24px targets; 640 px zoom-equivalent clean;
+signature 5.27:1 and badge 6.92:1 measured from the deployed
+stylesheet. One deliberate seam change fell out of the window's
+first Tab test: focus-to-main now happens ONLY on user-initiated
+navigation (the role-resolution landing swap on authenticated fresh
+loads was stealing it, making the first Tab skip the skip link).
+Deployed-origin axe is structurally blocked by our own CSP (recorded
+honestly; the identical final build is axe-clean locally and the
+deployed origin was verified via accessibility-tree/computed-style
+checks).
+
 ## Pending (deliberately NOT claimed done)
 
-Merge · merged-head CI · deployed-DEV remeasure and smoke (warm/cold
-timings, request counts on the deployed bundle) · deployed
-authenticated keyboard walkthroughs (Manager; Lot Staff needs
-owner-held credentials) · mobile + 200% zoom on deployed · onboarding
-first-run/replay deployed · security regression re-check deployed.
-Rails J and K stay **Implementation Complete — Awaiting Merge** until
-that evidence exists; nothing is marked Verified early. Rail D
-remains untouched (Merged — NOT Verified; Awaiting Vendor Evidence);
-Sprint 17 remains Planned. Recommended next sprint: **Sprint 15 —
-Privacy / Legal** (no release-blocking perf/a11y prerequisite found).
+Manager-role deployed keyboard walkthrough (owner restores the
+manager session) · final-head revision verification on the deployed
+window (Vercel serves branch pushes as Preview — owner
+promote/rebuild) · deployed first-Tab skip-link re-verify on that
+head · a natural Render idle window for one observed cold start ·
+merge · merged-head CI · post-merge smoke. Rails J and K stay
+**Implementation Complete — Awaiting Merge** until then; nothing is
+marked Verified early. Rail D remains untouched (Merged — NOT
+Verified; Awaiting Vendor Evidence); Sprint 17 remains Planned.
+Recommended next sprint: **Sprint 15 — Privacy / Legal** (no
+release-blocking perf/a11y prerequisite found).
 
 ---
 

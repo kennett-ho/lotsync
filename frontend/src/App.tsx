@@ -493,13 +493,25 @@ function AppShell() {
     return () => { cancelled = true }
   }, [me?.authenticated])
 
+  // Sprint 14 (Rail K, deployed review window): closing the tour must
+  // return focus somewhere sensible -- unmounting the overlay dropped
+  // it to <body> (measured live). The tour doesn't change the surface,
+  // so the navigation seam below never fires; hand focus to <main>
+  // directly, the same reading-position destination navigation uses
+  // (first-run: the role landing behind the dialog; replay: the Help
+  // page that offered it).
+  const focusMainAfterOverlay = useCallback(() => {
+    requestAnimationFrame(() => mainRef.current?.focus())
+  }, [])
+
   const finishOnboarding = useCallback(() => {
     if (onboarding === 'first-run') {
       void recordOnboardingComplete(false)
       track('onboarding_completed')
     }
     setOnboarding('closed')
-  }, [onboarding])
+    focusMainAfterOverlay()
+  }, [onboarding, focusMainAfterOverlay])
 
   const skipOnboarding = useCallback(() => {
     if (onboarding === 'first-run') {
@@ -507,7 +519,8 @@ function AppShell() {
       track('onboarding_skipped')
     }
     setOnboarding('closed')
-  }, [onboarding])
+    focusMainAfterOverlay()
+  }, [onboarding, focusMainAfterOverlay])
 
   const replayOnboarding = useCallback(() => {
     track('onboarding_replayed')
@@ -531,13 +544,23 @@ function AppShell() {
     document.title = label === BASE_TITLE ? BASE_TITLE : `${label} · ${BASE_TITLE}`
   }, [activeNav, selectedVehicle])
 
+  // Sprint 14 (Rail K): focus moves to <main> only on USER-initiated
+  // navigation (the SPA page-load equivalent). The flag keeps the seam
+  // deliberate -- activeNav ALSO changes when /me resolves and swaps
+  // the generic landing for the role landing on a fresh load, and that
+  // transition must NOT steal focus (found in the deployed review
+  // window: it made the first Tab skip the skip link).
+  const focusMainPending = useRef(false)
+
   const handleVehicleSelect = useCallback((stock: string) => {
     if (selectedVehicle === null) setVehicleOrigin(activeNav)
+    focusMainPending.current = true
     setSelectedVehicle(stock)
     setMobileNavOpen(false)
   }, [activeNav, selectedVehicle])
 
   const handleBack = useCallback(() => {
+    focusMainPending.current = true
     setSelectedVehicle(null)
     setVehicleOrigin(null)
   }, [])
@@ -546,6 +569,7 @@ function AppShell() {
   // surface -- an open Vehicle Detail is dismissed instead of silently
   // swallowing the click.
   const handleNav = useCallback((id: string) => {
+    focusMainPending.current = true
     setNavChoice(id)
     setSelectedVehicle(null)
     setVehicleOrigin(null)
@@ -561,18 +585,16 @@ function AppShell() {
     drawerWasOpen.current = mobileNavOpen
   }, [mobileNavOpen])
 
-  // Sprint 14 (Rail K): state navigation moves keyboard/AT reading
-  // position to the new surface -- the SPA equivalent of a page load.
-  // Keyed on the surface identity (not a first-render flag) so the
-  // initial mount never steals focus, including under StrictMode's
-  // double-invoked effects.
-  const prevSurface = useRef<string | null>(null)
+  // The flag set by the user-navigation handlers above is consumed
+  // here, after the new surface committed. Non-user surface changes
+  // (role resolution, stale-choice fallback) never set it, so a fresh
+  // load keeps document-start focus and the skip link stays the first
+  // Tab stop. StrictMode-safe: the first consume clears the flag.
   useEffect(() => {
-    const surfaceKey = `${activeNav}|${selectedVehicle ?? ''}`
-    if (prevSurface.current !== null && prevSurface.current !== surfaceKey) {
+    if (focusMainPending.current) {
+      focusMainPending.current = false
       mainRef.current?.focus()
     }
-    prevSurface.current = surfaceKey
   }, [activeNav, selectedVehicle])
 
   // Sprint 14 (Rail K): Escape closes an open Vehicle Detail (it

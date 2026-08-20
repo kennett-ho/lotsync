@@ -754,7 +754,7 @@ export default function InventorySync(): JSX.Element {
                       <div className="flex-1 min-w-0">
                         <div className="flex items-center gap-2">
                           <span className="text-[13px] font-semibold text-slate-800">{sourceLabel(source)}</span>
-                          <span className={`text-[11px] font-medium ${status.status === 'complete' ? 'text-emerald-600' : status.status === 'failed' ? 'text-red-600' : 'text-amber-600'}`}>
+                          <span className={`text-[11px] font-medium ${status.status === 'complete' ? 'text-emerald-700' : status.status === 'failed' ? 'text-red-600' : 'text-amber-700'}`}>
                             {statusLabel(status.status)}
                           </span>
                         </div>
@@ -819,7 +819,7 @@ export default function InventorySync(): JSX.Element {
                       <span className="visually-hidden">{statusLabel(batch.overall_status)}.</span>
                       <span className="text-[12px] text-slate-700">{formatTimestamp(batch.started_at)}</span>
                     </div>
-                    <span className="text-[11px] font-medium px-2 py-0.5 rounded-full bg-slate-100 text-slate-500">
+                    <span className="text-[11px] font-medium px-2 py-0.5 rounded-full bg-slate-100 text-slate-600">
                       {batch.sources.length} source{batch.sources.length === 1 ? '' : 's'}
                     </span>
                   </div>

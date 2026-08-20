@@ -187,10 +187,10 @@ function LeftPanel({ vehicle }: { vehicle: VehicleDetailDTO }) {
               {row.value === null
                 ? <span className="text-slate-300 text-[11px]">—</span>
                 : row.tone === 'green'
-                ? <span className="flex items-center gap-1 text-emerald-600 text-[11px] font-semibold">{I.check} {row.display}</span>
+                ? <span className="flex items-center gap-1 text-emerald-700 text-[11px] font-semibold">{I.check} {row.display}</span>
                 : row.tone === 'red'
                 ? <span className="text-red-600 text-[11px] font-semibold">{row.display}</span>
-                : <span className="text-amber-600 text-[11px] font-semibold">{row.display}</span>
+                : <span className="text-amber-700 text-[11px] font-semibold">{row.display}</span>
               }
             </div>
           ))}
@@ -274,7 +274,7 @@ function Timeline({ events }: { events: ActivityDTO[] }) {
                           {sourceLabel(ev.source)}
                         </span>
                         <div className="text-right flex-shrink-0">
-                          <div className="text-[10px] font-mono text-slate-400">{date}</div>
+                          <div className="text-[10px] font-mono text-slate-500">{date}</div>
                           {time && <div className="text-[10px] font-mono text-slate-500 font-semibold">{time}</div>}
                         </div>
                       </div>
@@ -403,7 +403,7 @@ function TasksPanel({ tasks }: { tasks: TaskDTO[] }) {
       <div className="flex items-center gap-2 mb-3 flex-wrap">
         <span className="text-blue-500">{I.insights}</span>
         <h2 className="text-[12px] font-bold text-slate-700 uppercase tracking-wider">Tasks</h2>
-        <span className="text-[10px] font-bold text-amber-600 bg-amber-50 border border-amber-100 px-1.5 py-0.5 rounded-full">
+        <span className="text-[10px] font-bold text-amber-700 bg-amber-50 border border-amber-100 px-1.5 py-0.5 rounded-full">
           {outstanding.length} open
         </span>
       </div>

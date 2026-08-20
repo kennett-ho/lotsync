@@ -44,7 +44,13 @@ same generator the migration rehearsal trusts).
 Deployed DEV (Supabase PostgreSQL via pooler, Render, browser in
 another region): warm authenticated requests measured 110–360 ms
 round-trip — network/TLS/pooler dominated; server-side time is the
-milliseconds above.
+milliseconds above. Re-measured in the feature-branch review window
+(authenticated landing, fresh tab): `/me` 149 ms · `/dashboard`
+213 ms · `/tasks` 114 ms; initial-JS wire transfer 173.9 kB
+compressed (entry 117.5 + supabase 56.4 — Vercel-served encoding);
+exactly ONE `/dashboard` request on the real landing; the PostHog
+chunk arrived deferred with explicit events flowing; zero console/CSP
+violations with the lazy chunk graph live.
 
 ### Ingestion validation benchmark (Sprint 10 continuity)
 
@@ -155,7 +161,13 @@ newest 150 events plus "Show older history (N more)". Search, filter
 chips, counts, and sort always operate on the **complete** dataset —
 nothing is hidden silently, and at the standing QA scale (≤ 34 rows)
 rendering is pixel-identical. Re-measured: 27–74 ms per keystroke at
-production scale. Virtualization (a new dependency) and server-side
+production scale. A review-window measurement of the PRODUCTION build
+then caught the expansion reset landing one frame late (first
+keystroke after "Show all" re-rendered the full roster once — a
+1.4 s block — and returning to the expanded query surprise-
+re-expanded); the expansion is now derived state keyed to the result
+set it was requested for, so every render after any query change is
+bounded, including the first (measured 171 ms, then 42 ms). Virtualization (a new dependency) and server-side
 pagination were both rejected as larger tools than the evidence
 demands; §6 records the reopening conditions.
 

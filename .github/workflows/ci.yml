@@ -111,6 +111,13 @@ jobs:
       - name: Build frontend
         run: npm run build
 
+      # Sprint 14 (Rail J): bundle-size regression gate against the
+      # real build output. Ceilings + derivation: PERFORMANCE.md;
+      # stdlib-only, no install step needed.
+      - name: Bundle budget (gate)
+        working-directory: ${{ github.workspace }}
+        run: python3 tools/check_bundle_budget.py
+
   # Sprint 13 (Rails H + I): the security scanning gate. The secret scan
   # and the production-dependency audit are hard gates (they fail the
   # build); the full-tree dependency audits are advisory (they surface

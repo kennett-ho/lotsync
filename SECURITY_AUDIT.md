@@ -7,6 +7,18 @@ followed by remediation and re-audit. Enduring architecture is in
 evidence record. Governing contract: `V1_1_RELEASE_READINESS.md`
 §5.H / §5.I / §5.H.1.
 
+> **Merged + deployed-verified (2026-08-19):** PR #21 merged as `dev` =
+> `6bb3a9c`; CI green on the merged head including the Security scans
+> job; both DEV services verified serving the merge SHA; the deployed
+> security smoke PASSED (headers live on API 200/404 and frontend, CORS
+> allow/deny/expose, live `signup_disabled` probe, manager surfaces +
+> roster policy under CSP, work-order PDF, validate-only upload matrix
+> with zero mutation, Sentry zero-noise across the expected-4xx probe
+> window, QA dealership intact, seed guard exercised non-destructively,
+> production docs-gating subprocess-proven). One smoke-found Low (F9,
+> Google Fonts vs CSP) fixed in the closeout PR. **Rails H + I:
+> Verified.** Full record: `SPRINT_HISTORY.md` Sprint 13 entry.
+
 ## Methodology
 
 Read-only audit FIRST, then remediation, then re-audit. Every claim is
@@ -130,6 +142,20 @@ the handbook's generic label.
 - **Impact:** none to running security; relevant only to the **public-release**
   decision (it identifies the customer). Not a secret. Recorded in the
   public-release gate below for owner awareness before any publication.
+
+### F9 — CSP blocked the Google Fonts stylesheet — Low — FIXED (found by the deployed smoke)
+- **Evidence:** `frontend/src/index.css` `@import`s Plus Jakarta Sans /
+  JetBrains Mono from `fonts.googleapis.com`; the first CSP's
+  `style-src 'self' 'unsafe-inline'` blocked it (console violation on
+  every load; silent system-font fallback — nothing functional broke).
+  The origin-enumeration pass missed it because the reference lives in
+  the built CSS, not the JS bundle or network capture.
+- **Remediation:** `style-src` additionally allows
+  `https://fonts.googleapis.com` and `font-src` allows
+  `https://fonts.gstatic.com` (`frontend/vercel.json`); pinned by
+  `tests/test_frontend_config.py::test_csp_allows_google_fonts`.
+- **Final state: PASS** (exactly why deployed verification is an exit
+  requirement — config-level controls need live proof).
 
 ---
 

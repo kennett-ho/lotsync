@@ -7,7 +7,7 @@ for the full plan this tracks progress against. See
 [`SPRINT_HISTORY.md`](SPRINT_HISTORY.md) for the chronological
 DealerDOH infrastructure history and v1.1.0-beta release roadmap.
 
-**Last updated:** 2026-08-19 (Sprint 13 — Security Hardening + Supply Chain, Rails H + I + §5.H.1 sanitation — Implementation Complete, Awaiting Merge)
+**Last updated:** 2026-08-19 (Sprint 13 Complete — Rails H + I Verified; sanitation Audit Clean, repository private)
 
 ## ⚠️ Production is live and locked (2026-08-15)
 
@@ -160,27 +160,38 @@ plus small reality corrections (stale smoke-test workflow note;
 `dealerdoh.com` now owned). Planning only — no rail implementation,
 production untouched.
 
-**Sprint 13 (2026-08-19):** Security Hardening + Supply Chain (Rails
-H + I + §5.H.1 sanitation) — **Implementation Complete — Awaiting
-Merge** on `feature/sprint-13-security-supply-chain` (from `dev` =
-`384970b`). Read-only audit → remediation → re-audit, canonical in
+**Sprint 13 (2026-08-19, merged + Complete same day):** Security
+Hardening + Supply Chain (Rails H + I + §5.H.1 sanitation) —
+**MERGED** (PR #21 → `dev` = `6bb3a9c`, CI green on the merged head
+**including the new Security scans job**; sprint branch deleted).
+Read-only audit → remediation → re-audit, canonical in
 `SECURITY_ARCHITECTURE.md` + `SECURITY_AUDIT.md`. **0 Critical, 0
 reachable High.** Remediated: security headers (API middleware +
 `vercel.json` CSP), fail-closed destructive-seed guard, production
 API-docs gating, ReportLab markup escaping, self-set `display_name`
-clamp, login-error genericization. **Repository sanitation: Audit
-Clean** — a full-history scan (685 blobs) found no secret ever
-committed; no rotation, no history rewrite, repository stays PRIVATE.
-Rail I: npm production deps clean, `pip-audit` clean, the one `nanoid`
-High is a build-only devDependency (unreachable); CI `security` job
-added (secret scan + prod-dep audit hard gates; `pip-audit`/full npm
-audit advisory). Deferred with rationale: rate limiting, RLS/Store #2
-scoping, source-map upload, CSV formula escaping. 656/656 SQLite ·
-656/656 PostgreSQL (+31 security tests) · build green. **Not merged;
-Rails H/I NOT Verified; deployed-DEV security smoke pending the owner's
-branch-review window.** Production untouched (`master` =
+clamp, login-error genericization. **Merged-head deployed security
+smoke PASSED** on both DEV services auto-deployed from `dev` (headers
+live on 200/404, CORS allow/deny + request-id exposure, live
+`signup_disabled` probe, manager surfaces + roster restrictions under
+CSP, work-order PDF, validate-only upload matrix with zero mutation,
+Sentry zero-noise across the 4xx probe window, QA dealership intact —
+no reseed; the fail-closed seed guard exercised non-destructively all
+four ways; production docs gating subprocess-proven). The smoke found
+one Low: the CSP blocked the Google Fonts `@import` (cosmetic
+fallback) — fixed in the closeout PR with a pinning test.
+**Rails H + I: Verified. Sprint 13 Complete. Repository sanitation:
+Audit Clean** — full-history scan (685 blobs) found no secret ever
+committed; no rotation, no history rewrite, repository stays PRIVATE
+(publication remains a separate owner decision; the Mark Kia
+customer-identity disclosure is recorded as an owner consideration).
+Rail I: npm production deps clean, `pip-audit` clean, `nanoid` High =
+build-only devDependency exception; CI `security` job live. Deferred
+with rationale: rate limiting, RLS/Store #2 scoping, source-map
+upload, CSV formula escaping. 656/656 SQLite · 656/656 PostgreSQL
+(+31 security tests) · build green. Production untouched (`master` =
 `13c4f815`/`v1.0.0-beta.6`); Sprint 10 Paused, Rail D NOT Verified,
-Sprint 17 Planned — none touched.
+Sprint 17 Planned — none touched. Next: Sprint 14 — Performance +
+Accessibility on explicit owner go.
 
 **Sprint 12 (2026-08-19, merged + Complete same day):** **MERGED**
 (PR #19 → `dev` = `bafd747`, CI green on the merged head; sprint

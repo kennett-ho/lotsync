@@ -202,7 +202,10 @@ route through. Security-relevant properties, re-verified in Sprint 13:
   `unsafe-eval`; `frame-ancestors 'none'`; `object-src 'none'`;
   `base-uri 'self'`. `style-src` allows `'unsafe-inline'` (React/Tailwind
   inline style attributes; not a meaningful XSS vector — inline *scripts* are
-  not permitted). Any Sprint 17 vendor origin must be added deliberately.
+  not permitted) plus `https://fonts.googleapis.com`, and `font-src` allows
+  `https://fonts.gstatic.com` — the app's typography `@import` (found live by
+  the Sprint 13 deployed smoke, F9). Any Sprint 17 vendor origin must be
+  added deliberately.
 - **API documentation** (Sprint 13, deliberate decision — not obscurity):
   `/docs`, `/redoc`, `/openapi.json` are available in development/local (an
   integration convenience) and disabled when a deployment sets

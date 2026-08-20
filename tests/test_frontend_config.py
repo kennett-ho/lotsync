@@ -83,6 +83,23 @@ class SecurityHeadersConfigTest(unittest.TestCase):
                        "https://*.posthog.com", "https://*.sentry.io"):
             self.assertIn(origin, connect, f"connect-src must allow {origin}")
 
+    def test_csp_allows_google_fonts(self):
+        # Found by the Sprint 13 merged-head deployed smoke: index.css
+        # @imports Plus Jakarta Sans / JetBrains Mono from Google Fonts,
+        # which the first CSP blocked (silent system-font fallback, a
+        # console violation on every load). The stylesheet loads from
+        # fonts.googleapis.com and pulls font files from
+        # fonts.gstatic.com -- both must be allowed, in the right
+        # directives.
+        headers = self._headers()
+        csp = headers["Content-Security-Policy"]
+        style = next(part for part in csp.split(";") if part.strip().startswith("style-src"))
+        font = next(part for part in csp.split(";") if part.strip().startswith("font-src"))
+        self.assertIn("https://fonts.googleapis.com", style,
+                      "style-src must allow the Google Fonts stylesheet host")
+        self.assertIn("https://fonts.gstatic.com", font,
+                      "font-src must allow the Google Fonts file host")
+
 
 if __name__ == "__main__":
     unittest.main()

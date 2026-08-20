@@ -71,6 +71,41 @@ class OneTaskTest(unittest.TestCase):
         self.assertNotIn("no device found", text)
 
 
+class VendorMarkupEscapingTest(unittest.TestCase):
+    """Sprint 13 (Rail H): stock numbers/VINs come from vendor CSVs and
+    the store name from oms_config.xlsx; both are embedded in reportlab's
+    Paragraph mini-markup. Without escaping, a value carrying '<', '>',
+    or '&' would break the Paragraph parser mid-render (the router turns
+    that into a generic 500). These prove the escaping keeps generation
+    robust for both the detail-row and the compact-grid layouts, and for
+    the store name."""
+
+    def test_hostile_stock_number_still_renders_valid_pdf(self):
+        # A stock number with markup-significant characters. The compact
+        # grid (install_mdd_beacon) path.
+        tasks = [_task(1, "VIN1", "install_mdd_beacon", "<b>K&<script>", "2024 Honda Civic")]
+        result = build_work_order(tasks, "Mark Kia", generated_at=datetime(2026, 8, 7, 8, 0))
+        self.assertTrue(result.pdf_bytes.startswith(b"%PDF"))
+        self.assertGreaterEqual(result.page_count, 1)
+
+    def test_hostile_stock_number_detail_row_path(self):
+        # The one-per-row detail path (investigate_checked_out_key).
+        tasks = [_task(1, "VIN1", "investigate_checked_out_key", "A<&>B", "2024 Honda Civic",
+                        reason="Key checked out 4 days ago (3-day investigate threshold)")]
+        result = build_work_order(tasks, "Mark Kia", generated_at=datetime(2026, 8, 7, 8, 0))
+        self.assertTrue(result.pdf_bytes.startswith(b"%PDF"))
+        self.assertGreaterEqual(result.page_count, 1)
+
+    def test_hostile_store_name_still_renders(self):
+        tasks = [_task(1, "VIN1", "install_mdd_beacon", "T0001", "2024 Honda Civic")]
+        result = build_work_order(tasks, "Mark & Co <Kia>", generated_at=datetime(2026, 8, 7, 8, 0))
+        self.assertTrue(result.pdf_bytes.startswith(b"%PDF"))
+        text = _extract_text(result.pdf_bytes)
+        # The literal ampersand/text survives as readable content (the
+        # store name is escaped for markup, not stripped).
+        self.assertIn("Mark", text)
+
+
 class MultipleTaskGroupsTest(unittest.TestCase):
     def test_summary_lists_every_group_with_correct_counts(self):
         tasks = [

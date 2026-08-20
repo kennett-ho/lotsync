@@ -286,6 +286,12 @@ known diagnostic limitation rather than shipping an insecure
 shortcut (the token must never ride `VITE_*`/the bundle). Revisit at
 production observability activation.
 
+**Sprint 13 security confirmation:** the audit verified that **no source
+maps are served publicly** (`sourcemap: false`; the deployed production
+bundle carries zero `sourceMappingURL` references — no source-code
+exposure). The deferral of secure upload stands unchanged; there is no
+insecure interim state to remediate. See `SECURITY_AUDIT.md`.
+
 ## 11. Troubleshooting
 
 - *Find what happened to a user action:* get `X-Request-ID` from the

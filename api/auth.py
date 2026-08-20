@@ -61,6 +61,29 @@ from lotsync.database.repository import get_active_membership
 _ALLOWED_ALGORITHMS = ["ES256"]
 _ROLES_ALL = ("admin", "manager", "lot_staff", "sales_manager")
 
+# Sprint 13 (Rail H, finding F4): display_name is self-set by the user
+# via Supabase `updateUser` and rides the verified token's
+# user_metadata. It is NEVER authoritative for authorization (role and
+# store come from the membership row only), but it IS rendered in the
+# UI and the admin roster -- so an unbounded or control-character-laden
+# value is a UI-spoofing vector (e.g. a very long name, or newlines
+# breaking a roster row). The token's signature is still trusted; this
+# only bounds the ONE free-text profile field the provider lets a user
+# set, at the point it crosses into DealerDOH.
+_MAX_DISPLAY_NAME = 100
+
+
+def clamp_display_name(value) -> Optional[str]:
+    """Bound and sanitize a self-set display_name from user_metadata.
+    Non-strings and blanks -> None; strips control characters (keeping
+    normal spaces) and truncates to _MAX_DISPLAY_NAME characters."""
+    if not isinstance(value, str):
+        return None
+    cleaned = "".join(ch for ch in value if ch >= " " or ch == "\t").strip()
+    if not cleaned:
+        return None
+    return cleaned[:_MAX_DISPLAY_NAME]
+
 # Roles allowed to trigger an inventory sync run (the one mutating
 # operational endpoint). Grounded in the Sprint 05 role definitions:
 # Manager explicitly "may run inventory sync"; lot staff and sales
@@ -264,7 +287,6 @@ def get_access_context(request: Request, conn=Depends(get_db)) -> Optional[Acces
     )
 
     metadata = claims.get("user_metadata") or {}
-    display_name = metadata.get("display_name")
     return AccessContext(
         auth_user_id=auth_user_id,
         email=claims.get("email"),
@@ -273,7 +295,7 @@ def get_access_context(request: Request, conn=Depends(get_db)) -> Optional[Acces
         organization_name=membership["organization_name"],
         dealership_id=membership["dealership_id"],
         dealership_name=membership["dealership_name"],
-        display_name=display_name if isinstance(display_name, str) else None,
+        display_name=clamp_display_name(metadata.get("display_name")),
     )
 
 

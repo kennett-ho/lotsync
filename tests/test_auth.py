@@ -254,6 +254,36 @@ class MembershipAuthorizationTest(AuthTestCase):
         self.assertEqual(body["organization"],
                          {"id": "qa-auto-group", "name": "DealerDOH QA Auto Group"})
 
+    def test_display_name_is_length_clamped(self):
+        # Sprint 13 (F4): display_name is self-set in user_metadata and
+        # rendered in the UI/roster -- an over-long value is bounded when
+        # it crosses into DealerDOH (it never affects authorization).
+        token = self.token_for("manager", extra_claims={
+            "user_metadata": {"display_name": "A" * 500}})
+        body = self.client.get("/me", headers=bearer(token)).json()
+        self.assertEqual(body["role"], "manager")  # authz unaffected
+        self.assertLessEqual(len(body["display_name"]), 100)
+
+    def test_display_name_control_characters_stripped(self):
+        token = self.token_for("manager", extra_claims={
+            "user_metadata": {"display_name": "Real\nName\r\x00Here"}})
+        body = self.client.get("/me", headers=bearer(token)).json()
+        self.assertNotIn("\n", body["display_name"])
+        self.assertNotIn("\x00", body["display_name"])
+        self.assertIn("Real", body["display_name"])
+
+
+class DisplayNameClampUnitTest(unittest.TestCase):
+    def test_clamp_rules(self):
+        from lotsync.api.auth import clamp_display_name
+        self.assertIsNone(clamp_display_name(None))
+        self.assertIsNone(clamp_display_name(12345))       # non-string
+        self.assertIsNone(clamp_display_name("   "))        # blank after strip
+        self.assertEqual(clamp_display_name("  Kennett Ho  "), "Kennett Ho")
+        self.assertEqual(len(clamp_display_name("x" * 250)), 100)
+        self.assertEqual(clamp_display_name("A\x07B\x1fC"), "ABC")  # control chars
+        self.assertEqual(clamp_display_name("Tab\tOK"), "Tab\tOK")   # tab kept
+
 
 class RoleTest(AuthTestCase):
     def test_every_role_reads_shared_dealership_data(self):

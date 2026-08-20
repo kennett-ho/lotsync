@@ -158,6 +158,14 @@ DATABASE_ENGINE=postgres DATABASE_URL=<dev-only DSN from the owner's password ma
 - `--reset` drops the app tables and re-migrates, then replays QA Day 1
   + Day 2. Final line prints the standing counts (must match the table
   above; the DSN is never printed).
+- **Sprint 13 (fail-closed guard):** a PostgreSQL `--reset` now requires
+  `ENVIRONMENT` to explicitly name a development environment
+  (`development`/`local`/`test`) — the command above already sets
+  `ENVIRONMENT=development`, so nothing changes for the documented
+  workflow. Running the postgres reset with `ENVIRONMENT` unset or an
+  ambiguous value (`prod`, `staging`, …) is now **refused** (it would
+  otherwise drop every table from whatever `DATABASE_URL` names — the
+  absence of the literal `"production"` is not proof of a safe target).
 - Local practice run (SQLite, no env needed):
   `PYTHONPATH=.. python seed_dev.py --reset`
 - Known quirk: replaying a day **without** `--reset` is idempotent

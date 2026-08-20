@@ -59,6 +59,52 @@ class SeedGuardrailTest(unittest.TestCase):
         self.assertIn("refusing to run", result.stderr)
 
 
+class PostgresResetGuardTest(unittest.TestCase):
+    """Sprint 13 (finding F1): the destructive PostgreSQL --reset drops
+    every application table from whatever DATABASE_URL names, so it fails
+    CLOSED -- it proceeds only when ENVIRONMENT positively names a
+    development environment, not merely when it is not the literal
+    'production'. Unit-tested directly (the guard reads env at call time,
+    not import time) so no live PostgreSQL is needed -- the guard runs
+    before any connection is opened."""
+
+    def _refuse(self, environment, *, resetting=True, engine="postgres"):
+        import importlib
+        from unittest import mock
+        seed_dev = importlib.import_module("lotsync.seed_dev")
+        env = {} if environment is None else {"ENVIRONMENT": environment}
+        with mock.patch.dict(os.environ, env, clear=False):
+            if environment is None:
+                os.environ.pop("ENVIRONMENT", None)
+            return seed_dev.refuse_if_production(
+                None, resetting=resetting, engine=engine)
+
+    def test_refuses_postgres_reset_when_environment_unset(self):
+        with self.assertRaises(SystemExit) as cm:
+            self._refuse(None)
+        self.assertIn("does not explicitly name a development environment", str(cm.exception))
+
+    def test_refuses_postgres_reset_for_ambiguous_environment(self):
+        for value in ("prod", "staging", "prd", "live", "qa"):
+            with self.assertRaises(SystemExit, msg=value):
+                self._refuse(value)
+
+    def test_refuses_postgres_reset_for_production(self):
+        with self.assertRaises(SystemExit):
+            self._refuse("production")
+
+    def test_allows_postgres_reset_for_development_environments(self):
+        # ENVIRONMENT explicitly naming dev passes the guard (it returns
+        # None; the missing-DSN failure would come later, past this guard).
+        for value in ("development", "local", "test", "DEVELOPMENT"):
+            self.assertIsNone(self._refuse(value), value)
+
+    def test_non_reset_postgres_is_not_gated_by_this_check(self):
+        # A non-destructive run (no --reset) does not require the dev
+        # affirmation -- only the table-dropping path fails closed.
+        self.assertIsNone(self._refuse(None, resetting=False))
+
+
 class SeedRunTest(unittest.TestCase):
     def test_seeds_a_synthetic_database_from_fixtures(self):
         with tempfile.TemporaryDirectory() as tmp:

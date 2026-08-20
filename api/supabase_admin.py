@@ -106,11 +106,15 @@ def _provider_error(status: int) -> HTTPException:
 def _safe_user(raw: dict) -> dict:
     """Reduce a GoTrue admin user record to the fields the roster is
     allowed to see. Nothing else leaves this module."""
+    from lotsync.api.auth import clamp_display_name
+
     metadata = raw.get("user_metadata") or {}
     return {
         "auth_user_id": str(raw.get("id", "")),
         "email": raw.get("email"),
-        "display_name": metadata.get("display_name"),
+        # Sprint 13 (F4): bound/sanitize the self-set display_name the
+        # same way the auth boundary does before it reaches the roster.
+        "display_name": clamp_display_name(metadata.get("display_name")),
         # "invited" until the person has ever completed sign-in /
         # confirmation; the roster shows this so an operator can tell
         # a pending invite from an established account.

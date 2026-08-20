@@ -168,3 +168,30 @@ state, never stale token claims. Display name rides the verified
 token's `user_metadata` into `AccessContext`/`GET /me` (Supabase Auth
 owns profile identity; no schema change). Password recovery and the
 full lifecycle model: `ACCOUNT_LIFECYCLE.md`.
+
+## Sprint 13 addendum — security hardening
+
+The Sprint 13 audit (`SECURITY_ARCHITECTURE.md`, `SECURITY_AUDIT.md`)
+confirmed this boundary holds and added defense-in-depth around it:
+
+- **`user_metadata` trust bound (finding F4):** `display_name` is
+  self-set by the user and never authoritative for authorization, but it
+  IS rendered in the UI/roster — so it is now length- and
+  control-character-clamped (`api/auth.py::clamp_display_name`, max 100
+  chars) at both boundaries where it enters DealerDOH (`AccessContext`
+  and `api/supabase_admin.py`). Role/dealership/organization remain
+  membership-derived only.
+- **Login-error genericization (F5):** every sign-in failure surfaces one
+  generic message (`frontend/src/auth/Login.tsx`), preserving the
+  enumeration-safe posture the recovery flow already had.
+- **Security headers:** the API stamps `nosniff`, `X-Frame-Options: DENY`,
+  `frame-ancestors 'none'`, `Referrer-Policy`, and `Cache-Control:
+  no-store` on every response (`api/app.py`); the frontend adds a full
+  CSP + header set (`frontend/vercel.json`). See `SECURITY_ARCHITECTURE.md` §6.
+- **API docs surface:** `/docs`/`/redoc`/`/openapi.json` are gated OFF
+  under `ENVIRONMENT=production` (on in dev/local), reducing an
+  unauthenticated production deployment's surface without affecting the
+  locked current production (which predates the variable).
+
+No authentication or authorization invariant changed — these bound and
+harden the existing boundary, they do not move it.

@@ -70,12 +70,16 @@ sync runs, report baselines, event freshness, pending identities.
   text cells and any extra columns an operator's export happens to
   carry (`PRIVACY_ARCHITECTURE.md` §2.3 caveat). They also consume
   the production disk without bound.
-- **v1.1 policy — [OWNER DECISION, options]:**
-  - **A. Status quo, revisit at Sprint 17** — keep everything until
-    automated acquisition forces a real dead-letter/retention design
-    (that decision point already exists:
-    `KEYPER_AUTOMATED_INTEGRATION_PLAN.md` §12 item 4). Zero risk of
-    destroying evidence someone needed; disk growth continues.
+- **v1.1 policy — [OWNER DECISION D4 — must be resolved before the
+  v1.1 release; owner direction 2026-08-20: indefinite retention
+  must NOT ship as the unexamined default]:**
+  - **A′. Recorded, deliberate, time-limited status quo** — keep
+    current behavior through the beta window **only** as an explicit
+    decision with a scheduled operator prune practice and a hard
+    revisit deadline no later than Sprint 17's acquisition-retention
+    design (that decision point already exists:
+    `KEYPER_AUTOMATED_INTEGRATION_PLAN.md` §12 item 4). Plain
+    "leave it indefinite" is off the table per the owner direction.
   - **B. Bounded cleanup** — keep the most recent N days (or N runs)
     of raw uploads; delete older batches on a schedule or at
     run-time. Honest note: no operationally-grounded N exists yet —
@@ -87,6 +91,12 @@ sync runs, report baselines, event freshness, pending identities.
     code change, no approval needed beyond the owner doing it):
     periodic manual review/pruning of `/var/data/api_uploads`
     during maintenance, exactly like the existing backup procedure.
+- **Why this cannot stay open past the release:** beyond disk
+  growth, the retained verbatim bytes are the stated reason
+  `LEGAL_READINESS.md` §4's GLBA/Safeguards conclusion is
+  deliberately non-categorical — incidental receipt of unexpected
+  columns in a raw vendor export is a data-minimization risk, and
+  time-bounding the store is the control DealerDOH itself owns.
 - **Also unverified and worth one operator look:** the CLI-era
   `/var/data/uploads` folder's current production contents
   (pre-API workflow; repo cannot see the disk).

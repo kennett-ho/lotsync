@@ -2340,8 +2340,10 @@ documents, each claim carrying an evidence tag
 - **File lifecycle:** `/validate` uploads deleted pre-response
   (pinned); **`/run` uploads retained indefinitely** (accepted AND
   rejected) — production accumulates raw vendor CSVs on the 1 GB
-  disk. THE retention finding → owner decision D4 (status-quo vs
-  bounded cleanup); **no deletion behavior changed this sprint**.
+  disk. THE retention finding → owner decision D4 (bounded cleanup
+  vs a recorded, time-limited status quo — **owner-directed
+  2026-08-20: resolve before the v1.1 release, never an indefinite
+  default**); **no deletion behavior changed this sprint**.
   Output CSVs are fixed-name, overwritten per sync; work-order PDF
   is in-memory only.
 
@@ -2349,13 +2351,21 @@ documents, each claim carrying an evidence tag
 
 FTC Act §5 **Applicable** (the truthfulness duty that shaped every
 draft). A.R.S. §§ 18-551/552 = the incident frame (45-day/1,000-
-person mechanics recorded; no timeline pre-promised). **GLBA/FTC
-Safeguards: precisely NOT currently triggered** — DealerDOH holds no
-"customer information" in the Rule's sense, so it sits outside the
-dealership's service-provider-oversight perimeter today; the
-scope-expansion trigger (any consumer/financing/CRM/payment data →
-reassess BEFORE implementation, counsel C4) is recorded in three
-places. CCPA (thresholds), other-state laws, GDPR, COPPA, DPPA,
+person mechanics recorded; no timeline pre-promised). Arizona has
+**no enacted comprehensive consumer privacy law** (SB 1815,
+introduced in the 2026 session, was not enacted — dispositional
+note, legislative-tracking sourced). **GLBA/FTC Safeguards, stated
+carefully and non-categorically:** the intended/validated data
+flows do not appear to involve Safeguards-Rule "customer
+information," so DealerDOH **does not currently appear to be
+acting** as a Safeguards service provider for such information —
+deliberately NOT a categorical claim, because retained raw uploads
+(D4) keep incidental receipt of unexpected columns a live
+data-minimization risk; the reassessment trigger covers
+**receiving, maintaining, processing, or being permitted access
+to** customer information (reassess before implementation, or
+immediately upon discovery for the incidental case; counsel C4) and
+is recorded in three places. CCPA (thresholds), other-state laws, GDPR, COPPA, DPPA,
 CAN-SPAM/TCPA, HIPAA, PCI: classified Likely-Not-Applicable /
 Triggered-If-Scope-Expands with rationale. **Owner decision register
 D1–D10** (operating identity, contact address, jurisdiction, D4
@@ -2419,6 +2429,41 @@ publication of the internal-beta set per §5.L exit 2. Next sprint
 recommendation: **Sprint 16 — Human UAT** (no v1.1 legal/privacy
 blocker found; UAT can run while owner decisions settle, but
 publication should precede real-staff onboarding).
+
+## Owner legal-accuracy pass (2026-08-20, pre-approval — corrections at the gate)
+
+The owner's gate review directed two precision corrections, applied
+in this PR before approval:
+
+1. **GLBA/Safeguards softened from categorical to appears-based.**
+   The preserved finding: the intended/validated operational data
+   model processes no financing/customer financial information. The
+   corrected conclusion: those flows *do not appear* to involve
+   Safeguards customer information and DealerDOH *does not currently
+   appear* to act as a Safeguards service provider — never
+   "precisely not triggered," because `/run` retains entire raw
+   uploads (unexpected extra columns included), leaving incidental
+   receipt a live data-minimization risk. The reassessment trigger
+   now reads **receiving, maintaining, processing, or being
+   permitted access to** customer information; **D4 raw-upload
+   retention is elevated to resolve-before-v1.1-release** (never an
+   indefinite default). No GLBA-compliance or
+   permanent-non-applicability claim anywhere.
+2. **Arizona statement narrowed and re-grounded.** Operative fact:
+   Arizona has **no enacted comprehensive consumer privacy law**;
+   SB 1815 is recorded by its 2026 disposition (introduced
+   2026-02; last action a Senate second reading 2026-02-10; not
+   enacted — legislative tracking, 2026-08-20), not described as
+   "pending."
+
+Amended in the same pass: `LEGAL_READINESS.md` (§3 rows, §4
+rewrite, D4 ✋ + register-header gate split — D1/D2/D5/D9 gate
+Verified, D4 gates the release — §8 note, C4), `DATA_RETENTION.md`
+§3 (option A′, before-release requirement, GLBA tie),
+`PRIVACY_ARCHITECTURE.md` (§2.3 heading/trigger, §7 note), the
+Rail L register row, `PROJECT_STATUS.md`, this record, and the PR
+body. Rail L remains **Implementation Complete — Awaiting Merge /
+PENDING OWNER**; no draft published; Sprint 16 not begun.
 
 ---
 

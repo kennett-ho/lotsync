@@ -89,10 +89,11 @@ contract reads `name`(stock), `Status`, `System`, `Location`,
 `sync/report_contracts.py`]. They arrive only with the planned
 Sprint 17 contract extension (§9).
 
-### 2.3 Consumer data boundary — **none, verified**
+### 2.3 Consumer data boundary — **none in the operational data model, verified**
 
-**DealerDOH currently ingests and stores NO consumer/customer
-personal information**: no customer names, phone numbers, email
+**DealerDOH's intended, validated data flows ingest and store NO
+consumer/customer personal information** (the raw-upload caveat
+below is the one qualifier): no customer names, phone numbers, email
 addresses, postal addresses, driver's-license data, deal numbers tied
 to consumers, credit/financing data, SSNs, bank or payment-card data.
 Verification, not assumption:
@@ -116,14 +117,23 @@ file is retained verbatim** (§7). If a dealership operator ever
 exports a report variant containing customer fields, those bytes
 would sit in the upload store even though nothing reads them. The
 controls are operator export hygiene plus the raw-upload retention
-decision in `DATA_RETENTION.md`. Today's real export shapes carry no
-such columns (evidenced by the contract registry and the synthetic
-fixtures that mirror them).
+decision in `DATA_RETENTION.md` (**D4 — owner-directed 2026-08-20
+to be resolved before the v1.1 release, never left as an indefinite
+default**; this incidental-receipt possibility is also why the
+GLBA/Safeguards assessment in `LEGAL_READINESS.md` §4 is stated
+non-categorically). Today's real export shapes carry no such columns
+(evidenced by the contract registry and the synthetic fixtures that
+mirror them).
 
-**Trigger (recorded):** if DealerDOH ever ingests financing, deal,
-CRM, credit, payment, or any consumer-identity data, the legal
-posture changes materially — reassess `LEGAL_READINESS.md` §4 (GLBA/
-Safeguards) *before* implementation, not after.
+**Trigger (recorded, owner-refined 2026-08-20):** if DealerDOH ever
+**receives, maintains, processes, or is permitted access to**
+consumer/customer information — by deliberate ingestion (financing,
+deal, CRM, credit, payment, or consumer-identity data), by
+integration/DMS access, or by **discovering such content in
+retained raw uploads** — the legal posture changes materially:
+reassess `LEGAL_READINESS.md` §4 (GLBA/Safeguards) *before*
+implementation, or immediately upon discovery for the incidental
+case.
 
 ## 3. Access model (who can reach what)
 
@@ -292,8 +302,9 @@ not "we do not collect IP addresses."
 The raw-upload indefinite retention is the sprint's main retention
 finding — current behavior, business rationale, risk, and the
 proposed bounded policy are in [`DATA_RETENTION.md`](DATA_RETENTION.md)
-§3 (owner decision required; **no deletion behavior was changed in
-Sprint 15**).
+§3 (owner decision **D4, directed 2026-08-20 to be resolved before
+the v1.1 release** rather than shipping as an indefinite default;
+**no deletion behavior was changed in Sprint 15**).
 
 ## 8. Backups and operator-held copies
 

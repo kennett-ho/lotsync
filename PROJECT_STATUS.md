@@ -173,12 +173,20 @@ session key + PostHog persistence + exactly one cookie — see
 remediation), deployed-bundle telemetry-flag byte-check, honest
 platform-layer IP/device-metadata statement, upload/output/file
 lifecycle (the `/run` raw-upload indefinite-retention finding →
-owner decision D4, **no deletion behavior changed**), backups, and
-an internal incident-response procedure. Legal assessment from
-authoritative sources with per-area classifications (FTC §5
-Applicable; A.R.S. 18-551/552 incident frame; **GLBA/Safeguards
-precisely not triggered at current scope, expansion trigger
-recorded**; CCPA/state/GDPR/COPPA classified) + owner decision
+owner decision D4 — **owner-directed 2026-08-20: resolve before the
+v1.1 release, never an indefinite default**; **no deletion behavior
+changed**), backups, and an internal incident-response procedure.
+Legal assessment from authoritative sources with per-area
+classifications (FTC §5 Applicable; A.R.S. 18-551/552 incident
+frame; Arizona has no enacted comprehensive consumer privacy law —
+SB 1815 introduced 2026, not enacted; **GLBA/Safeguards stated
+carefully and non-categorically: the intended/validated flows do
+not appear to involve Safeguards customer information and DealerDOH
+does not currently appear to act as a Safeguards service provider —
+retained raw uploads keep incidental receipt a live
+data-minimization risk, and the reassessment trigger covers
+receiving, maintaining, processing, or being permitted access to
+customer information**; CCPA/state/GDPR/COPPA classified) + owner decision
 register **D1–D10** + counsel register **C1–C8**
 (`LEGAL_READINESS.md`). New canonical docs `PRIVACY_ARCHITECTURE.md`
 + `DATA_RETENTION.md`; five customer-facing **drafts** (Privacy

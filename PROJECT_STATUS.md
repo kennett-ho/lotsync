@@ -173,9 +173,10 @@ session key + PostHog persistence + exactly one cookie — see
 remediation), deployed-bundle telemetry-flag byte-check, honest
 platform-layer IP/device-metadata statement, upload/output/file
 lifecycle (the `/run` raw-upload indefinite-retention finding →
-owner decision D4 — **owner-directed 2026-08-20: resolve before the
-v1.1 release, never an indefinite default**; **no deletion behavior
-changed**), backups, and an internal incident-response procedure.
+owner decision D4 — **ratified 2026-08-21: 7-day accepted /
+30-day rejected-or-HOLD bounded retention, implementation pending as
+the bounded retention remediation (release-gating), never an
+indefinite default**; **no deletion behavior changed**), backups, and an internal incident-response procedure.
 Legal assessment from authoritative sources with per-area
 classifications (FTC §5 Applicable; A.R.S. 18-551/552 incident
 frame; Arizona has no enacted comprehensive consumer privacy law —

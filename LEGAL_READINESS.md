@@ -109,11 +109,14 @@ data-minimization risk**, and it drives two consequences:
 - the reassessment trigger below is phrased around **receiving,
   maintaining, processing, or being permitted access to** customer
   information — not only around deliberately ingesting it; and
-- owner decision **D4** resolved the direction (raw uploads are
-  temporary operational evidence — bounded retention with deletion,
-  never an indefinite default), with the concrete durations/cleanup
-  design awaiting ratification and tested implementation **before
-  the v1.1 release** (§5 D4; `DATA_RETENTION.md` §3).
+- owner decision **D4** — **ratified 2026-08-21**: raw uploads are
+  temporary operational evidence with bounded retention and deletion
+  (**7 days accepted / 30 days rejected-or-HOLD**, never an
+  indefinite default). The tested implementation is still to land
+  as the bounded retention remediation **before the v1.1 release**
+  (§5 D4; `DATA_RETENTION.md` §3); once live, the incidental-receipt
+  window shrinks to those bounds — until then the verbatim files
+  persist and this caveat stands at full strength.
 
 **What must never be claimed:** "DealerDOH is GLBA compliant"
 (meaningless and false — the Rule's program obligations attach to
@@ -144,18 +147,19 @@ register now records each resolution plus its remaining
 question remains — Rail L **Verified** waits on *execution* of
 D2 + D5 (create the real monitored contact, then publish the
 owner-approved final texts on `dealerdoh.com` before the v1.1
-production cutover, per §5.L exit 2). **D4's concrete retention
-durations and cleanup design** (proposed in `DATA_RETENTION.md` §3)
-still require owner ratification and a tested implementation
-**before the v1.1 release** — Sprint 18 readiness checks it; no
-destructive cleanup ships until ratified.
+production cutover, per §5.L exit 2). **D4's retention durations and
+cleanup design were ratified 2026-08-21** (`DATA_RETENTION.md` §3);
+the tested implementation — the bounded retention remediation —
+must still land **before the v1.1 release** (Sprint 18 readiness
+checks it), and the legacy production prune waits for its
+production release/operator gate, never a branch merge.
 
 | # | Decision (resolved 2026-08-20) | Resolution | Remaining execution / follow-through |
 |---|---|---|---|
 | D1 | **Operating identity in published documents** | For the v1.1 beta: **"DealerDOH, operated by Kennett Ho."** No separate corporation/LLC is invented or implied; a future legal entity may replace this identity before commercial GA if one is formed | Drafts updated in place (Privacy Policy "Who we are", Beta Terms §1). Entity formation remains a pre-commercial-GA consideration alongside C1 |
 | D2 | **Support / privacy contact** | A **real, monitored `dealerdoh.com` contact will be created before policies are published**; one address may initially serve both support and privacy. Placeholder addresses are never published as real contact information | **Execution pending (publication blocker):** create the mailbox, verify it is monitored, fill every draft's contact section. Feeds the D5 publication step |
 | D3 | **Jurisdiction / audience** | **DealerDOH v1.1 is U.S.-only**, with the initial controlled beta operating at an Arizona dealership. International availability/compliance is **not claimed** | Beta Terms governing law = Arizona; Privacy Policy states U.S.-only scope; §1 of this document updated. §3's GDPR/state rows keep their triggers |
-| D4 | **Raw-upload retention** | Raw vendor uploads are **temporary operational evidence, not permanent archives**; indefinite retention is **not** the intended v1.1 policy. Successful validated reports → short temporary retention, then deletion; rejected/HOLD reports → longer bounded retention for investigation, then deletion; normalized operational evidence, fingerprints, SyncRuns, and required historical records follow their own rules (§1). Durations must be grounded in actual troubleshooting/recovery needs, never convention | **Release-gating execution pending:** the smallest-technically-safe concrete proposal (**7-day accepted / 30-day rejected windows** + outcome markers + opportunistic sweep + kill-switch + one-time approved legacy prune) is drafted in `DATA_RETENTION.md` §3 **for owner ratification — no destructive cleanup is implemented until approved**. Sprint 18 readiness checks it; Sprint 17 must still design acquisition-path retention. Also conditions §4 (the incidental-receipt path) |
+| D4 | **Raw-upload retention** | Raw vendor uploads are **temporary operational evidence, not permanent archives**; indefinite retention is **not** the v1.1 policy. **Ratified 2026-08-21 as proposed:** accepted/successfully processed batches → **7 days**; rejected/unacknowledged batches → **30 days**; future HOLD batches → **no longer than 30 days** unless a later explicitly governed policy supersedes it; normalized operational evidence, fingerprints, SyncRuns, and other governed records follow their own retention policies (§1); initial-beta durations subject to tuning from operational evidence. Cleanup architecture **approved in principle**: `outcome.json` disposition markers + opportunistic cleanup during `/validate` and `/run`, conservative legacy handling, kill switch, boundary tests, explicit operator-approved one-time legacy prune | **Release-gating execution pending:** the tested implementation lands as the bounded retention remediation (dedicated PR with a DEV review window) **before the v1.1 release** — Sprint 18 readiness checks it. **The destructive legacy prune of existing production raw files is NOT performed at the PR #25 merge; it waits for the appropriate production release/operator gate.** Sprint 17 must still design acquisition-path retention within the ratified HOLD bound. Also conditions §4 (the incidental-receipt path) |
 | D5 | **Policy publication** | Privacy/legal documents remain **internal drafts during development**; approved versions are **published on `dealerdoh.com` before the DealerDOH v1.1 production cutover**. Planned public surfaces: `/privacy`, `/terms`, `/accessibility`, `/security` if appropriate. **Never added to current LotSync production** | **Execution pending — the remaining Rail L Verified gate** (with §5.L exit 2): needs D2's mailbox + owner approval of final text, then the pre-cutover publication step |
 | D6 | **Acceptance model** | **Notice-only for the controlled v1.1 employee beta** — individual dealership employees are not required to complete clickwrap merely to use their authorized workplace account. Contractual acceptance is reassessed for commercial v2, likely primarily at the organization/admin/customer-contract level | Beta Terms §12 updated to the decided text; the v2 reassessment stays in §7 / C1 |
 | D7 | **Customer naming in public policies** | Public privacy/legal documents are **customer-neutral** — "customer organization," "participating dealership," or equivalent accurate language; **Mark Kia is not named in the standard policies**. Mark Kia may still appear in separately approved case-study/pilot/marketing material | Drafts verified clean of the dealership name (sweep 2026-08-20). Internal engineering docs are unaffected by D7 |
@@ -193,7 +197,7 @@ for v1.1, Git-versioned documents + publication date suffice
 | §5.L exit | State after Sprint 15 + the D1–D10 resolutions (2026-08-20) |
 |---|---|
 | 1. Accurate data-flow inventory (identity, workforce, vehicle, uploads, telemetry, IP/device metadata, logs, retention, subprocessors) | **SATISFIED** — `PRIVACY_ARCHITECTURE.md` §§2–8 (evidence-tagged), `SUBPROCESSORS.md`. D8 adds a publication-time re-verification of provider figures (manual release-readiness actions) |
-| 2. Published accurate internal-beta documents (Privacy Policy, ToS, support/security contact, incident procedure, retention statement consistent with migration plan) | **Content complete; PUBLICATION EXECUTION PENDING.** Drafts now carry the resolved D1 identity, D3 scope, D6 acceptance model, D7 neutrality, and the D9 disposition; incident procedure done (`PRIVACY_ARCHITECTURE.md` §10); retention statement accurate and migration-plan-consistent (`DATA_RETENTION.md` — current behavior + resolved D4 direction; concrete durations awaiting ratification). Remaining: **D2 execution** (create the monitored mailbox, fill contacts) → owner approval of final text → **D5 execution** (publish on `dealerdoh.com` before the v1.1 production cutover) |
+| 2. Published accurate internal-beta documents (Privacy Policy, ToS, support/security contact, incident procedure, retention statement consistent with migration plan) | **Content complete; PUBLICATION EXECUTION PENDING.** Drafts now carry the resolved D1 identity, D3 scope, D6 acceptance model, D7 neutrality, and the D9 disposition; incident procedure done (`PRIVACY_ARCHITECTURE.md` §10); retention statement accurate and migration-plan-consistent (`DATA_RETENTION.md` — current behavior + the **ratified D4 policy (7-day accepted / 30-day rejected-or-HOLD)**, implementation pending). Remaining: **D2 execution** (create the monitored mailbox, fill contacts) → owner approval of final text → **D5 execution** (publish on `dealerdoh.com` before the v1.1 production cutover) |
 | 3. Accessibility Statement from Rail K's real results | **Drafted** — `ACCESSIBILITY_STATEMENT.md`, strictly from `ACCESSIBILITY.md`; needs only the D2 contact at publication |
 | 4. Every claim traceable to something real | **SATISFIED** — the [repo]/[measured]/[provider]/[research] tagging; no unverifiable claim ships in any draft |
 
@@ -201,11 +205,11 @@ Post-resolution summary: **no owner decision remains open.** Rail L
 stays **Implementation Complete — Awaiting Merge**; after merge +
 merged-head CI, **Verified turns on execution only** — D2's real
 mailbox, owner-approved final text, and the D5 pre-cutover
-publication. Separately, **D4's concrete durations/cleanup design
-(`DATA_RETENTION.md` §3) remain release-gating** — owner
-ratification + tested implementation before the v1.1 release train
-(Sprint 18 checks it); D4 also conditions the §4 GLBA/Safeguards
-analysis.
+publication. Separately, **D4 is ratified (2026-08-21); its tested
+implementation remains release-gating** — before the v1.1 release
+train (Sprint 18 checks it), with the legacy production prune gated
+to the production release/operator step, never a merge; D4 also
+conditions the §4 GLBA/Safeguards analysis.
 
 Sprint 17 delta rule stands: this assessment must be amended when
 the inbound-email acquisition path exists (new subprocessor, message

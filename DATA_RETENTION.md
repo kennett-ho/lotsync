@@ -11,14 +11,15 @@ same PR as any change to retention-relevant behavior.
 - **Current behavior** — what the code/platforms actually do
   (verified; nothing here is aspirational).
 - **v1.1 policy** — the deliberate posture for the internal beta.
-  Items marked **[OWNER DECISION]** are proposed, not adopted;
-  they are listed in `LEGAL_READINESS.md` §5 and take effect only
-  with an owner decision recorded there.
+  Items marked **[OWNER DECISION]** during Sprint 15 were all
+  resolved by the owner (2026-08-20) and D4 ratified (2026-08-21) —
+  see `LEGAL_READINESS.md` §5; a policy listed here is adopted unless
+  its entry says implementation is pending.
 - **Future requirement** — commercial/v2 obligations recorded so
   they are planned, not rediscovered.
 
 Sprint 15 changed **no deletion or retention behavior**. Nothing in
-this document destroys data; it records and proposes.
+this document destroys data; it records policy and implementation status.
 
 ---
 
@@ -55,7 +56,7 @@ sync runs, report baselines, event freshness, pending identities.
 - **Future requirement:** §9 (organization offboarding) and §10
   (identity-deletion requests).
 
-## 3. Raw uploaded report files (`/run`) — **the open retention finding**
+## 3. Raw uploaded report files (`/run`) — **the retention finding: policy ratified, implementation pending**
 
 - **Current behavior:** every `POST /inventory-sync/run` writes its
   uploaded files to a per-request timestamped directory under
@@ -78,13 +79,28 @@ sync runs, report baselines, event freshness, pending identities.
   bounded investigation window, then deletion**; the durable record
   remains the normalized operational evidence, fingerprints,
   SyncRuns, baselines, and history under their own rules (§1).
-- **Proposed concrete policy — AWAITING OWNER RATIFICATION. No
-  destructive cleanup is implemented until the durations and design
-  below are approved; nothing was deleted or built in Sprint 15.**
-  Durations are grounded in actual troubleshooting/recovery needs,
-  not convention, and are initial-beta values tunable from real
-  operational evidence (the same propose → ratify → pin pattern as
-  the Sprint 10 suspicious-count thresholds):
+- **Concrete policy — OWNER-RATIFIED 2026-08-21, as proposed (the
+  v1.1 beta policy):**
+  - accepted / successfully processed raw upload batches → **retain
+    7 days**, then delete;
+  - rejected / unacknowledged-warning batches → **retain 30 days**,
+    then delete;
+  - future HOLD batches → **retain no longer than 30 days** unless a
+    later explicitly governed policy supersedes it;
+  - normalized operational evidence, fingerprints, SyncRuns, and
+    other governed records follow their own retention policies (§1);
+  - these are **initial-beta durations subject to tuning from
+    operational evidence** (the same propose → ratify → pin pattern
+    as the Sprint 10 suspicious-count thresholds).
+
+  **Implementation status:** nothing was deleted or built in Sprint
+  15. The cleanup architecture below is **approved in principle**;
+  its tested implementation is authorized as the bounded retention
+  remediation (item 5). **The destructive legacy prune of existing
+  production raw files is NOT performed at the PR #25 merge — it
+  waits for the appropriate production release/operator gate.**
+  Grounding for the durations (actual troubleshooting/recovery
+  needs, not convention):
   - **Accepted batches (validated + successfully executed): retain
     7 days, then delete.** Grounding: the manual sync cadence is
     1–2×/day per source with same-day outcome review by the
@@ -101,13 +117,14 @@ sync runs, report baselines, event freshness, pending identities.
     monthly operational review cycle. These files are also
     precisely the ones most likely to carry unexpected content —
     a reason they must not live forever (`LEGAL_READINESS.md` §4).
-  - **Future Sprint 17 HOLD state:** governed by that sprint's
+  - **Future Sprint 17 HOLD state:** ratified bound = **no longer
+    than 30 days** (the rejected window); Sprint 17's
     dead-letter/retention design
-    (`KEYPER_AUTOMATED_INTEGRATION_PLAN.md` §12 item 4), defaulting
-    to ≤ the rejected window unless that design justifies
-    otherwise.
-- **Technical cleanup design (submitted for approval with the
-  durations; additive, no schema change, no new infrastructure):**
+    (`KEYPER_AUTOMATED_INTEGRATION_PLAN.md` §12 item 4) may only
+    shorten it, or supersede it with a later *explicitly governed*
+    policy.
+- **Technical cleanup design (approved in principle 2026-08-21 with
+  the durations; additive, no schema change, no new infrastructure):**
   1. At request end, the router writes a small `outcome.json`
      marker (accepted / rejected / warnings-unacknowledged +
      timestamp) into the batch directory.
@@ -128,13 +145,19 @@ sync runs, report baselines, event freshness, pending identities.
      never-delete-inside-window rule.
   4. Rollout includes a **one-time, operator-executed prune of the
      accumulated legacy production directories** — an explicit
-     approved step in the deploy notes, never automatic.
-  5. Implementation vehicle: a small dedicated chore PR after
-     ratification (preferred, so the behavior soaks before RC), or
-     folded into Sprint 17's acquisition-retention design at the
-     owner's option. Either way it lands, tested, **before the v1.1
+     approved step in the deploy notes, never automatic, **never
+     part of a branch merge (expressly not at the PR #25 merge)**:
+     it runs only at the appropriate production release/operator
+     gate.
+  5. Implementation vehicle (**authorized 2026-08-21** as the
+     bounded retention remediation): a small dedicated PR with its
+     own DEV review window — the sweep is a runtime-visible change,
+     so the deployed path is smoked before merge per the process —
+     preferred so the behavior soaks before RC; folding into Sprint
+     17's acquisition-retention design remains the owner's
+     alternative. Either way it lands, tested, **before the v1.1
      release train** (Sprint 18 readiness checks it).
-- Until ratification+implementation, the **operator-side control
+- Until the implementation ships, the **operator-side control
   available today** (no code change): periodic manual
   review/pruning of `/var/data/api_uploads` during maintenance,
   exactly like the existing backup procedure.

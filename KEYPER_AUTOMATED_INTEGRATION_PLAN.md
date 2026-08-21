@@ -402,7 +402,10 @@ Before Sprint 18 readiness can pass, record decisions for:
 1. Inbound-email provider and verified callback contract.
 2. Actual Keyper cadence and Fresh/Aging/Stale thresholds.
 3. Human review/resume surface for fingerprint-bound HOLDs.
-4. Retry/dead-letter retention and operator ownership.
+4. Retry/dead-letter retention and operator ownership — within the
+   ratified D4 bound (`DATA_RETENTION.md` §3, 2026-08-21): raw HOLD
+   files are retained **no longer than 30 days** unless this design
+   supersedes it with a later explicitly governed policy.
 5. Whether the real unattended failure/HOLD experience triggers the
    still-CONDITIONAL Notifications rail.
 

@@ -67,9 +67,9 @@ its own vendor systems. This data is about vehicles and dealership
 operations. **DealerDOH does not collect or store customer/consumer
 personal information: no customer names, contact details,
 driver's-license data, financing, credit, or payment information.**
-One honest nuance: uploaded vendor report files are retained as
-files exactly as exported, and vendor-entered free-text fields (for
-example a reconditioning note) can incidentally mention a staff
+One honest nuance: uploaded vendor report files are kept as files
+exactly as exported (see Retention below), and vendor-entered
+free-text fields (for example a reconditioning note) can incidentally mention a staff
 member's name; such text is shown as operational history and is
 never used for analytics.
 
@@ -149,11 +149,19 @@ for what is and is not in place.
 - **Operational history** (vehicles, events, tasks) is the product's
   purpose and is retained for the life of the dealership
   relationship.
+- **Uploaded report files** are temporary operational evidence, not
+  archives. The adopted policy keeps an uploaded file for up to
+  **7 days** after it is successfully processed and up to **30
+  days** when it was rejected or held for review, then deletes it.
+  *[Editorial gate — publish this bullet only once the
+  bounded-retention implementation is live; until then the accurate
+  statement is that uploaded files are retained pending that
+  implementation — `DATA_RETENTION.md` §3.]*
 - **Telemetry** is retained on the providers' schedules (error
   events on the order of weeks to months; product events on the
   order of a year on current plans).
-- The full, honest retention record — including items still awaiting
-  an owner decision — is [`DATA_RETENTION.md`](DATA_RETENTION.md).
+- The full, honest retention record — including the implementation
+  status of each policy — is [`DATA_RETENTION.md`](DATA_RETENTION.md).
 
 ## Your choices
 

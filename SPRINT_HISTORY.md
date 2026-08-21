@@ -50,7 +50,7 @@ Do not rewrite history when architecture changes later. Record what was true at 
 | **Current release target** | `v1.1.0-beta.1` |
 | **Open PRs** | tracked per sprint; see Git/PR records in each entry |
 | **Public domain** | `dealerdoh.com` owned; production domain cutover not yet performed |
-| **Immediate focus** | Sprint 15 — Privacy / Legal (Rail L) at the **PR approval gate** on branch `feature/sprint-15-privacy-legal`: audit-first privacy/data-flow inventory (`PRIVACY_ARCHITECTURE.md`), retention record (`DATA_RETENTION.md`), legal-readiness assessment + owner/counsel registers (`LEGAL_READINESS.md`), five customer-facing DRAFTS (Privacy Policy · Beta Terms · Accessibility Statement · Security Overview · Subprocessors — all Draft, Owner Review Required), and the no-cookie remediation (PostHog `persistence: 'localStorage'`, test-pinned). Rail L register = **Implementation Complete — Awaiting Merge**; owner decisions **D1–D10 RESOLVED 2026-08-20** (identity "DealerDOH, operated by Kennett Ho" · U.S.-only/AZ beta · bounded raw-upload retention with a 7d/30d proposal awaiting ratification, release-gating · dealerdoh.com publication before the v1.1 cutover · notice-only acceptance · customer-neutral copy · provider claims verified pre-publication · honest no-attorney-review disposition · paid-Supabase verify-then-rely) — Verified now waits on execution only (D2 mailbox + owner-approved final text + D5 pre-cutover publication). Sprint 10 remains **Implementation Paused — Awaiting Vendor Evidence**; Rail D NOT Verified; Sprint 17 remains **Planned**. Production untouched. |
+| **Immediate focus** | Sprint 15 — Privacy / Legal (Rail L) at the **PR approval gate** on branch `feature/sprint-15-privacy-legal`: audit-first privacy/data-flow inventory (`PRIVACY_ARCHITECTURE.md`), retention record (`DATA_RETENTION.md`), legal-readiness assessment + owner/counsel registers (`LEGAL_READINESS.md`), five customer-facing DRAFTS (Privacy Policy · Beta Terms · Accessibility Statement · Security Overview · Subprocessors — all Draft, Owner Review Required), and the no-cookie remediation (PostHog `persistence: 'localStorage'`, test-pinned). Rail L register = **Implementation Complete — Awaiting Merge**; owner decisions **D1–D10 RESOLVED 2026-08-20** (identity "DealerDOH, operated by Kennett Ho" · U.S.-only/AZ beta · bounded raw-upload retention RATIFIED 2026-08-21 (7d accepted / 30d rejected-or-HOLD; implementation pending as the bounded remediation, release-gating; legacy production prune never at merge) · dealerdoh.com publication before the v1.1 cutover · notice-only acceptance · customer-neutral copy · provider claims verified pre-publication · honest no-attorney-review disposition · paid-Supabase verify-then-rely) — Verified now waits on execution only (D2 mailbox + owner-approved final text + D5 pre-cutover publication). Sprint 10 remains **Implementation Paused — Awaiting Vendor Evidence**; Rail D NOT Verified; Sprint 17 remains **Planned**. Production untouched. |
 
 **Production rule:** `master` is what real dealership users are allowed to depend on. Normal development belongs on task branches and `dev`; production remains frozen until an explicit release train is approved.
 
@@ -2485,13 +2485,19 @@ resolutions-plus-execution register, no open decision remains):
   governing law = Arizona.
 - **D4** raw uploads are **temporary operational evidence, not
   permanent archives** — bounded retention with deletion is the
-  policy; the smallest-technically-safe concrete proposal is
-  drafted for ratification in `DATA_RETENTION.md` §3: **7-day
-  accepted / 30-day rejected windows** (cadence-grounded, not
-  conventional), outcome-marker + opportunistic-sweep design,
-  kill-switch, boundary tests, one-time approved legacy prune.
-  **No destructive cleanup is implemented until the owner approves
-  the durations/design; release-gating (Sprint 18 checks it).**
+  policy. The smallest-technically-safe proposal was drafted in
+  `DATA_RETENTION.md` §3 and **ratified by the owner 2026-08-21 as
+  proposed**: accepted batches **7 days**, rejected/unacknowledged
+  **30 days**, future HOLD **≤ 30 days** unless a later explicitly
+  governed policy supersedes it, governed records on their own
+  rules, initial-beta durations tunable from evidence. Cleanup
+  architecture approved in principle (outcome markers,
+  opportunistic sweep at `/validate`/`/run`, conservative legacy
+  handling, kill switch, boundary tests, explicit operator-approved
+  one-time legacy prune). **Implementation pending as the bounded
+  retention remediation (release-gating; Sprint 18 checks it); the
+  legacy production prune is expressly NOT performed at the PR #25
+  merge — it waits for the production release/operator gate.**
 - **D5** approved versions are **published on `dealerdoh.com`
   before the v1.1 production cutover** (planned `/privacy`,
   `/terms`, `/accessibility`, `/security` if appropriate) — never
@@ -2531,13 +2537,40 @@ exit 2 = **content complete, publication execution pending** (D2
 mailbox → owner final-text approval → D5 pre-cutover publication).
 Rail L remains **Implementation Complete — Awaiting Merge**;
 Verified = merge + merged-head CI + that execution chain. D4's
-ratified durations + tested implementation remain release-gating.
+durations were ratified 2026-08-21; its tested implementation
+remains release-gating (legacy prune gated to the release/operator
+step, never a merge).
 GLBA/Safeguards language re-confirmed appears-based with the
 incidental-receipt caveat (trigger verbs now include *retains*);
 the Arizona statement stands as no-enacted-law + SB 1815's
 introduced/not-enacted 2026 disposition. Drafts updated in place
 and **still NOT published**. Rail D / Sprint 10 / Sprint 17
 untouched; Sprint 16 not begun.
+
+## D4 ratification (2026-08-21, pre-approval)
+
+The owner ratified the raw-upload retention proposal as drafted —
+accepted **7 days** / rejected-or-unacknowledged **30 days** / HOLD
+**≤ 30 days** unless a later explicitly governed policy supersedes
+it; governed records on their own rules; initial-beta durations
+tunable from evidence — and approved the cleanup architecture in
+principle (`outcome.json` markers, opportunistic sweep at
+`/validate`/`/run`, conservative legacy handling, kill switch,
+boundary tests, explicit operator-approved one-time legacy prune).
+Constraint recorded verbatim in `DATA_RETENTION.md` §3 and
+`LEGAL_READINESS.md` §5: **the destructive legacy prune is not
+performed at the PR #25 merge** — existing production raw-file
+cleanup waits for the appropriate production release/operator
+gate; the implementation itself proceeds as the bounded retention
+remediation (dedicated PR with its own DEV review window,
+release-gating, Sprint 18 checks it). Docs updated consistently:
+`DATA_RETENTION.md`, `LEGAL_READINESS.md`, `PRIVACY_ARCHITECTURE.md`,
+`PRIVACY_POLICY.md` (retention wording, editorially gated until the
+implementation is live), the Rail L register row,
+`PROJECT_STATUS.md`, and the Keyper plan's §12 item 4 HOLD bound.
+Rail L remains **Implementation Complete — Awaiting Merge**;
+nothing published; Rail D / Sprint 10 / Sprint 17 untouched;
+Sprint 16 not begun.
 
 ---
 

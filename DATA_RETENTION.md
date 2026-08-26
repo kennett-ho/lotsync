@@ -56,16 +56,24 @@ sync runs, report baselines, event freshness, pending identities.
 - **Future requirement:** §9 (organization offboarding) and §10
   (identity-deletion requests).
 
-## 3. Raw uploaded report files (`/run`) — **the retention finding: policy ratified, implementation pending**
+## 3. Raw uploaded report files (`/run`) — **the retention finding: policy ratified, implementation landed 2026-08-25 (production rollout waits for the release gate)**
 
-- **Current behavior:** every `POST /inventory-sync/run` writes its
-  uploaded files to a per-request timestamped directory under
-  `LOTSYNC_API_UPLOADS_DIR` and **nothing ever deletes them** —
-  accepted and rejected runs alike. Rationale in code: rejected
-  evidence stays inspectable. `/validate` uploads are deleted
-  pre-response (test-pinned). Production: `/var/data/api_uploads` on
-  the 1 GB persistent disk, accumulating since the API became the
-  sync mechanism. DEV: ephemeral (free tier, wiped on redeploy).
+- **Current behavior (bounded retention implemented 2026-08-25, the
+  dedicated D4 remediation):** every `POST /inventory-sync/run`
+  writes its uploaded files to a per-request timestamped directory
+  under `LOTSYNC_API_UPLOADS_DIR`; the request end stamps an
+  `outcome.json` marker (accepted / rejected /
+  warnings_unacknowledged), and an opportunistic sweep at the start
+  of `/run` and `/validate` deletes batches older than their
+  outcome's ratified window (`api/upload_retention.py`;
+  `UPLOAD_RETENTION_SWEEP=disabled` is the operator kill-switch).
+  Rejected evidence stays inspectable for its full 30-day window.
+  `/validate` uploads are still deleted pre-response (test-pinned);
+  crash-orphaned `validate-*` directories age out after 24 h.
+  **Production still runs the pre-remediation build until the v1.1
+  release train** — `/var/data/api_uploads` on the 1 GB persistent
+  disk keeps accumulating there until the release/operator gate
+  (below). DEV: ephemeral (free tier, wiped on redeploy).
 - **Why it matters:** raw vendor exports are the least-minimized
   artifact in the system — verbatim vendor bytes, including free-
   text cells and any extra columns an operator's export happens to
@@ -99,6 +107,17 @@ sync runs, report baselines, event freshness, pending identities.
   remediation (item 5). **The destructive legacy prune of existing
   production raw files is NOT performed at the PR #25 merge — it
   waits for the appropriate production release/operator gate.**
+  **Update 2026-08-25 — implemented as authorized:** the marker +
+  sweep design below is built (`api/upload_retention.py`, wired into
+  both endpoints) with boundary tests
+  (`tests/test_upload_retention.py`) pinning both windows, the
+  marker on every terminal `/run` outcome (the 500 path deliberately
+  stays unmarked → conservative window), the
+  never-delete-inside-window rule, conservative unmarked/malformed
+  handling, the recognized-names-only deletion rule, the
+  kill-switch, and the in-flight-batch safety property. The legacy
+  production prune remains exactly as gated above — nothing about
+  this landing performs it.
   Grounding for the durations (actual troubleshooting/recovery
   needs, not convention):
   - **Accepted batches (validated + successfully executed): retain
@@ -157,10 +176,20 @@ sync runs, report baselines, event freshness, pending identities.
      17's acquisition-retention design remains the owner's
      alternative. Either way it lands, tested, **before the v1.1
      release train** (Sprint 18 readiness checks it).
-- Until the implementation ships, the **operator-side control
-  available today** (no code change): periodic manual
-  review/pruning of `/var/data/api_uploads` during maintenance,
-  exactly like the existing backup procedure.
+- Until the release train deploys the implementation to production,
+  the **operator-side control available there** (no code change):
+  periodic manual review/pruning of `/var/data/api_uploads` during
+  maintenance, exactly like the existing backup procedure.
+- **Production rollout note (keeps item 4's "never automatic"
+  honest):** once this code reaches production, the first sweep
+  would delete legacy directories older than 30 days on its own.
+  The release-train deploy notes must therefore either (a) deploy
+  with `UPLOAD_RETENTION_SWEEP=disabled` until the operator performs
+  the approved one-time legacy prune, then enable it, or (b) record
+  explicit operator approval that the first post-deploy sweep
+  performs that prune. Either way the legacy deletion happens at the
+  operator's gate, not as a merge side effect — Sprint 18 readiness
+  carries this as a checklist item.
 - **Why this cannot slip past the release:** beyond disk growth,
   the retained verbatim bytes are the stated reason
   `LEGAL_READINESS.md` §4's GLBA/Safeguards conclusion is

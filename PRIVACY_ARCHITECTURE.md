@@ -296,21 +296,21 @@ not "we do not collect IP addresses."
 | Artifact | Path (env-configured) | Behavior [repo: `api/routers/inventory_sync.py`, `reports/`] |
 |---|---|---|
 | `/validate` uploads | `LOTSYNC_API_UPLOADS_DIR/validate-*` | **Deleted before the response returns** (test-pinned) |
-| `/run` uploads | `LOTSYNC_API_UPLOADS_DIR/<timestamp>/<slot>.csv` | **Retained indefinitely** — every run's raw files persist (accepted AND rejected), as rejection evidence. Nothing ever deletes them. Production = persistent disk (`/var/data/api_uploads`); DEV Render free tier = ephemeral filesystem (lost on redeploy) |
+| `/run` uploads | `LOTSYNC_API_UPLOADS_DIR/<timestamp>/<slot>.csv` | **Bounded retention (D4 implemented 2026-08-25)** — each request end stamps an `outcome.json` marker and an opportunistic sweep at `/run`/`/validate` deletes batches past their ratified window: accepted 7 days, rejected/unacknowledged-warning 30 days, unmarked (legacy or crash) conservatively 30 days [repo: `api/upload_retention.py`, test-pinned]. `UPLOAD_RETENTION_SWEEP=disabled` = operator kill-switch. **Production runs the pre-remediation indefinite-retention build until the v1.1 release train**; its accumulated legacy directories are pruned only at the release/operator gate (`DATA_RETENTION.md` §3). DEV Render free tier = ephemeral filesystem (lost on redeploy) |
 | Generated report CSVs | `LOTSYNC_OUT_DIR/*.csv` | Fixed filenames **overwritten each sync** — only the latest survives |
 | Work-order PDF | — | Built in memory (`io.BytesIO`) and returned; **never written to disk** |
 | Business config | `LOTSYNC_CONFIG_PATH` (`oms_config.xlsx`) | Operator-maintained bucket/threshold config + store name — no personal data |
 | CLI-era uploads | `LOTSYNC_UPLOADS_DIR` (`/var/data/uploads` in prod) | Pre-API operator workflow folder; current contents on the production disk are unverified from the repo — inventory at next operator session [decision needed — see `DATA_RETENTION.md`] |
 
-The raw-upload indefinite retention is the sprint's main retention
+The raw-upload indefinite retention was the sprint's main retention
 finding — current behavior, business rationale, risk, and the
-proposed bounded policy are in [`DATA_RETENTION.md`](DATA_RETENTION.md)
+ratified bounded policy are in [`DATA_RETENTION.md`](DATA_RETENTION.md)
 §3 (**D4 ratified 2026-08-21: raw uploads are temporary operational
 evidence — 7-day accepted / 30-day rejected-or-HOLD bounded
-retention with deletion is the v1.1 policy; the implementation is
-pending as the bounded retention remediation, and the legacy
-production prune waits for its production release/operator gate**;
-**no deletion behavior was changed in Sprint 15**).
+retention with deletion is the v1.1 policy**; **no deletion behavior
+was changed in Sprint 15**; **implemented 2026-08-25** as the
+dedicated bounded-retention remediation — the legacy production
+prune still waits for its production release/operator gate).
 
 ## 8. Backups and operator-held copies
 

@@ -35,6 +35,13 @@ file paths to sync/pipeline.run_inventory_sync, which is unchanged by
 Sprint 10. No reconciliation logic here, and no validation logic
 either -- sync/ingestion.py is the single boundary both endpoints
 (and any future acquisition path) share.
+
+Sprint 15 follow-up (owner decision D4, ratified 2026-08-21): raw
+upload batches are temporary operational evidence with bounded
+retention -- each request end stamps an outcome.json marker, and an
+opportunistic sweep at the start of both endpoints deletes batches
+older than their outcome's window (api/upload_retention.py; policy
+record DATA_RETENTION.md section 3).
 """
 
 import datetime
@@ -48,7 +55,7 @@ from typing import Optional
 
 from fastapi import APIRouter, Depends, File, Form, HTTPException, UploadFile
 
-from lotsync.api import observability
+from lotsync.api import observability, upload_retention
 from lotsync.api.auth import SYNC_RUN_ROLES, require_roles
 from lotsync.api.dependencies import get_db
 from lotsync.api.dtos import (
@@ -164,6 +171,11 @@ async def run_sync(
     if not provided:
         raise HTTPException(status_code=422, detail=["At least one report file is required."])
 
+    # D4 bounded retention (DATA_RETENTION.md §3): the opportunistic
+    # sweep runs BEFORE this request's batch directory exists, so the
+    # in-flight batch is structurally untouchable. Never raises.
+    upload_retention.sweep(UPLOADS_DIR)
+
     batch_dir = os.path.join(UPLOADS_DIR, datetime.datetime.now().strftime("%Y%m%dT%H%M%S%f"))
     os.makedirs(batch_dir, exist_ok=True)
     file_paths = await _save_uploads(provided, batch_dir)
@@ -174,17 +186,28 @@ async def run_sync(
     # run_inventory_sync can touch anything. A failed validation leaves
     # zero operational mutation (no sync_run row, no event, no task, no
     # report CSVs) -- the uploaded files themselves remain in
-    # UPLOADS_DIR as evidence of what was rejected, exactly like the
-    # pre-Sprint-10 behavior for header failures.
+    # UPLOADS_DIR as evidence of what was rejected, now bounded by
+    # D4's 30-day rejected window (api/upload_retention.py).
     validation_started = time.perf_counter()
     validation = validate_report_set(file_paths, db_conn=conn)
     _log_validation(validation, (time.perf_counter() - validation_started) * 1000)
+    # D4: each terminal outcome stamps the batch's outcome.json marker
+    # so the retention sweep can apply the ratified window (accepted
+    # 7d; rejected / unacknowledged-warning 30d). The 500 path below
+    # deliberately writes NO marker -- a failed sync's batch ages
+    # under the conservative 30-day unmarked window instead of a
+    # window that presumes an outcome it never reached.
     if validation.has_errors:
+        upload_retention.record_outcome(batch_dir, upload_retention.OUTCOME_REJECTED)
         raise _reject(422, "REPORT_VALIDATION_FAILED", validation)
     if validation.has_warnings:
         if not acknowledge_warnings:
+            upload_retention.record_outcome(
+                batch_dir, upload_retention.OUTCOME_WARNINGS_UNACKNOWLEDGED)
             raise _reject(409, "WARNINGS_NOT_ACKNOWLEDGED", validation)
         if validation_fingerprint != validation.fingerprint:
+            upload_retention.record_outcome(
+                batch_dir, upload_retention.OUTCOME_WARNINGS_UNACKNOWLEDGED)
             raise _reject(409, "STALE_VALIDATION", validation)
 
     observability.log_event(
@@ -261,6 +284,11 @@ async def run_sync(
         )
     conn.commit()
 
+    # D4: "accepted" only after the sync succeeded AND its baselines
+    # committed -- anything that fails before this line leaves the
+    # batch unmarked (conservative 30-day window).
+    upload_retention.record_outcome(batch_dir, upload_retention.OUTCOME_ACCEPTED)
+
     # Sprint 11 (phase 23): the request_id -> sync_run_id correlation
     # record. The browser operation, this log line, the SyncRun rows,
     # and any Sentry event now share ids without any schema change --
@@ -305,6 +333,12 @@ async def validate_reports(
     provided = {source: upload for source, upload in uploads.items() if upload is not None}
     if not provided:
         raise HTTPException(status_code=422, detail=["At least one report file is required."])
+
+    # D4 (DATA_RETENTION.md §3): same opportunistic sweep as /run --
+    # this endpoint deletes its own uploads pre-response, but /run
+    # batches and crash-orphaned validate-* directories age out here
+    # too, so retention holds even if operators only ever preview.
+    upload_retention.sweep(UPLOADS_DIR)
 
     os.makedirs(UPLOADS_DIR, exist_ok=True)
     batch_dir = tempfile.mkdtemp(prefix="validate-", dir=UPLOADS_DIR)

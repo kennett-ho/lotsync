@@ -15,6 +15,11 @@ certification, and no assistive-technology user study has run yet
 *DealerDOH has been audited and remediated toward WCAG 2.2 AA-quality
 behavior across the tested v1.1 workflows.*
 
+Sprint 15 (Rail L) derived a draft public
+[`ACCESSIBILITY_STATEMENT.md`](ACCESSIBILITY_STATEMENT.md) strictly
+from this record — keep the two in sync; the statement must never
+claim more than this document proves.
+
 ---
 
 ## 1. Audit methodology (Sprint 14)

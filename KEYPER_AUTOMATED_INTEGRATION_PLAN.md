@@ -386,6 +386,11 @@ Sprint 17 evidence must include:
 - Targeted Rail L update covering the inbound-email provider as a
   subprocessor, report/attachment and message-metadata retention,
   Keyper user/comment context, deletion, and affected policy text.
+  The Sprint 15 baseline to amend: `PRIVACY_ARCHITECTURE.md` (§9
+  records this future boundary and the purpose grounding for the
+  workforce fields), `DATA_RETENTION.md`, `SUBPROCESSORS.md`
+  (provider currently listed as Planned / not active), and
+  `LEGAL_READINESS.md`.
 - Targeted post-Rail-M human verification of every new HOLD review,
   freshness/staleness, and Keyper work surface; the full Sprint 16 UAT
   cannot silently stand in for workflows added afterward.
@@ -397,7 +402,10 @@ Before Sprint 18 readiness can pass, record decisions for:
 1. Inbound-email provider and verified callback contract.
 2. Actual Keyper cadence and Fresh/Aging/Stale thresholds.
 3. Human review/resume surface for fingerprint-bound HOLDs.
-4. Retry/dead-letter retention and operator ownership.
+4. Retry/dead-letter retention and operator ownership — within the
+   ratified D4 bound (`DATA_RETENTION.md` §3, 2026-08-21): raw HOLD
+   files are retained **no longer than 30 days** unless this design
+   supersedes it with a later explicitly governed policy.
 5. Whether the real unattended failure/HOLD experience triggers the
    still-CONDITIONAL Notifications rail.
 

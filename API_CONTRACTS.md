@@ -491,7 +491,14 @@ mechanism behind `execution_status`.
   reference one (`Task.assigned_employee_id`, `Event.actor_employee_id`)
   is presently free, unconstrained text. This DTO defines the shape
   both sides should agree to build against; it does not imply the
-  backend already serves it.
+  backend already serves it. *(Correction — Sprint 15 audit,
+  2026-08-20: migration `0006_employee_dealership.sql` has since
+  created the `employee` table in both engines. It is **empty in
+  every environment** — no code writes it, the reference columns
+  remain unconstrained text in practice, and the DTO remains
+  unserved. The sentence above was true when written and is kept for
+  history; the table-existence fact is now governed by
+  `PRIVACY_ARCHITECTURE.md` §2.1's inventory.)*
 - **Example payload:**
   ```
   {
@@ -523,7 +530,13 @@ mechanism behind `execution_status`.
   reconciliation — no frontend action edits a Dealership's own record.
 - **Write-only / Computed fields:** none.
 - **Implementation status, stated plainly:** same gap as Employee — **no
-  migration creates a `dealership` table today.**
+  migration creates a `dealership` table today.** *(Correction —
+  Sprint 15 audit, 2026-08-20: migration
+  `0006_employee_dealership.sql` creates `dealership` too, and
+  migration 0009 gave it `organization_id`; the DEV access model
+  populates store rows (e.g. `qa-motors`) since Sprint 05, while
+  production rows are created only at the migration's Release C
+  prep. The DTO itself remains unserved by any endpoint.)*
 - **Known gap, not resolved here:** every frontend screen that displays
   a Dealership in a Dealer Trade or Transportation context wants
   `city`, `state`, and sometimes `contact` — none of which exist in

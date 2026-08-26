@@ -53,6 +53,11 @@ class PostHogPostureTest(unittest.TestCase):
                         "capture_pageleave: false",
                         "disable_session_recording: true",
                         "disable_surveys: true",
+                        # Sprint 15 (Rail L): localStorage-only
+                        # persistence -- the SDK's default
+                        # 'localStorage+cookie' mode set the app's ONLY
+                        # cookie; DealerDOH sets no cookies at all.
+                        "persistence: 'localStorage'",
                         "person_profiles: 'identified_only'"):
             self.assertIn(required, analytics, required)
 

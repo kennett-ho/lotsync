@@ -14,6 +14,9 @@
  * - session recording OFF (owner privacy review required to ever
  *   turn it on)
  * - no form capture, no arbitrary DOM text
+ * - persistence: localStorage ONLY (Sprint 15) -- the SDK default
+ *   'localStorage+cookie' set the app's only cookie; DealerDOH sets
+ *   no cookies at all (PRIVACY_ARCHITECTURE.md §4)
  *
  * Sprint 14 (Rail J): the SDK is now loaded with a dynamic import()
  * so its ~235 kB (the single largest bundle contributor) leaves the
@@ -80,6 +83,14 @@ export function initAnalytics(): void {
         // surveys module from the PostHog CDN by default. No surveys
         // are used -- keep the collection surface (and network) minimal.
         disable_surveys: true,
+        // Sprint 15 (Rail L): the SDK default is 'localStorage+cookie',
+        // which made this SDK the source of DealerDOH's ONLY cookie (a
+        // first-party ph_* identifier cookie -- measured on deployed
+        // DEV, 2026-08-20). localStorage alone provides identical
+        // identity persistence for a single-origin app, so the cookie
+        // is eliminated rather than documented: DealerDOH sets no
+        // cookies at all (PRIVACY_ARCHITECTURE.md §4).
+        persistence: 'localStorage',
         person_profiles: 'identified_only',
       })
       posthog.register({ environment: OBS_ENVIRONMENT, release: OBS_RELEASE })

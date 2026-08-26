@@ -40,7 +40,7 @@ Do not rewrite history when architecture changes later. Record what was true at 
 | **Production persistence** | SQLite on Render persistent disk |
 | **Production Auth** | Disabled / not yet rolled out |
 | **Development product** | DealerDOH |
-| **Development branch / current head** | `dev` / `b3c35e1` (PR #27 merged 2026-08-25 — D4 bounded-retention remediation, DEV-verified; Rail L Merged — NOT Verified, D2/D5 publication execution pending) |
+| **Development branch / current head** | `dev` / `bd1e72a` (PR #29 merged 2026-08-25 — Sprint 16 UAT package; = the canonical Rail M session SHA; Rail L Merged — NOT Verified, D2/D5 publication execution pending) |
 | **Development persistence** | Supabase PostgreSQL |
 | **Development Auth** | Supabase Auth + FastAPI server-side authorization (`AUTH_MODE=required`) |
 | **Current backend regression baseline** | 712/712 SQLite and 712/712 PostgreSQL on merged `dev` = `c916208` (Sprint 14; +55 perf/a11y guards over the Sprint 13 baseline) — re-verified 2026-08-20 on the Sprint 15 branch (712/712 both engines; one posture pin extended, no new tests) and 2026-08-21 on merged `dev` = `608dcaf` via CI (both engines); **732/732 canonical on merged `dev` = `b3c35e1` 2026-08-25 via CI, both engines** (+20 retention boundary tests, PR #27) |
@@ -50,7 +50,7 @@ Do not rewrite history when architecture changes later. Record what was true at 
 | **Current release target** | `v1.1.0-beta.1` |
 | **Open PRs** | tracked per sprint; see Git/PR records in each entry |
 | **Public domain** | `dealerdoh.com` owned; production domain cutover not yet performed |
-| **Immediate focus** | Sprint 15 — Privacy / Legal (Rail L) **MERGED**: PR #25 → `dev` = `608dcaf` (2026-08-21, CI green on the merged head; branch deleted). Rail L register = **Merged — NOT Verified; Execution Pending** — Verified waits on D2 mailbox → owner-approved final text → D5 pre-cutover publication on `dealerdoh.com`; **D4's tested implementation is release-gating**. Owner decisions **D1–D10 RESOLVED 2026-08-20; D4 RATIFIED 2026-08-21** (7d accepted / 30d rejected-or-HOLD / HOLD ≤ 30d; legacy production prune only at the production release/operator gate, never a merge). **D4 bounded-retention remediation MERGED + DEV-VERIFIED — PR #27 → `dev` = `b3c35e1`** (2026-08-25; CI green on the merged head; deployed review window PASSED: rid-correlated sweep records, kill-switch cycle disabled/unknown/removed live-proven, env restored — no override remains; **the Sprint 15 no-cookie proof COMPLETED on deployed DEV**; production NOT activated — the hard 8-step Sprint 18 checklist in `V1_1_RELEASE_READINESS.md` §5.L governs activation incl. the operator-gated one-time legacy prune). All five customer-facing drafts remain **unpublished** (Rail L Verified still waits on D2/D5 publication execution). Sprint 10 remains **Implementation Paused — Awaiting Vendor Evidence**; Rail D NOT Verified; Sprint 17 remains **Planned**; **next: Sprint 16 — Human UAT** on explicit owner go. Production untouched (`master` = `13c4f815` = `v1.0.0-beta.6`). |
+| **Immediate focus** | Sprint 15 — Privacy / Legal (Rail L) **MERGED**: PR #25 → `dev` = `608dcaf` (2026-08-21, CI green on the merged head; branch deleted). Rail L register = **Merged — NOT Verified; Execution Pending** — Verified waits on D2 mailbox → owner-approved final text → D5 pre-cutover publication on `dealerdoh.com`; **D4's tested implementation is release-gating**. Owner decisions **D1–D10 RESOLVED 2026-08-20; D4 RATIFIED 2026-08-21** (7d accepted / 30d rejected-or-HOLD / HOLD ≤ 30d; legacy production prune only at the production release/operator gate, never a merge). **Sprint 16 — Human UAT: PARKED at the human-testing gate** (owner decision 2026-08-25) — **Rail M = Human Verification Pending; UAT package and DEV preflight complete** (PR #29 → `dev` = `bd1e72a` = the canonical session SHA; `UAT_PLAN.md`/`UAT_SCRIPT.md`/`UAT_FINDINGS.md` canonical; preflight PASSED, no pre-UAT blocker; findings log deliberately empty; human sessions deferred to the pre-pilot window when representative participants exist — a scheduling decision, NOT a technical blocker; automated QA is never a substitute). D4 remains **Merged + DEV-verified, production NOT activated** (the 8-step §5.L Sprint 18 checklist governs activation). Rail L remains **Merged — NOT Verified** (D2/D5 publication execution). All five customer-facing drafts remain **unpublished**. Sprint 10 remains **Implementation Paused — Awaiting Vendor Evidence**; Rail D NOT Verified; **Sprint 17 remains Planned — may proceed in parallel only by explicit owner waiver/kickoff** (register §9 sequencing rule; vendor Event-vs-Full evidence still gates its activation/verification; Sprint 18 cannot pass while Rail M is unverified). Production untouched (`master` = `13c4f815` = `v1.0.0-beta.6`). |
 
 **Production rule:** `master` is what real dealership users are allowed to depend on. Normal development belongs on task branches and `dev`; production remains frozen until an explicit release train is approved.
 
@@ -2278,6 +2278,80 @@ healthy.
 **Merged — NOT Verified**; Sprint 17 remains **Planned**. Next:
 **Sprint 15 — Privacy / Legal** on explicit owner go (no
 release-blocking perf/a11y prerequisite found).
+
+---
+
+# Sprint 16 — Human UAT / Operational Validation (Rail M)
+
+**Status:** **Parked at the human-testing gate — Rail M = Human
+Verification Pending; UAT package and DEV preflight complete**
+(owner decision 2026-08-25). This is a deliberate scheduling park,
+**not** a technical blocker: representative dealership participants
+(Manager/Admin + Lot Staff) are unavailable until the pre-pilot /
+pilot-readiness window.
+
+**What exists and is canonical (merged PR #29 → `dev` = `bd1e72a`,
+CI green on the merged head; both DEV services byte-verified
+serving `bd1e72a` = the canonical session SHA):**
+
+- **`UAT_PLAN.md`** — methodology: scope (v1.1 current
+  functionality only; Sales module / billing / multi-rooftop /
+  Sprint 17 automation / Sprint 18 operations out of scope), roles,
+  DEV-synthetic-only environment and data safety, 20–40 min session
+  format, non-leading moderation philosophy, evidence categories
+  and metrics, pseudonymous-participant privacy rules, fix policy
+  (P0–P3 + Discovery→roadmap), Rail M exit-criteria mapping, and
+  **Appendix A: the executed DEV preflight record — PASSED, no
+  pre-UAT blocker** (deployment identity, auth/memberships — all
+  five QA accounts active, dataset matched `SYNTHETIC_QA_MATRIX.md`
+  exactly, role nav, Vehicles/search/Sold filter, Vehicle Detail +
+  timeline incl. the QA1016 honored story, Tasks groups, Inventory
+  Sync page, Help + onboarding replay, skip-link on first Tab, zero
+  application console errors, DEV banner visible; honest
+  limitations recorded).
+- **`UAT_SCRIPT.md`** — the in-person moderator script: Manager
+  M1–M7 and Lot Staff L1–L9 grounded in real standing fixtures
+  (QA1013 / QA1016 / QA1042 / QA1014 / QA1023 / QA1025–26), Sales
+  Manager S1–S7 as separate Sales Operations Discovery, opening
+  language, closing questions, blocked-participant protocol.
+- **`UAT_FINDINGS.md`** — the structured evidence log with
+  integrity rules and the finding template. **Deliberately empty:
+  no human sessions have occurred and nothing is fabricated.**
+- The **Human UAT Launch Packet** was delivered to the owner
+  (participants, order, accounts, scenarios, what to record, what
+  not to explain, privacy guidance, known designed behaviors not to
+  mistake for bugs — e.g. the evidence-driven task lifecycle with
+  no manual complete control, the VIN-only header search vs the
+  stock/VIN/make/model page search, Lot Staff correctly having no
+  Inventory Sync surface).
+
+**Explicit rule while parked:** automated QA is **not** a
+substitute for human evidence. Rail M's §5.M exit conditions stand
+unchanged; the rail cannot move past Human Verification Pending
+until real Manager/Admin and Lot Staff sessions occur and their
+findings are dispositioned.
+
+**Un-parking procedure:** owner conducts sessions per the launch
+packet against `bd1e72a` — or, if `dev` has moved, re-run the
+Appendix A deployment-identity + preflight checks against the new
+SHA first — then supply raw observations; Sprint 16 resumes at
+Phase 4 (findings processing → triage → evidence-based remediation
+→ human re-validation → `UAT_EXIT_REPORT.md` → owner-approved Rail
+M disposition).
+
+**Sequencing note (owner question answered 2026-08-25):** per this
+register's own sequencing rule (§9), a sprint may start when the
+rails it depends on are Verified **or the dependency is explicitly
+waived by the owner**. Sprint 17 implementation may therefore
+proceed in parallel with Rail M parked **only by explicit owner
+waiver/kickoff**, and with these unchanged hard bounds: Sprint 17
+cannot activate unattended Keyper processing or become Verified
+without the real Event-vs-Full vendor evidence (Rail D / Sprint 10
+remain blocked on it); the §5.L and §5.M **Sprint 17 delta rules**
+still apply, so Sprint 17's new human surfaces (HOLD review/resume,
+freshness) join the same deferred human-verification window; and
+**Sprint 18 cannot pass while Rail M is not Verified** — parking
+UAT moves it onto the release-readiness critical path.
 
 ---
 

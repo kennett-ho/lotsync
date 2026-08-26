@@ -4,7 +4,19 @@
 Created Infrastructure Sprint 08 (2026-08-16). Production remains
 LotSync **`v1.0.0-beta.6`** (`master` @ `13c4f815`, SQLite, no auth)
 and stays there until every REQUIRED rail below passes its exit
-conditions and `/release-readiness` returns ready.
+conditions **or carries an explicit, dated owner-waived deferral
+recorded in this register** and `/release-readiness` returns ready.
+
+**Release posture amendment (owner decision 2026-08-25 — §11):**
+`v1.1.0-beta.1` is a **controlled technical/internal beta release —
+Human Validation Deferred to v1.5 Readiness**. It is not the
+commercial pilot candidate and is not presented as commercially
+validated. Rail M (Human UAT) is deferred from the v1.1 ship gate by
+explicit owner waiver and **remains required, unweakened, before
+v1.5 Commercial Pilot Candidate readiness** (§11). Sprint 18 is
+redefined as the **compressed v1.1 release gate** (§11). This is a
+sequencing change only: no UAT requirement is weakened, no absent
+evidence is claimed.
 
 `v1.1.0-beta.1` is the first DealerDOH-era production release: the
 Sprint 06/07-proven migration (Releases A–C: code → PostgreSQL →
@@ -46,7 +58,7 @@ register.
 | J — Performance & Resilience | REQUIRED | **Verified** (Sprint 14 merged as PR #23 → `dev` = `c916208`, CI green on the merged head incl. the new bundle-budget gate; both DEV services restored to `dev` and verified serving the merge SHA (API `/health` release + bundle-baked SHA; Vercel auto-deployed on the Production-Branch push — no manual promote needed). **Merged-head deployed evidence 2026-08-20:** exactly ONE `/dashboard` request per role landing (both roles, live — the sprint's original duplicate-fetch finding closed); initial JS wire 169.2 kB compressed on a fresh fetch of the merged assets (Sprint 13 single-chunk baseline ≈ 256 kB gzip); deferred PostHog chunk loading with explicit events flowing and Sentry present; lazy Inventory Sync/Profile+User Management/Help chunks loading on nav; QA-scale search 3–9 ms/keystroke with the render caps correctly dormant; work-order generation exercised keyboard-only by both roles (pending state → one request → 227–269 ms); warm request band 104–293 ms after pool settle; zero console/CSP violations with the full lazy graph live. Production-scale behavior (bounded first-100/Show-all, newest-150/Show-older, 27–186 ms keystrokes at 1,197 rows, 0.033 s validation, sync_run growth eliminated) verified on the identical build against the production-shaped dataset during the review window and pinned by CI guards. Cold start measured and separated: 32.3 s and 52.3 s free-tier wakes (timed idle) vs ~3 ms warm server-side — platform band, documented, not an application defect. Full record: `PERFORMANCE.md` + `SPRINT_HISTORY.md`) | 14 | **Yes** | §5.J thresholds met at 4,700+ vehicle scale incl. slow-network behavior | Measurement report ✓ (`PERFORMANCE.md`) · fix PRs ✓ (#23) · CI gates ✓ · deployed smoke ✓
 | K — Accessibility | REQUIRED (blocking subset — §5.K) | **Verified** (Sprint 14 merged as PR #23 → `dev` = `c916208`; both DEV services verified serving it. **Merged-head deployed evidence 2026-08-20, both roles (Manager + the owner's Lot Staff account), real key events:** first Tab on an authenticated fresh load reveals the skip link and Enter lands focus in `<main>`; visible focus throughout; onboarding replay is a true modal live (lazy chunk, focus entry, containment, step announcements, Escape=Skip, close returns focus to `<main>`); Vehicle Detail open/Escape focus cycles with truthful breadcrumbs on both roles; mobile drawer inert-when-closed → open-focuses-Close → Escape-returns-to-hamburger with `aria-expanded`; keyboard-focusable upload inputs with a visible focus ring; a zero-mutation validate-only pass announced its outcome live (`role=status`, Rejected verdict rendered, Run stayed disabled); phone-width Lot Staff flow and 640 px zoom-equivalent with zero horizontal overflow and zero sub-24px targets; signature 5.27:1 and sync-badge 6.92:1 measured from the merged stylesheet. axe: **0 violations on all five audited surfaces at production data shape** on the identical build (deployed-origin injection is blocked by our own CSP — recorded as a tooling constraint; supporting evidence only, no formal WCAG conformance claimed). The blocking subset passes on the core workflows; remainder tracked in `ACCESSIBILITY.md` §5 (SR-user study carried to Rail M). Full record: `ACCESSIBILITY.md` + `SPRINT_HISTORY.md`) | 14 | **Yes** (blocking subset) | Blocking subset passes on core workflows; remainder documented as tracked remediation | Audit checklist ✓ (`ACCESSIBILITY.md` §3) · fix PRs ✓ (#23) · DEV keyboard/contrast evidence ✓ (deployed, both roles)
 | L — Privacy / Legal Readiness | REQUIRED ASSESSMENT (internal-beta subset blocks — §5.L) | **Merged — NOT Verified; Execution Pending** (Sprint 15 merged as **PR #25 → `dev` = `608dcaf`**, 2026-08-21; parents `daf5ae0` + `0e83425`; CI green on the merged head — both backend engines, frontend build + bundle budget, security scans; feature branch deleted both sides. **Verified waits on execution only:** D2 real monitored mailbox → owner-approved final text → D5 publication on `dealerdoh.com` before the v1.1 production cutover. Separately, **D4's tested implementation: MERGED + DEV-VERIFIED — production NOT activated** (**PR #27 merged 2026-08-25 as `dev` = `b3c35e1`**, CI green on the merged head; 7-day/30-day ratified windows, +20 boundary tests, 732/732; **deployed DEV review window PASSED 2026-08-25 on `52596d1`**: request-id-correlated `upload_retention_sweep` records live (scanned 0→1→1→2→3, all kept, zero deletions/errors — in-flight safety and counts-plus-server-timestamps-only logging proven; client filenames appear nowhere), all three `/run` outcome markers exercised through their exact unchanged 422/409 contracts, and the **kill-switch cycle live-proven**: `UPLOAD_RETENTION_SWEEP=disabled` → sweep silent, unknown value → fails closed, variable removed → default sweep returns; DEV env restored to its original 12 variables — no override remains. **Production still runs pre-D4 code; activation is governed by the hard 8-step Sprint 18 checklist in §5.L** (backup → deploy-with-kill-switch → verify → inspect legacy → explicit approval → one-time prune → remove switch → verify steady state); the legacy prune stays operator-gated per `DATA_RETENTION.md` §3). **The Sprint 15 merged-head no-cookie proof COMPLETED on deployed DEV 2026-08-25**: `document.cookie` empty (length 0) on a fresh load AND after authenticated navigation while PostHog is demonstrably active (`ph_phc_…` persistence in localStorage; deployed-bundle byte-check `persistence:'localStorage'` + `person_profiles:'identified_only'` with the key baked) — DealerDOH sets no cookies at all, live-confirmed. Original branch record follows —) (Sprint 15, 2026-08-20, branch `feature/sprint-15-privacy-legal`: audit-FIRST, then documents. Evidence-tagged privacy/data-flow inventory in **`PRIVACY_ARCHITECTURE.md`** (all 13 tables; **consumer-data boundary verified at the data-model level: no customer/consumer personal information is ingested by any current contract or persist path**, raw-upload verbatim-retention caveat recorded; workforce-data reality — no structured person names until the planned Sprint 17 contract, incidental vendor free-text = audit F2; browser-storage census MEASURED on deployed DEV + deployed-bundle telemetry-flag byte-check 2026-08-20; platform-layer IP/device metadata stated honestly; upload/output/file lifecycle; backups; internal incident-response procedure §10; minimization review). Retention record **`DATA_RETENTION.md`** (current behavior vs adopted v1.1 policy vs future requirement per artifact; the raw-upload indefinite-retention finding → owner decision **D4 — ratified 2026-08-21: 7-day accepted / 30-day rejected-or-HOLD bounded retention with deletion, never an indefinite default; implementation pending as the bounded retention remediation**; **no deletion behavior changed**; migration-plan retention decisions §17–18 carried through consistently). **`LEGAL_READINESS.md`** point-in-time assessment from authoritative sources (FTC Act §5 Applicable; A.R.S. §§ 18-551/552 breach frame incl. the 45-day/1,000-person mechanics; **GLBA/Safeguards stated carefully, non-categorically: the intended/validated flows do not appear to involve Safeguards "customer information" and DealerDOH does not currently appear to act as a Safeguards service provider for such information — retained raw uploads keep incidental receipt a live data-minimization risk, and the reassessment trigger covers receiving, retaining, maintaining, processing, or being permitted access to customer information**; Arizona: no enacted comprehensive consumer privacy law (SB 1815 introduced in the 2026 session, not enacted); CCPA/other-state/GDPR/COPPA/DPPA classified with rationale) + **owner decision register D1–D10** + **counsel register C1–C8**. Five customer-facing documents DRAFTED (`PRIVACY_POLICY.md`, `BETA_TERMS.md`, `ACCESSIBILITY_STATEMENT.md` strictly from Rail K's real results, `SECURITY_OVERVIEW.md`, `SUBPROCESSORS.md` — environment-honest incl. the GitHub not-a-subprocessor determination and the future email provider marked Planned) — every one marked **Draft — not in effect, not published** (banners carry the resolved-decision context and the D9 disposition), placeholders only where genuinely fill-at-publication (effective dates, the D2 contact), zero invented facts/entities/contacts. One evidence-backed remediation: PostHog `persistence: 'localStorage'` — the SDK default (`localStorage+cookie`) set the app's ONLY cookie (measured live); **DealerDOH now sets no cookies at all**, pinned in `tests/test_frontend_observability_config.py`. Suites 712/712 SQLite + 712/712 PostgreSQL on the branch; frontend build clean. **Owner decisions D1–D10 RESOLVED 2026-08-20** (D1 identity = "DealerDOH, operated by Kennett Ho," no entity implied; D2 real monitored dealerdoh.com contact to be created before publication, placeholders never published as real; D3 U.S.-only, initial controlled beta at an Arizona dealership; D4 raw uploads = temporary operational evidence — **7-day-accepted / 30-day-rejected-or-HOLD bounded retention RATIFIED 2026-08-21**, sweep design approved in principle (`DATA_RETENTION.md` §3); implementation pending, legacy production prune gated to the release/operator step (never at merge); D5 publication on dealerdoh.com — planned /privacy /terms /accessibility, /security if appropriate — before the v1.1 production cutover, never on current LotSync production; D6 notice-only acceptance for the employee beta, org-level contracts reassessed for v2; D7 customer-neutral public policies, drafts swept clean of the dealership name; D8 provider claims verified against actual plans pre-publication, tracked as manual release-readiness actions; **D9 recorded honestly: NO attorney review completed for the v1.1 controlled beta — documents are beta/evaluation readiness materials, qualified review recommended/required before commercial GA — this is the rail's owner-accepted-risk record**; D10 paid-Supabase = production-readiness decision, benefits verified before claimed). **Verified now gates on execution only: merge + merged-head CI, then D2's real mailbox + owner-approved final text + the D5 pre-cutover publication (§5.L exit 2)**; **D4's durations are ratified (2026-08-21); its tested cleanup implementation remains release-gating — before the v1.1 release train, checked at Sprint 18; the legacy production prune never runs at a merge**; the §5.L Sprint 17 delta rule stands untouched) | 15 | **Yes** (subset) | Data inventory accurate; internal-beta documents published; commercial items explicitly deferred with owner sign-off | Merged PR #25 ✓ (`608dcaf`) · CI green on merged head ✓ · Data-flow inventory ✓ · docs drafted, decisions D1–D10 resolved ✓ (publication pending D2/D5 execution before the v1.1 cutover) · deferral/risk record incl. the D9 owner-accepted-risk disposition ✓ (`LEGAL_READINESS.md` §5–§7) · deployed no-cookie proof ✓ (2026-08-25) · D4 implementation MERGED + DEV-verified ✓ (PR #27 → `b3c35e1`; review-window evidence in `SPRINT_HISTORY.md`) · publication ⏳ + D4 production activation via the §5.L Sprint 18 checklist ⏳ = the Verified/release gates |
-| M — Human User Acceptance Testing | REQUIRED | **Human Verification Pending — UAT package and DEV preflight complete** (Sprint 16, 2026-08-25: methodology + moderator script + findings log canonical — `UAT_PLAN.md` / `UAT_SCRIPT.md` / `UAT_FINDINGS.md`, merged PR #29 → `dev` = `bd1e72a` = **the canonical session SHA**, both DEV services byte-verified serving it; **DEV preflight PASSED** (`UAT_PLAN.md` Appendix A) — no pre-UAT blocker; the findings log is deliberately empty. **Human sessions deliberately deferred by owner decision 2026-08-25** — representative Manager/Admin + Lot Staff participants are unavailable until the pre-pilot / pilot-readiness window; this is an owner scheduling decision, not a technical blocker. **Automated QA is not and will not be substituted for human evidence**; the exit conditions in §5.M stand unchanged and still require real sessions before any Verified disposition. Un-parked by: owner conducts sessions per the launch packet against `bd1e72a` (or a re-preflighted successor SHA) and supplies raw observations for Phase 4 processing) | 16 | **Yes** | Manager + Lot Staff UAT complete; all release-blocker findings fixed and re-verified | UAT session notes · blocker list dispositions · re-test evidence · package + preflight ✓ (PR #29, `bd1e72a`) · human sessions ⏳ (pre-pilot window) |
+| M — Human User Acceptance Testing | REQUIRED — **deferred from the v1.1 ship gate by explicit owner waiver 2026-08-25 (§11); required before v1.5 commercial pilot readiness** | **Human Verification Pending — deferred from v1.1 release gate by owner decision; required before v1.5 pilot readiness** — evidence state preserved: UAT package and DEV preflight complete (Sprint 16, 2026-08-25: methodology + moderator script + findings log canonical — `UAT_PLAN.md` / `UAT_SCRIPT.md` / `UAT_FINDINGS.md`, merged PR #29 → `dev` = `bd1e72a` = **the canonical session SHA**, both DEV services byte-verified serving it; **DEV preflight PASSED** (`UAT_PLAN.md` Appendix A) — no pre-UAT blocker; the findings log is deliberately empty. **Human sessions deliberately deferred by owner decision 2026-08-25** — representative Manager/Admin + Lot Staff participants are unavailable until the pre-pilot / pilot-readiness window; this is an owner scheduling decision, not a technical blocker. **Automated QA is not and will not be substituted for human evidence**; the exit conditions in §5.M stand unchanged and still require real sessions before any Verified disposition. Un-parked by: owner conducts sessions per the launch packet against `bd1e72a` — or re-preflight against the then-current candidate if `dev` has materially moved — and supplies raw observations for Phase 4 processing) | 16 (human window: pre-v1.5) | **Waived for v1.1 (owner, 2026-08-25 — §11); blocks v1.5 pilot readiness** | Manager + Lot Staff UAT complete; all release-blocker findings fixed and re-verified — criteria unchanged by the waiver | UAT session notes · blocker list dispositions · re-test evidence · package + preflight ✓ (PR #29, `bd1e72a`) · human sessions ⏳ (v1.5 readiness gate, §11) |
 | Production migration (Releases A–C) | REQUIRED | **Rehearsed** (Sprint 07 PASS — not executed) | RC/cutover (18) | **Yes** | Runbook executes at cutover; Sprint 18 re-verification confirms rehearsal assumptions still hold | `PRODUCTION_MIGRATION_REHEARSAL.md` · refreshed rehearsal if drift · runbook completion record |
 | Automated Report Ingestion — Keyper Scheduled All Vehicles | **CONDITIONAL — TRIGGERED / owner-opted into v1.1** (§6.2, 2026-08-18) | Planned | 17 | **Yes — now that the rail has entered v1.1** | Configured dealership receives, deduplicates, validates, HOLDs or safely processes Keyper Full evidence through the Rail D boundary | Vendor evidence · merged PR · dual-engine CI · DEV acquisition/replay/HOLD smoke · observability evidence · H/I/J/L/M delta-gate evidence |
 
@@ -721,11 +733,29 @@ removal restores the default) — see `DATA_RETENTION.md` §3 and
 **Evidence:** session notes per role; the dispositioned finding
 list; re-test records; telemetry cross-check.
 
+**v1.1 ship-gate deferral (owner decision 2026-08-25 — §11):** this
+rail is **deferred from the v1.1 ship gate by explicit owner
+waiver**. Rationale: representative dealership participants are
+unavailable until the pre-pilot window, and v1.1 is redefined as a
+controlled technical/internal beta, not the commercial pilot
+candidate. **Nothing above is weakened**: the exit conditions stand
+verbatim, the rail cannot be marked Verified/Complete/Passed without
+real human evidence, and it **blocks v1.5 Commercial Pilot Candidate
+readiness** (§11). The Sprint 16 UAT package, launch packet,
+preflight evidence, session criteria, and deliberately-empty
+findings log remain canonical; the human window re-preflights
+against the then-current candidate if `dev` has materially moved
+since session SHA `bd1e72a`.
+
 **Sprint 17 delta rule:** Sprint 16 remains the full uncoached product
 UAT. Any new Sprint 17 human surface — especially HOLD review/resume,
 freshness/staleness, or newly surfaced Keyper work — requires targeted
-human re-verification or an explicitly approved real-world pilot before
-Sprint 18, not a silent assumption that earlier UAT covered it.
+human re-verification or an explicitly approved real-world pilot, not
+a silent assumption that earlier UAT covered it. **Timing amended with
+the 2026-08-25 waiver:** this human re-verification joins the same
+deferred window and gates **v1.5 pilot readiness** (§11) rather than
+the compressed v1.1 Sprint 18 gate; the requirement itself is
+unchanged.
 
 ---
 
@@ -905,9 +935,9 @@ never silently before:
 | 13 | Security Hardening + Supply Chain | H + I + Repository Public-Release Sanitation audit (§5.H.1 — gates repo visibility, not v1.1) | Audits the finished auth/ingestion/UX/telemetry surface once, not twice; folds I and the history audit into the same evidence pass |
 | 14 | Performance + Accessibility | J + K | After features stabilize so measurements and audits hit the real product; shared browser-audit tooling |
 | 15 | Privacy / Legal Readiness | L | Establishes the pre-acquisition data-flow/legal baseline; Sprint 17 must add its provider/attachment/retention delta before Sprint 18 |
-| 16 | Human UAT | M | Full uncoached core-product UAT; Sprint 17 must target-reverify any new HOLD/freshness/Keyper-work surface it adds |
+| 16 | Human UAT | M | Full uncoached core-product UAT; Sprint 17 must target-reverify any new HOLD/freshness/Keyper-work surface it adds. **2026-08-25: parked at the human-testing gate (package + preflight complete) and deferred from the v1.1 ship gate by owner waiver — human window moves to v1.5 pilot readiness (§11)** |
 | 17 | Vendor Integration & Automated Evidence Acquisition | Automated Report Ingestion (§6.2; conditional trigger satisfied) | Keyper Scheduled All Vehicles is the first bounded unattended source; it reuses the Sprint 10 safety boundary and Sprint 11 observability, then refreshes the affected security/privacy/performance/UAT evidence because it lands after those sprints |
-| 18 | Release Candidate Freeze / Release Readiness | Migration rail + `/release-readiness` | Freeze scope; run the Notifications checkpoint and all Sprint 17 delta gates; final audits/regression/smoke; verify Sprint 07 migration assumptions still hold (schema drift → targeted rehearsal refresh with the updated tool); select the production window (G3) |
+| 18 | **v1.1 Release Gate / Production Cutover Readiness (compressed — owner redefinition 2026-08-25, §11)** | Migration rail + `/release-readiness` | **A release gate, not a feature sprint**: only the minimum evidence-backed checks and operator actions to ship v1.1 as a controlled beta — the §11 A–I gate (exact RC SHA + scope freeze; production backup/rollback; production architecture/provider verification; Rail L D2/D5 execution; the §5.L D4 8-step production activation; proportional auth/security/privacy production smoke; migration/data integrity; explicit known-limitations register; final owner GO/NO-GO). No new feature development unless required to resolve a true release blocker. Supersedes the broader RC-hardening description for v1.1 |
 
 **Changes from the provisional Sprint 09–18 plan, with reasons:**
 1. **Observability moved from 13 → 11** (rationale above — the
@@ -926,6 +956,12 @@ never silently before:
    satisfied the bounded automated-ingestion trigger. A dedicated
    planned Sprint 17 was added; RC Freeze moved 17 → 18. No unrelated
    vendor automation entered scope.
+7. **Owner amendment 2026-08-25 (§11):** v1.1 redefined as a
+   controlled technical/internal beta; Rail M deferred from the v1.1
+   ship gate by explicit owner waiver (required before v1.5 pilot
+   readiness, unweakened); Sprint 18 redefined as the compressed
+   v1.1 release gate. Sequencing change only — no evidence rule
+   weakened, nothing marked Verified without evidence.
 
 Sequencing rule: a sprint may start only when the rails it depends
 on are Verified or the dependency is explicitly waived by the owner.
@@ -934,6 +970,11 @@ it cannot activate unattended Keyper processing or become Verified
 until the real Event-vs-Full evidence closes that dependency. Because
 Sprint 17 follows H/I, L, and M, it must perform targeted delta review
 instead of assuming those earlier results cover its new surface.
+**Under the 2026-08-25 amendment, Rail M may remain Human
+Verification Pending for the v1.1 controlled beta release under the
+explicit owner waiver, but must be completed before v1.5 commercial
+pilot readiness (§11); Sprint 17's human-surface delta joins that
+same v1.5 window.**
 
 ---
 
@@ -955,15 +996,131 @@ instead of assuming those earlier results cover its new surface.
 7. **Privacy/legal honesty** — accurate inventory and internal-beta
    documents; recorded deferrals (5.L).
 8. **Human UAT** — dealership users succeed uncoached; blockers
-   fixed and re-verified (5.M).
+   fixed and re-verified (5.M). **Deferred from the v1.1 gate by
+   owner waiver 2026-08-25 (§11): ships as Human Verification
+   Pending in the controlled beta; blocks v1.5 pilot readiness,
+   criteria unweakened.**
 9. **Automated Keyper evidence** — configured acquisition is
    authenticated, deduplicated, observable, freshness-aware, and
    still governed by the Rail D Accept/HOLD/Reject boundary (§6.2).
 10. **Final `/release-readiness`** — all in-scope register rows
-   Verified, the Notifications checkpoint recorded,
-   scope frozen, migration assumptions re-confirmed → the Sprint
-   06/07 runbook executes as Releases A–C at the owner-approved
-   window.
+   Verified **or carrying an explicit, dated owner-waived deferral
+   recorded in this register (§11 known-limitations register — no
+   limitation is silently converted to Verified)**, the
+   Notifications checkpoint recorded, scope frozen, migration
+   assumptions re-confirmed → the Sprint 06/07 runbook executes as
+   Releases A–C at the owner-approved window.
+
+---
+
+## 11. v1.1 Release Posture Amendment, Version Staging & the v1.5 Pilot Readiness Gate (owner decision 2026-08-25)
+
+**Owner decision, recorded per the header amendment rule:** v1.1 is
+**a controlled technical/internal beta release — not the commercial
+pilot candidate and not the human-validated commercial release.**
+Human UAT remains required for commercial pilot readiness but is no
+longer a hard blocker to shipping v1.1 as a controlled beta. This is
+a sequencing change only: no UAT requirement is weakened, Rail M is
+never marked Verified/Complete/Passed without real human evidence,
+and nothing is fabricated.
+
+**v1.1 release posture:** `Controlled Beta — Human Validation
+Deferred to v1.5 Readiness`.
+
+### 11.1 Compressed Sprint 18 — the v1.1 release gate (A–I)
+
+Sprint 18 is a **release gate, not a feature sprint**: only the
+minimum evidence-backed checks and operator actions required to
+safely ship v1.1 as a controlled beta. No new feature development
+unless required to resolve a true release blocker.
+
+- **A. Exact release candidate** — identify the exact `dev` SHA to
+  ship; freeze meaningful scope; merged-head CI green; no unresolved
+  release-blocking regression; clean branch/repository state.
+- **B. Production backup and rollback** — fresh verified production
+  backup; rollback procedure confirmed; migration/rollback steps
+  reconciled to the exact RC; no reliance on stale rehearsal
+  evidence where the runtime path changed.
+- **C. Production architecture / provider verification** — verify
+  the actual production configuration being activated: frontend,
+  backend, database, auth, provider plans, regions where relevant,
+  account ownership/access, 2FA where intended, backups where relied
+  upon, monitoring/telemetry configuration, production environment
+  variables/secrets, production origins/domains. No unsupported
+  provider claims (owner D8 discipline).
+- **D. Rail L execution items** — complete or explicitly gate the
+  remaining Sprint 15 execution items before cutover: **D2** create
+  and verify the real monitored `@dealerdoh.com` support/privacy
+  contact; **D5** publish the approved legal/privacy materials on
+  `dealerdoh.com` as applicable — final text reconciled to actual
+  production behavior first; never publish stale or inaccurate
+  drafts.
+- **E. D4 production activation** — execute the hard owner-approved
+  8-step sequence exactly as recorded in §5.L (backup →
+  `UPLOAD_RETENTION_SWEEP=disabled` before the first D4 deployment →
+  verify disabled → inspect legacy population → explicit operator
+  approval → execute + verify the one-time prune → remove the
+  kill-switch → verify steady-state retention). Never weakened,
+  never silently bypassed.
+- **F. Auth / security / privacy production smoke** — proportional:
+  authentication; role/membership enforcement; signup/invite posture
+  matches intent; deactivation; role-gated UI/API; no-cookie posture
+  where applicable; telemetry/redaction posture; production docs
+  disabled; security headers/origin behavior; no sensitive-logging
+  regression; D4 steady state after activation.
+- **G. Migration / data integrity** — migration from the current
+  production shape; row/entity-count or equivalent integrity
+  evidence; representative vehicle/task/event histories; no silent
+  loss; no accidental duplication; production source files/disk
+  assets protected; rollback remains possible.
+- **H. Known limitations / accepted risks** — an explicit register:
+  unresolved vendor-evidence limitations; Rail D state; the Rail M
+  human-verification deferral; non-commercial beta limitations;
+  provider/backup/support limitations; operational caveats. **No
+  limitation may be silently converted into "Verified."**
+- **I. Final owner GO/NO-GO** — before any merge/release to
+  `master`, stop at an explicit owner approval gate reporting: exact
+  RC SHA; rails Verified / deferred / blocked-limited; accepted
+  risks; production steps; rollback plan; legal/privacy publication
+  state; D4 activation state; and a recommendation of GO / GO WITH
+  ACCEPTED LIMITATIONS / NO-GO. **No merge to `master` without
+  owner approval.**
+
+### 11.2 Version staging (roadmap semantics)
+
+| Version | Stage |
+|---|---|
+| **v1.1** | Controlled technical/internal beta — move the DealerDOH foundation into production safely, prove production architecture, continue internal/controlled operational use; **not presented as commercially validated** |
+| **v1.2** | Multi-rooftop / tenant foundation |
+| **v1.3** | Organization/customer identity and configuration |
+| **v1.4** | Sales Operations expansion |
+| **v1.4.5** | Commercial pilot preparation |
+| **v1.5** | **Commercial Pilot Candidate — human UAT / commercial pilot readiness mandatory by this point** |
+
+### 11.3 v1.5 Commercial Pilot Readiness Gate (the deferred human validation — NOT waived)
+
+Before v1.5 may be called `Commercial Pilot Candidate`, all of the
+following must occur. This requirement is moved from *v1.1 ship
+blocker* to *v1.5 commercial pilot blocker* — it is not waived and
+may not erode:
+
+1. Representative **Manager/Admin** human UAT conducted.
+2. Representative **Lot Staff** human UAT conducted.
+3. Any new material Sales-facing workflows tested with appropriate
+   users.
+4. Sprint 17 / new acquisition human surfaces (HOLD review/resume,
+   freshness, Keyper work) included in the re-preflight/UAT where
+   applicable.
+5. No unresolved human blocker.
+6. Severe UAT issues resolved or explicitly accepted by the owner
+   with rationale.
+7. `UAT_EXIT_REPORT.md` completed.
+8. **Rail M receives its real, evidence-backed final disposition**
+   (§5.M criteria verbatim; the Sprint 16 package/launch
+   packet/preflight remain the canonical starting point, re-run
+   against the actual v1.5 candidate).
+9. The pilot environment is re-preflighted against the actual v1.5
+   candidate.
 
 ---
 

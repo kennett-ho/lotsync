@@ -7,7 +7,7 @@ for the full plan this tracks progress against. See
 [`SPRINT_HISTORY.md`](SPRINT_HISTORY.md) for the chronological
 DealerDOH infrastructure history and v1.1.0-beta release roadmap.
 
-**Last updated:** 2026-08-20 (Sprint 15 at the PR approval gate — Rail L **Implementation Complete — Awaiting Merge**; `PRIVACY_ARCHITECTURE.md` + `DATA_RETENTION.md` + `LEGAL_READINESS.md` canonical; owner decisions D1–D10 **resolved**, five customer-facing drafts decision-complete and unpublished pending D2/D5 execution)
+**Last updated:** 2026-08-21 (Sprint 15 **merged** — PR #25 → `dev` = `608dcaf`; Rail L **Merged — NOT Verified; Execution Pending** (D2/D5 publication + the release-gating D4 bounded-retention implementation); `PRIVACY_ARCHITECTURE.md` + `DATA_RETENTION.md` + `LEGAL_READINESS.md` canonical; owner decisions D1–D10 resolved, **D4 ratified 2026-08-21** (7d/30d); all five customer-facing drafts remain unpublished)
 
 ## ⚠️ Production is live and locked (2026-08-15)
 
@@ -212,7 +212,7 @@ claims verified pre-publication (manual release-readiness actions);
 **honest D9 disposition — no attorney review completed for the
 beta, qualified review recommended/required before commercial GA**;
 paid-Supabase as a verified-benefits readiness decision. **Rail L:
-Implementation Complete — Awaiting Merge** — Verified now waits on
+Merged — NOT Verified; Execution Pending** (PR #25 → `dev` = `608dcaf`, 2026-08-21, CI green on the merged head) — Verified now waits on
 execution only (merge + merged-head CI, then D2 mailbox +
 owner-approved final text + D5 pre-cutover publication). Rail D /
 Sprint 10 / Sprint 17 states untouched.

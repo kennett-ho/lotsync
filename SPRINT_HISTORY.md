@@ -40,17 +40,17 @@ Do not rewrite history when architecture changes later. Record what was true at 
 | **Production persistence** | SQLite on Render persistent disk |
 | **Production Auth** | Disabled / not yet rolled out |
 | **Development product** | DealerDOH |
-| **Development branch / current head** | `dev` / `213859f` (PR #26 merged 2026-08-25 — Sprint 15 closeout record; Rail L Merged — NOT Verified, execution pending) |
+| **Development branch / current head** | `dev` / `b3c35e1` (PR #27 merged 2026-08-25 — D4 bounded-retention remediation, DEV-verified; Rail L Merged — NOT Verified, D2/D5 publication execution pending) |
 | **Development persistence** | Supabase PostgreSQL |
 | **Development Auth** | Supabase Auth + FastAPI server-side authorization (`AUTH_MODE=required`) |
-| **Current backend regression baseline** | 712/712 SQLite and 712/712 PostgreSQL on merged `dev` = `c916208` (Sprint 14; +55 perf/a11y guards over the Sprint 13 baseline) — re-verified 2026-08-20 on the Sprint 15 branch (712/712 both engines; one posture pin extended, no new tests) and 2026-08-21 on merged `dev` = `608dcaf` via CI (both engines); **732/732 SQLite locally on the D4-remediation branch 2026-08-25** (+20 retention boundary tests, PR #27; PostgreSQL via CI) |
+| **Current backend regression baseline** | 712/712 SQLite and 712/712 PostgreSQL on merged `dev` = `c916208` (Sprint 14; +55 perf/a11y guards over the Sprint 13 baseline) — re-verified 2026-08-20 on the Sprint 15 branch (712/712 both engines; one posture pin extended, no new tests) and 2026-08-21 on merged `dev` = `608dcaf` via CI (both engines); **732/732 canonical on merged `dev` = `b3c35e1` 2026-08-25 via CI, both engines** (+20 retention boundary tests, PR #27) |
 | **Standing DEV QA dataset** | 34 vehicles, 18 tasks, 2 recommendations, 98 events, 10 sync runs |
 | **Latest completed sprint** | Sprint 14 — Performance, Resilience & Accessibility (Rails J + K Verified) |
 | **Migration readiness** | Technical rehearsal PASS / GO; real production cutover intentionally unscheduled |
 | **Current release target** | `v1.1.0-beta.1` |
 | **Open PRs** | tracked per sprint; see Git/PR records in each entry |
 | **Public domain** | `dealerdoh.com` owned; production domain cutover not yet performed |
-| **Immediate focus** | Sprint 15 — Privacy / Legal (Rail L) **MERGED**: PR #25 → `dev` = `608dcaf` (2026-08-21, CI green on the merged head; branch deleted). Rail L register = **Merged — NOT Verified; Execution Pending** — Verified waits on D2 mailbox → owner-approved final text → D5 pre-cutover publication on `dealerdoh.com`; **D4's tested implementation is release-gating**. Owner decisions **D1–D10 RESOLVED 2026-08-20; D4 RATIFIED 2026-08-21** (7d accepted / 30d rejected-or-HOLD / HOLD ≤ 30d; legacy production prune only at the production release/operator gate, never a merge). **D4 bounded-retention remediation IMPLEMENTED — PR #27 OPEN** (2026-08-25, `feature/d4-bounded-retention` head `9372e87` from `dev` = `213859f` after closeout PR #26 merged; own DEV review window; the merged-head no-cookie proof rides it; legacy production prune still gated). All five customer-facing drafts remain **unpublished**. Sprint 10 remains **Implementation Paused — Awaiting Vendor Evidence**; Rail D NOT Verified; Sprint 17 remains **Planned**; Sprint 16 (Human UAT) begins after PR #27 merges, per the owner's 2026-08-25 sequencing decision. Production untouched. |
+| **Immediate focus** | Sprint 15 — Privacy / Legal (Rail L) **MERGED**: PR #25 → `dev` = `608dcaf` (2026-08-21, CI green on the merged head; branch deleted). Rail L register = **Merged — NOT Verified; Execution Pending** — Verified waits on D2 mailbox → owner-approved final text → D5 pre-cutover publication on `dealerdoh.com`; **D4's tested implementation is release-gating**. Owner decisions **D1–D10 RESOLVED 2026-08-20; D4 RATIFIED 2026-08-21** (7d accepted / 30d rejected-or-HOLD / HOLD ≤ 30d; legacy production prune only at the production release/operator gate, never a merge). **D4 bounded-retention remediation MERGED + DEV-VERIFIED — PR #27 → `dev` = `b3c35e1`** (2026-08-25; CI green on the merged head; deployed review window PASSED: rid-correlated sweep records, kill-switch cycle disabled/unknown/removed live-proven, env restored — no override remains; **the Sprint 15 no-cookie proof COMPLETED on deployed DEV**; production NOT activated — the hard 8-step Sprint 18 checklist in `V1_1_RELEASE_READINESS.md` §5.L governs activation incl. the operator-gated one-time legacy prune). All five customer-facing drafts remain **unpublished** (Rail L Verified still waits on D2/D5 publication execution). Sprint 10 remains **Implementation Paused — Awaiting Vendor Evidence**; Rail D NOT Verified; Sprint 17 remains **Planned**; **next: Sprint 16 — Human UAT** on explicit owner go. Production untouched (`master` = `13c4f815` = `v1.0.0-beta.6`). |
 
 **Production rule:** `master` is what real dealership users are allowed to depend on. Normal development belongs on task branches and `dev`; production remains frozen until an explicit release train is approved.
 
@@ -2659,6 +2659,82 @@ remediation before Sprint 16). Branch
   no-cookie proof, which rides this first flag-active deployed
   build), then owner-approved merge. Sprint 16 — Human UAT begins
   after.
+
+### Deployed DEV review window (2026-08-25) — PASSED
+
+Owner pointed both DEV services at `feature/d4-bounded-retention`
+and provided the pane sessions (manager account + Render). All
+probes DEV-only and zero-mutation.
+
+- **Identity:** API `/health` release and the served frontend
+  bundle both = `52596d1` before AND after three env-change
+  redeploys. Tokenless `GET /dashboard` and
+  `POST /inventory-sync/validate` → 401 throughout.
+- **Sweep, live (request-id-correlated structured records):** six
+  probes exercised every terminal `/run` outcome through its exact
+  unchanged contract (422 `REPORT_VALIDATION_FAILED` /
+  `UNRECOGNIZED_REPORT`; 409 `WARNINGS_NOT_ACKNOWLEDGED` — mdd
+  `NO_DATA_ROWS` + `NO_PRIOR_BASELINE`, `needs_review`; 409
+  `STALE_VALIDATION`; `/validate` 200 DTO with fingerprint). The
+  per-request `upload_retention_sweep` records read scanned
+  0→1→1→2→3 with **everything kept, `deleted_batches=[]`,
+  `delete_errors=0`, `deleted_validate_orphans=0`** — in-flight and
+  current uploads untouched, `/validate` temp dirs never
+  accumulate. Log privacy held: counts and server-generated batch
+  timestamps only; the client filename appears in **no** record.
+- **Kill-switch cycle, live (probe-pair discriminator — first
+  request after each redeploy recreates the wiped uploads root, the
+  second request's id proves sweep presence/absence):**
+  `UPLOAD_RETENTION_SWEEP=disabled` → probe records present, zero
+  sweep records; value `oops-typo` (stored value revealed and
+  confirmed pre-probe) → zero sweep records — **unknown values fail
+  closed**; variable **removed** → sweep record returns
+  (`scanned=1 kept=1`). Env verified restored to exactly the
+  original 12 variables (fresh-load key list) — **no override
+  remains in DEV**.
+- **Sprint 15 no-cookie proof — COMPLETED (the canonical record):**
+  on deployed DEV, `document.cookie` is empty (length 0) on a fresh
+  load AND after authenticated navigation, while PostHog is
+  demonstrably active (`ph_phc_…_posthog` persistence in
+  localStorage, session-scoped `ph_*` keys in sessionStorage) and
+  the Supabase session lives in localStorage
+  (`sb-…-auth-token`). Deployed-bundle byte-check:
+  `persistence:'localStorage'` + `person_profiles:'identified_only'`
+  (template-literal quoting in the minified output) with
+  `VITE_POSTHOG_KEY` baked. **DealerDOH sets no cookies at all —
+  live-confirmed with analytics active.**
+- **QA dataset:** byte-identical at window start, midpoint, and end
+  (`/dashboard` hash `e7c0ea19`/11,160 B; history hash
+  `183b25a`/1,818 B; 2 batches, newest 2026-08-16; zero sync runs
+  added) across three redeploys and eight upload probes.
+- **Honest scope limit:** the 7d/30d/24h aging boundaries cannot be
+  exercised on the deployed ephemeral disk (no shell; batch age
+  derives from server-named directories) — they rest on the 20
+  CI-pinned boundary tests green on this exact SHA on both engines.
+  Known benign behavior: the first request after any redeploy emits
+  no sweep record (uploads root does not exist yet — the documented,
+  test-pinned missing-root no-op).
+
+### Merge + post-merge verification (2026-08-25) — Rail L D4 item: Merged + DEV-verified
+
+**PR #27 owner-approved and MERGED as `b3c35e1` = `dev` head**
+(merge commit, parents `213859f` + `52596d1`; **CI green on the
+merged head** — both backend engines, frontend build, security
+scans; zero review threads). Render DEV restored to tracking `dev`
+by the agent via the pane (searchable branch combobox; committed
+input value verified = `dev` on a fresh load) and auto-deployed the
+merged head: `/health` = `ok / development / postgres /
+release=b3c35e1…`; tokenless 401 intact. **Post-merge D4 smoke on
+the merged backend:** 422 `REPORT_VALIDATION_FAILED` reject probe +
+`/validate` probe, sweep record present in steady state, QA
+dashboard/history hashes byte-identical to the canonical baseline
+(`e7c0ea19` / `183b25a`), `document.cookie` still empty on the
+refreshed authenticated session. No `UPLOAD_RETENTION_SWEEP`
+override configured. **Production untouched** (`master` =
+`13c4f815` = `v1.0.0-beta.6`). Production activation of D4 is
+governed by the hard 8-step Sprint 18 checklist
+(`V1_1_RELEASE_READINESS.md` §5.L, owner-ratified 2026-08-25).
+**Next: Sprint 16 — Human UAT.**
 
 ---
 

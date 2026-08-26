@@ -40,17 +40,17 @@ Do not rewrite history when architecture changes later. Record what was true at 
 | **Production persistence** | SQLite on Render persistent disk |
 | **Production Auth** | Disabled / not yet rolled out |
 | **Development product** | DealerDOH |
-| **Development branch / current head** | `dev` / `daf5ae0` (PR #24 merged — Sprint 14 closeout; Rails J + K Verified) |
+| **Development branch / current head** | `dev` / `608dcaf` (PR #25 merged — Sprint 15 Privacy/Legal; Rail L Merged — NOT Verified, execution pending) |
 | **Development persistence** | Supabase PostgreSQL |
 | **Development Auth** | Supabase Auth + FastAPI server-side authorization (`AUTH_MODE=required`) |
-| **Current backend regression baseline** | 712/712 SQLite and 712/712 PostgreSQL on merged `dev` = `c916208` (Sprint 14; +55 perf/a11y guards over the Sprint 13 baseline) — re-verified 2026-08-20 on the Sprint 15 branch (712/712 both engines; one posture pin extended, no new tests) |
+| **Current backend regression baseline** | 712/712 SQLite and 712/712 PostgreSQL on merged `dev` = `c916208` (Sprint 14; +55 perf/a11y guards over the Sprint 13 baseline) — re-verified 2026-08-20 on the Sprint 15 branch (712/712 both engines; one posture pin extended, no new tests) and 2026-08-21 on merged `dev` = `608dcaf` via CI (both engines) |
 | **Standing DEV QA dataset** | 34 vehicles, 18 tasks, 2 recommendations, 98 events, 10 sync runs |
 | **Latest completed sprint** | Sprint 14 — Performance, Resilience & Accessibility (Rails J + K Verified) |
 | **Migration readiness** | Technical rehearsal PASS / GO; real production cutover intentionally unscheduled |
 | **Current release target** | `v1.1.0-beta.1` |
 | **Open PRs** | tracked per sprint; see Git/PR records in each entry |
 | **Public domain** | `dealerdoh.com` owned; production domain cutover not yet performed |
-| **Immediate focus** | Sprint 15 — Privacy / Legal (Rail L) at the **PR approval gate** on branch `feature/sprint-15-privacy-legal`: audit-first privacy/data-flow inventory (`PRIVACY_ARCHITECTURE.md`), retention record (`DATA_RETENTION.md`), legal-readiness assessment + owner/counsel registers (`LEGAL_READINESS.md`), five customer-facing DRAFTS (Privacy Policy · Beta Terms · Accessibility Statement · Security Overview · Subprocessors — all Draft, Owner Review Required), and the no-cookie remediation (PostHog `persistence: 'localStorage'`, test-pinned). Rail L register = **Implementation Complete — Awaiting Merge**; owner decisions **D1–D10 RESOLVED 2026-08-20** (identity "DealerDOH, operated by Kennett Ho" · U.S.-only/AZ beta · bounded raw-upload retention RATIFIED 2026-08-21 (7d accepted / 30d rejected-or-HOLD; implementation pending as the bounded remediation, release-gating; legacy production prune never at merge) · dealerdoh.com publication before the v1.1 cutover · notice-only acceptance · customer-neutral copy · provider claims verified pre-publication · honest no-attorney-review disposition · paid-Supabase verify-then-rely) — Verified now waits on execution only (D2 mailbox + owner-approved final text + D5 pre-cutover publication). Sprint 10 remains **Implementation Paused — Awaiting Vendor Evidence**; Rail D NOT Verified; Sprint 17 remains **Planned**. Production untouched. |
+| **Immediate focus** | Sprint 15 — Privacy / Legal (Rail L) **MERGED**: PR #25 → `dev` = `608dcaf` (2026-08-21, CI green on the merged head; branch deleted). Rail L register = **Merged — NOT Verified; Execution Pending** — Verified waits on D2 mailbox → owner-approved final text → D5 pre-cutover publication on `dealerdoh.com`; **D4's tested implementation is release-gating**. Owner decisions **D1–D10 RESOLVED 2026-08-20; D4 RATIFIED 2026-08-21** (7d accepted / 30d rejected-or-HOLD / HOLD ≤ 30d; legacy production prune only at the production release/operator gate, never a merge). **Next implementation: the dedicated D4 bounded-retention remediation PR** (own DEV review window; the merged-head no-cookie proof rides it). All five customer-facing drafts remain **unpublished**. Sprint 10 remains **Implementation Paused — Awaiting Vendor Evidence**; Rail D NOT Verified; Sprint 17 remains **Planned**; Sprint 16 (Human UAT) on owner go. Production untouched. |
 
 **Production rule:** `master` is what real dealership users are allowed to depend on. Normal development belongs on task branches and `dev`; production remains frozen until an explicit release train is approved.
 
@@ -2283,10 +2283,13 @@ release-blocking perf/a11y prerequisite found).
 
 # Sprint 15 — Privacy, Data Governance & Legal Readiness
 
-**Status:** **Implementation Complete — Awaiting Merge** — **PR #25
-OPEN at the approval gate** (branch `feature/sprint-15-privacy-legal`
-from `dev` = `daf5ae0`; head `48fa3c0` + this PR-fill).
-**Date:** 2026-08-20
+**Status:** **Merged — Closeout** — **PR #25 MERGED as `608dcaf`**
+on 2026-08-21 (parents `daf5ae0` + `0e83425`; final branch head
+`0e83425`; branch deleted both sides). Rail L: **Merged — NOT
+Verified; Execution Pending** (D2/D5 publication + D4
+implementation). Merge record: the "Merge" subsection at the end of
+this entry.
+**Date:** 2026-08-20 (implementation) / 2026-08-21 (merge)
 **Rails:** L (Privacy / Legal Readiness) — operative register
 lettering. Rail D, Sprint 10, and Sprint 17 states untouched.
 
@@ -2571,6 +2574,47 @@ implementation is live), the Rail L register row,
 Rail L remains **Implementation Complete — Awaiting Merge**;
 nothing published; Rail D / Sprint 10 / Sprint 17 untouched;
 Sprint 16 not begun.
+
+## Merge (2026-08-21)
+
+**PR #25 owner-approved and MERGED as `608dcaf`** (merge commit;
+parents `daf5ae0` + `0e83425`), following `/merge-dev`: base `dev`,
+mergeable CLEAN, zero reviews / zero inline comments (the single
+issue comment is the Vercel bot's deployment note), CI green on the
+final branch head `0e83425` and again on the merged `dev` head
+`608dcaf` (both backend engines, frontend build + bundle budget,
+security scans). Feature branch `feature/sprint-15-privacy-legal`
+deleted (remote auto-deleted at merge; local deleted; refs pruned).
+
+**Post-merge verification from the merged tip:** working tree
+clean; `master` = `origin/master` = `v1.0.0-beta.6` = `13c4f815`
+untouched; the merge's only non-docs changes are
+`frontend/src/observability/analytics.ts` (the no-cookie
+`persistence: 'localStorage'` remediation) and its pin test — zero
+cleanup/deletion code anywhere (`outcome.json` exists only as
+design in `DATA_RETENTION.md` §3); D1–D10 recorded resolved (10
+register rows); D4 recorded **owner-ratified 2026-08-21** (accepted
+7 days / rejected-or-unacknowledged 30 days / HOLD ≤ 30 days unless
+later governed otherwise); all five customer-facing drafts carry
+their **DRAFT — NOT PUBLISHED** banners; Sprint 10 remains
+**Implementation Paused — Awaiting Vendor Evidence** with Rail D
+**Merged — NOT Verified**; Sprint 17 remains **Planned**.
+
+**Deployment expectation:** both DEV services track `dev` and
+auto-deploy `608dcaf` — this also heals the stale Render release
+stamp (`c916208`) noted at sprint start. The deployed no-cookie
+proof (empty `document.cookie` on a fresh authenticated load) is
+deliberately part of the D4-remediation PR's DEV review window, the
+first deployed build carrying the flag with `VITE_POSTHOG_KEY`
+baked.
+
+**Next:** the dedicated **D4 bounded-retention remediation PR**
+(7-day/30-day ratified windows, `outcome.json` markers +
+opportunistic sweep + kill switch + boundary tests; own DEV review
+window; the one-time legacy production prune stays gated to the
+production release/operator step) — then **Sprint 16 — Human UAT**
+on explicit owner go. Rail L Verified additionally waits on D2/D5
+publication execution before the v1.1 production cutover.
 
 ---
 

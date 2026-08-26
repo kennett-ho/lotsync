@@ -56,7 +56,7 @@ sync runs, report baselines, event freshness, pending identities.
 - **Future requirement:** §9 (organization offboarding) and §10
   (identity-deletion requests).
 
-## 3. Raw uploaded report files (`/run`) — **the retention finding: policy ratified, implementation landed 2026-08-25 (production rollout waits for the release gate)**
+## 3. Raw uploaded report files (`/run`) — **the retention finding: policy ratified; implemented + DEV-verified 2026-08-25; NOT production-activated (Sprint 18 gate)**
 
 - **Current behavior (bounded retention implemented 2026-08-25, the
   dedicated D4 remediation):** every `POST /inventory-sync/run`
@@ -118,6 +118,20 @@ sync runs, report baselines, event freshness, pending identities.
   kill-switch, and the in-flight-batch safety property. The legacy
   production prune remains exactly as gated above — nothing about
   this landing performs it.
+  **DEV-verified 2026-08-25 (PR #27 deployed review window, merged
+  as `dev` = `b3c35e1`):** request-id-correlated
+  `upload_retention_sweep` records observed live on deployed DEV
+  (batches scanned/recognized/kept, zero deletions or errors,
+  counts + server-generated timestamps only — client filenames
+  appear nowhere in any record); all three outcome markers
+  exercised through their unchanged 422/409 contracts with the QA
+  dataset byte-identical before/after; and the kill-switch cycle
+  live-proven (`disabled` → sweep silent; an unrecognized value →
+  fails closed; variable removed → default sweep returns). The DEV
+  environment carries **no** `UPLOAD_RETENTION_SWEEP` override in
+  steady state. **Production continues to run pre-D4 code —
+  bounded retention is NOT active in production** until the
+  Sprint 18 activation checklist below executes.
   Grounding for the durations (actual troubleshooting/recovery
   needs, not convention):
   - **Accepted batches (validated + successfully executed): retain
@@ -180,16 +194,23 @@ sync runs, report baselines, event freshness, pending identities.
   the **operator-side control available there** (no code change):
   periodic manual review/pruning of `/var/data/api_uploads` during
   maintenance, exactly like the existing backup procedure.
-- **Production rollout note (keeps item 4's "never automatic"
-  honest):** once this code reaches production, the first sweep
-  would delete legacy directories older than 30 days on its own.
-  The release-train deploy notes must therefore either (a) deploy
-  with `UPLOAD_RETENTION_SWEEP=disabled` until the operator performs
-  the approved one-time legacy prune, then enable it, or (b) record
-  explicit operator approval that the first post-deploy sweep
-  performs that prune. Either way the legacy deletion happens at the
-  operator's gate, not as a merge side effect — Sprint 18 readiness
-  carries this as a checklist item.
+- **Production activation sequence (owner-ratified 2026-08-25;
+  keeps item 4's "never automatic" honest):** once this code
+  reaches production, the first *enabled* sweep would delete legacy
+  directories older than 30 days on its own. Production activation
+  therefore follows the **hard 8-step Sprint 18 release-readiness
+  checklist** (`V1_1_RELEASE_READINESS.md` §5.L): (1) verified
+  production backup → (2) `UPLOAD_RETENTION_SWEEP=disabled` set
+  **before** the first deployment containing D4 → (3) deployment
+  verified serving the release SHA with the sweep disabled →
+  (4) legacy upload population inspected and recorded →
+  (5) explicit operator approval for the one-time prune →
+  (6) prune executed and verified → (7) kill-switch variable
+  removed → (8) steady-state retention verified active. Every
+  switch mechanism in that sequence was live-proven on DEV during
+  the PR #27 review window (set honored / unknown value fails
+  closed / removal restores the default). The legacy deletion
+  happens at the operator's gate, never as a merge side effect.
 - **Why this cannot slip past the release:** beyond disk growth,
   the retained verbatim bytes are the stated reason
   `LEGAL_READINESS.md` §4's GLBA/Safeguards conclusion is

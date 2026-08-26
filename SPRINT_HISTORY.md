@@ -50,7 +50,7 @@ Do not rewrite history when architecture changes later. Record what was true at 
 | **Current release target** | `v1.1.0-beta.1` |
 | **Open PRs** | tracked per sprint; see Git/PR records in each entry |
 | **Public domain** | `dealerdoh.com` owned; production domain cutover not yet performed |
-| **Immediate focus** | Sprint 15 — Privacy / Legal (Rail L) **MERGED**: PR #25 → `dev` = `608dcaf` (2026-08-21, CI green on the merged head; branch deleted). Rail L register = **Merged — NOT Verified; Execution Pending** — Verified waits on D2 mailbox → owner-approved final text → D5 pre-cutover publication on `dealerdoh.com`; **D4's tested implementation is release-gating**. Owner decisions **D1–D10 RESOLVED 2026-08-20; D4 RATIFIED 2026-08-21** (7d accepted / 30d rejected-or-HOLD / HOLD ≤ 30d; legacy production prune only at the production release/operator gate, never a merge). **Sprint 16 — Human UAT: PARKED at the human-testing gate** (owner decision 2026-08-25) — **Rail M = Human Verification Pending; UAT package and DEV preflight complete** (PR #29 → `dev` = `bd1e72a` = the canonical session SHA; `UAT_PLAN.md`/`UAT_SCRIPT.md`/`UAT_FINDINGS.md` canonical; preflight PASSED, no pre-UAT blocker; findings log deliberately empty; human sessions deferred to the pre-pilot window when representative participants exist — a scheduling decision, NOT a technical blocker; automated QA is never a substitute). D4 remains **Merged + DEV-verified, production NOT activated** (the 8-step §5.L Sprint 18 checklist governs activation). Rail L remains **Merged — NOT Verified** (D2/D5 publication execution). All five customer-facing drafts remain **unpublished**. Sprint 10 remains **Implementation Paused — Awaiting Vendor Evidence**; Rail D NOT Verified; **Sprint 17 remains Planned — may proceed in parallel only by explicit owner waiver/kickoff** (register §9 sequencing rule; vendor Event-vs-Full evidence still gates its activation/verification; Sprint 18 cannot pass while Rail M is unverified). Production untouched (`master` = `13c4f815` = `v1.0.0-beta.6`). |
+| **Immediate focus** | Sprint 15 — Privacy / Legal (Rail L) **MERGED**: PR #25 → `dev` = `608dcaf` (2026-08-21, CI green on the merged head; branch deleted). Rail L register = **Merged — NOT Verified; Execution Pending** — Verified waits on D2 mailbox → owner-approved final text → D5 pre-cutover publication on `dealerdoh.com`; **D4's tested implementation is release-gating**. Owner decisions **D1–D10 RESOLVED 2026-08-20; D4 RATIFIED 2026-08-21** (7d accepted / 30d rejected-or-HOLD / HOLD ≤ 30d; legacy production prune only at the production release/operator gate, never a merge). **Sprint 16 — Human UAT: PARKED at the human-testing gate** (owner decision 2026-08-25) — **Rail M = Human Verification Pending; UAT package and DEV preflight complete** (PR #29 → `dev` = `bd1e72a` = the canonical session SHA; `UAT_PLAN.md`/`UAT_SCRIPT.md`/`UAT_FINDINGS.md` canonical; preflight PASSED, no pre-UAT blocker; findings log deliberately empty; human sessions deferred to the pre-pilot window when representative participants exist — a scheduling decision, NOT a technical blocker; automated QA is never a substitute). D4 remains **Merged + DEV-verified, production NOT activated** (the 8-step §5.L Sprint 18 checklist governs activation). Rail L remains **Merged — NOT Verified** (D2/D5 publication execution). All five customer-facing drafts remain **unpublished**. Sprint 10 remains **Implementation Paused — Awaiting Vendor Evidence**; Rail D NOT Verified; **Sprint 17 ACTIVE in parallel** (explicit owner waiver/kickoff 2026-08-25 w/ six hard bounds; state reconstruction done, plan proposed, implementation awaiting owner go; vendor Event-vs-Full evidence still gates activation/verification). **v1.1 release-gate amendment (owner, 2026-08-25 — register §11): v1.1 = `Controlled Beta — Human Validation Deferred to v1.5 Readiness`; Rail M = `Human Verification Pending — deferred from v1.1 release gate by owner decision; required before v1.5 pilot readiness` (criteria unweakened, evidence state preserved); Sprint 18 = `Planned — Compressed v1.1 Release Gate` (§11.1 A–I).** Production untouched (`master` = `13c4f815` = `v1.0.0-beta.6`). |
 
 **Production rule:** `master` is what real dealership users are allowed to depend on. Normal development belongs on task branches and `dev`; production remains frozen until an explicit release train is approved.
 
@@ -2281,6 +2281,59 @@ release-blocking perf/a11y prerequisite found).
 
 ---
 
+# Governance amendment (2026-08-25) — v1.1 Release Gate Amendment: Controlled Beta, Rail M deferred to v1.5, Sprint 18 compressed
+
+**Explicit owner decision, 2026-08-25** (recorded here per the
+register's amendment rule; operative text: register **§11** plus the
+amended header, Rail M row, §5.M, §9, and §10):
+
+- **v1.1 is redefined** as a controlled technical/internal beta —
+  `Controlled Beta — Human Validation Deferred to v1.5 Readiness` —
+  not the commercial pilot candidate, not presented as commercially
+  validated.
+- **Rail M**: old rule — Human UAT blocks the v1.1 release
+  (Sprint 18 could not pass while Rail M was unverified). New rule —
+  **deferred from the v1.1 ship gate by explicit owner waiver;
+  required, unweakened, before v1.5 Commercial Pilot Candidate
+  readiness** (register §11.3, a nine-point gate that is NOT
+  waived). Status: `Human Verification Pending — deferred from v1.1
+  release gate by owner decision; required before v1.5 pilot
+  readiness`. The Sprint 16 evidence state is preserved exactly
+  (UAT package, launch packet, preflight vs `bd1e72a`,
+  deliberately-empty findings log); nothing is marked
+  Verified/Complete/Passed; nothing fabricated; the human window
+  re-preflights against the then-current candidate if `dev` has
+  materially moved.
+- **Sprint 18 is redefined** from a broad RC-hardening sprint to the
+  **compressed v1.1 release gate** (`Planned — Compressed v1.1
+  Release Gate`): only the minimum evidence-backed checks/operator
+  actions to ship the controlled beta — register §11.1's A–I
+  categories (exact RC + scope freeze; backup/rollback; production
+  architecture/provider verification; Rail L D2/D5 execution; the
+  §5.L D4 8-step activation preserved verbatim; proportional
+  production smoke; migration/data integrity; an explicit
+  known-limitations register where **no limitation is silently
+  converted to Verified**; final owner GO / GO WITH ACCEPTED
+  LIMITATIONS / NO-GO — no merge to `master` without owner
+  approval).
+- **Version staging recorded** (register §11.2): v1.1 controlled
+  beta → v1.2 multi-rooftop/tenant foundation → v1.3
+  organization/customer identity → v1.4 Sales Operations →
+  v1.4.5 pilot preparation → **v1.5 Commercial Pilot Candidate**
+  (human UAT mandatory by then).
+- **Unchanged by this amendment:** Sprint 10 = Implementation
+  Paused — Awaiting Vendor Evidence; Rail D = Merged — NOT
+  Verified / Awaiting Vendor Evidence; Sprint 17's vendor-evidence
+  rules (no unattended Keyper processing, no Verified without the
+  real Event-vs-Full evidence — Sprint 17 may still build the
+  adapter within those limits); the D4 production-activation
+  sequence; the production lock. The v1.1 release may ship with
+  documented limitations only if the owner explicitly accepts them
+  at the Sprint 18 gate; documentation never claims evidence that
+  does not exist.
+
+---
+
 # Sprint 16 — Human UAT / Operational Validation (Rail M)
 
 **Status:** **Parked at the human-testing gate — Rail M = Human
@@ -2352,6 +2405,12 @@ still apply, so Sprint 17's new human surfaces (HOLD review/resume,
 freshness) join the same deferred human-verification window; and
 **Sprint 18 cannot pass while Rail M is not Verified** — parking
 UAT moves it onto the release-readiness critical path.
+**[Superseded 2026-08-25, same day, by the v1.1 release-gate
+amendment (register §11): Rail M may remain Human Verification
+Pending for the v1.1 controlled beta release under the explicit
+owner waiver, but must be completed before v1.5 commercial pilot
+readiness. The UAT requirements themselves are unweakened; the
+governance record below documents the amendment.]**
 
 ---
 
@@ -4280,6 +4339,13 @@ Manager and Lot Staff testing against DEV without developer coaching.
 Fix only true release blockers.
 
 ## Sprint 18 — v1.1.0-beta Release Candidate Freeze
+
+> **Superseded 2026-08-25 by the v1.1 release-gate amendment**
+> (`V1_1_RELEASE_READINESS.md` §11.1): Sprint 18 is now the
+> **compressed v1.1 Release Gate / Production Cutover Readiness** —
+> a release gate, not a feature sprint (A–I minimum gate; Rail M
+> ships deferred under owner waiver, required before v1.5). The
+> list below remains as historical context only.
 
 - freeze feature scope
 - `/release-readiness`

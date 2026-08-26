@@ -7,7 +7,7 @@ for the full plan this tracks progress against. See
 [`SPRINT_HISTORY.md`](SPRINT_HISTORY.md) for the chronological
 DealerDOH infrastructure history and v1.1.0-beta release roadmap.
 
-**Last updated:** 2026-08-21 (Sprint 15 **merged** — PR #25 → `dev` = `608dcaf`; Rail L **Merged — NOT Verified; Execution Pending** (D2/D5 publication + the release-gating D4 bounded-retention implementation); `PRIVACY_ARCHITECTURE.md` + `DATA_RETENTION.md` + `LEGAL_READINESS.md` canonical; owner decisions D1–D10 resolved, **D4 ratified 2026-08-21** (7d/30d); all five customer-facing drafts remain unpublished)
+**Last updated:** 2026-08-25 (Sprint 15 closeout **merged** — PR #26 → `dev` = `213859f`; Rail L **Merged — NOT Verified; Execution Pending** (D2/D5 publication; **the release-gating D4 bounded-retention implementation is now BUILT — PR #27 OPEN**, `feature/d4-bounded-retention` head `9372e87`, own DEV review window, legacy production prune still operator-gated); `PRIVACY_ARCHITECTURE.md` + `DATA_RETENTION.md` + `LEGAL_READINESS.md` canonical; owner decisions D1–D10 resolved, **D4 ratified 2026-08-21** (7d/30d); all five customer-facing drafts remain unpublished; **Sprint 16 — Human UAT begins after PR #27 merges** per the owner's 2026-08-25 sequencing decision)
 
 ## ⚠️ Production is live and locked (2026-08-15)
 

@@ -40,17 +40,17 @@ Do not rewrite history when architecture changes later. Record what was true at 
 | **Production persistence** | SQLite on Render persistent disk |
 | **Production Auth** | Disabled / not yet rolled out |
 | **Development product** | DealerDOH |
-| **Development branch / current head** | `dev` / `608dcaf` (PR #25 merged — Sprint 15 Privacy/Legal; Rail L Merged — NOT Verified, execution pending) |
+| **Development branch / current head** | `dev` / `213859f` (PR #26 merged 2026-08-25 — Sprint 15 closeout record; Rail L Merged — NOT Verified, execution pending) |
 | **Development persistence** | Supabase PostgreSQL |
 | **Development Auth** | Supabase Auth + FastAPI server-side authorization (`AUTH_MODE=required`) |
-| **Current backend regression baseline** | 712/712 SQLite and 712/712 PostgreSQL on merged `dev` = `c916208` (Sprint 14; +55 perf/a11y guards over the Sprint 13 baseline) — re-verified 2026-08-20 on the Sprint 15 branch (712/712 both engines; one posture pin extended, no new tests) and 2026-08-21 on merged `dev` = `608dcaf` via CI (both engines) |
+| **Current backend regression baseline** | 712/712 SQLite and 712/712 PostgreSQL on merged `dev` = `c916208` (Sprint 14; +55 perf/a11y guards over the Sprint 13 baseline) — re-verified 2026-08-20 on the Sprint 15 branch (712/712 both engines; one posture pin extended, no new tests) and 2026-08-21 on merged `dev` = `608dcaf` via CI (both engines); **732/732 SQLite locally on the D4-remediation branch 2026-08-25** (+20 retention boundary tests, PR #27; PostgreSQL via CI) |
 | **Standing DEV QA dataset** | 34 vehicles, 18 tasks, 2 recommendations, 98 events, 10 sync runs |
 | **Latest completed sprint** | Sprint 14 — Performance, Resilience & Accessibility (Rails J + K Verified) |
 | **Migration readiness** | Technical rehearsal PASS / GO; real production cutover intentionally unscheduled |
 | **Current release target** | `v1.1.0-beta.1` |
 | **Open PRs** | tracked per sprint; see Git/PR records in each entry |
 | **Public domain** | `dealerdoh.com` owned; production domain cutover not yet performed |
-| **Immediate focus** | Sprint 15 — Privacy / Legal (Rail L) **MERGED**: PR #25 → `dev` = `608dcaf` (2026-08-21, CI green on the merged head; branch deleted). Rail L register = **Merged — NOT Verified; Execution Pending** — Verified waits on D2 mailbox → owner-approved final text → D5 pre-cutover publication on `dealerdoh.com`; **D4's tested implementation is release-gating**. Owner decisions **D1–D10 RESOLVED 2026-08-20; D4 RATIFIED 2026-08-21** (7d accepted / 30d rejected-or-HOLD / HOLD ≤ 30d; legacy production prune only at the production release/operator gate, never a merge). **Next implementation: the dedicated D4 bounded-retention remediation PR** (own DEV review window; the merged-head no-cookie proof rides it). All five customer-facing drafts remain **unpublished**. Sprint 10 remains **Implementation Paused — Awaiting Vendor Evidence**; Rail D NOT Verified; Sprint 17 remains **Planned**; Sprint 16 (Human UAT) on owner go. Production untouched. |
+| **Immediate focus** | Sprint 15 — Privacy / Legal (Rail L) **MERGED**: PR #25 → `dev` = `608dcaf` (2026-08-21, CI green on the merged head; branch deleted). Rail L register = **Merged — NOT Verified; Execution Pending** — Verified waits on D2 mailbox → owner-approved final text → D5 pre-cutover publication on `dealerdoh.com`; **D4's tested implementation is release-gating**. Owner decisions **D1–D10 RESOLVED 2026-08-20; D4 RATIFIED 2026-08-21** (7d accepted / 30d rejected-or-HOLD / HOLD ≤ 30d; legacy production prune only at the production release/operator gate, never a merge). **D4 bounded-retention remediation IMPLEMENTED — PR #27 OPEN** (2026-08-25, `feature/d4-bounded-retention` head `9372e87` from `dev` = `213859f` after closeout PR #26 merged; own DEV review window; the merged-head no-cookie proof rides it; legacy production prune still gated). All five customer-facing drafts remain **unpublished**. Sprint 10 remains **Implementation Paused — Awaiting Vendor Evidence**; Rail D NOT Verified; Sprint 17 remains **Planned**; Sprint 16 (Human UAT) begins after PR #27 merges, per the owner's 2026-08-25 sequencing decision. Production untouched. |
 
 **Production rule:** `master` is what real dealership users are allowed to depend on. Normal development belongs on task branches and `dev`; production remains frozen until an explicit release train is approved.
 
@@ -2615,6 +2615,50 @@ window; the one-time legacy production prune stays gated to the
 production release/operator step) — then **Sprint 16 — Human UAT**
 on explicit owner go. Rail L Verified additionally waits on D2/D5
 publication execution before the v1.1 production cutover.
+
+## Post-sprint follow-up — D4 bounded-retention remediation (2026-08-25): PR #27 OPEN
+
+Executed exactly as authorized (owner sequencing decision 2026-08-25:
+closeout PR #26 merged first as `213859f` = `dev` head, then this
+remediation before Sprint 16). Branch
+`feature/d4-bounded-retention` from `dev` = `213859f`, head
+`9372e87`, **PR #27 → `dev` OPEN** at the review gate.
+
+- **`api/upload_retention.py` (new)** + wiring in
+  `api/routers/inventory_sync.py`: each `/run` request end stamps an
+  `outcome.json` marker (`accepted` / `rejected` /
+  `warnings_unacknowledged`; the 500 path deliberately unmarked →
+  conservative window); an opportunistic sweep at the start of
+  `/run` and `/validate` deletes batches past their ratified window
+  — accepted 7 d, rejected/unacknowledged 30 d, unmarked (legacy or
+  crash) conservatively 30 d, orphaned `validate-*` dirs 24 h.
+  Deletion only under the uploads root for positively recognized
+  names; in-flight batches structurally untouchable; sweep/marker
+  never raise into the request path; one structured INFO record per
+  sweep (counts + server-generated batch timestamps only);
+  kill-switch `UPLOAD_RETENTION_SWEEP=disabled` (any unrecognized
+  value also disables — fails toward keeping data).
+- **Tests:** +20 boundary tests (`tests/test_upload_retention.py`)
+  — windows, per-outcome markers, never-inside-window, conservative
+  unmarked/malformed, recognized-names-only, orphan aging,
+  kill-switch, deletion-error continuation, telemetry record,
+  endpoint sweeps incl. `/validate` zero-mutation preserved. Local
+  suite **732/732 SQLite (10 documented skips)**; secret scan clean.
+- **No schema change, no migration, no frontend change.** Docs
+  amended in the same PR (`DATA_RETENTION.md` §3 — implementation
+  landed + production rollout note; `PRIVACY_ARCHITECTURE.md` §7).
+- **The legacy production prune did NOT run and cannot run from this
+  merge**: production keeps the pre-remediation build until the v1.1
+  release train; `DATA_RETENTION.md` §3 now records the rollout
+  mechanism (deploy with the kill-switch set until the operator
+  executes the approved one-time prune, or record explicit operator
+  approval that the first post-deploy sweep performs it) — Sprint 18
+  readiness checks it.
+- **Pending for this PR:** CI on the head, owner-directed DEV review
+  window (deployed sweep behavior + the Sprint 15 merged-head
+  no-cookie proof, which rides this first flag-active deployed
+  build), then owner-approved merge. Sprint 16 — Human UAT begins
+  after.
 
 ---
 

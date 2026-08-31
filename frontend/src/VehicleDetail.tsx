@@ -562,7 +562,7 @@ export default function VehicleDetailPage({ vin, onBack, backLabel = 'Dashboard'
         <CenteredMessage>
           <div role="alert" className="flex flex-col items-center gap-2 text-center">
             <p className="text-[13px] font-medium text-red-600">
-              {isBackendUnavailable(state.error) ? 'The LotSync API is unreachable.' : 'Something went wrong loading this vehicle.'}
+              {isBackendUnavailable(state.error) ? 'The DealerDOH API is unreachable.' : 'Something went wrong loading this vehicle.'}
             </p>
             <p className="text-[11px] text-slate-500">{state.error.message}</p>
           </div>

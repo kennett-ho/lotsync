@@ -73,7 +73,7 @@ function toNavItems(items: RoleNavItem[]): NavItem[] {
 // a surface title was already applied.
 const BASE_TITLE =
   (typeof document !== 'undefined' && document.title
-    ? document.title.split(' · ').pop() : undefined) || 'LotSync'
+    ? document.title.split(' · ').pop() : undefined) || 'DealerDOH'
 
 // ─── Development environment banner ──────────────────────────────────────────
 
@@ -179,7 +179,7 @@ function Sidebar({ items, activeNav, onNav, mobileOpen, onCloseMobile }: {
             <div className="w-7 h-7 rounded-md flex items-center justify-center flex-shrink-0 overflow-hidden">
               <img src="/img/logo/lotsynclogo.png" alt="" className="w-full h-full object-contain" />
             </div>
-            <div className="text-white font-bold text-[24px] tracking-tight leading-none">LotSync</div>
+            <div className="text-white font-bold text-[24px] tracking-tight leading-none">DealerDOH</div>
           </div>
           <button onClick={onCloseMobile} aria-label="Close menu" ref={closeButtonRef}
             className="lg:hidden w-8 h-8 flex items-center justify-center rounded-md text-white/50 hover:text-white hover:bg-white/10 transition-colors">

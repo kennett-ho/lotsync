@@ -673,7 +673,7 @@ export default function InventorySync(): JSX.Element {
                 {exceptionsState.status === 'error' ? (
                   <div className="text-center py-10 text-slate-500 text-[13px]">
                     {isBackendUnavailable(exceptionsState.error)
-                      ? 'The LotSync API is unreachable.'
+                      ? 'The DealerDOH API is unreachable.'
                       : 'Could not load exceptions.'}
                   </div>
                 ) : filteredExceptions.length === 0 ? (
@@ -806,7 +806,7 @@ export default function InventorySync(): JSX.Element {
                 )}
                 {historyState.status === 'error' && (
                   <div className="px-5 py-4 text-[13px] text-slate-500">
-                    {isBackendUnavailable(historyState.error) ? 'The LotSync API is unreachable.' : 'Could not load history.'}
+                    {isBackendUnavailable(historyState.error) ? 'The DealerDOH API is unreachable.' : 'Could not load history.'}
                   </div>
                 )}
                 {historyState.status === 'success' && history.length === 0 && (

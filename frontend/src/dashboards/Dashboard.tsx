@@ -330,7 +330,7 @@ export default function Dashboard({ onVehicleSelect, onNavigate }: {
 
             {tasksState.status === 'error' && (
               <div className="px-4 py-8 text-center text-[13px] text-slate-500">
-                {isBackendUnavailable(tasksState.error) ? 'The LotSync API is unreachable.' : 'Could not load tasks.'}
+                {isBackendUnavailable(tasksState.error) ? 'The DealerDOH API is unreachable.' : 'Could not load tasks.'}
               </div>
             )}
             {tasksState.status === 'loading' && (
@@ -371,7 +371,7 @@ export default function Dashboard({ onVehicleSelect, onNavigate }: {
 
             {recsState.status === 'error' && (
               <div className="px-4 py-8 text-center text-[13px] text-slate-500">
-                {isBackendUnavailable(recsState.error) ? 'The LotSync API is unreachable.' : 'Could not load recommendations.'}
+                {isBackendUnavailable(recsState.error) ? 'The DealerDOH API is unreachable.' : 'Could not load recommendations.'}
               </div>
             )}
             {recsState.status === 'loading' && (
@@ -501,7 +501,7 @@ export default function Dashboard({ onVehicleSelect, onNavigate }: {
 
             {dashboardState.status === 'error' && (
               <p className="text-[12px] text-slate-400">
-                {isBackendUnavailable(dashboardState.error) ? 'The LotSync API is unreachable.' : 'Could not load activity.'}
+                {isBackendUnavailable(dashboardState.error) ? 'The DealerDOH API is unreachable.' : 'Could not load activity.'}
               </p>
             )}
             {dashboardState.status === 'loading' && <p className="text-[12px] text-slate-500" role="status">Loading…</p>}

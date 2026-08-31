@@ -290,7 +290,7 @@ export default function Activity({ onVehicleSelect }: { onVehicleSelect: (vin: s
         {state.status === 'error' && (
           <div className="flex flex-col items-center justify-center py-24 text-center gap-2">
             <p className="text-[15px] font-medium text-red-500">
-              {isBackendUnavailable(state.error) ? 'The LotSync API is unreachable.' : 'Something went wrong loading activity.'}
+              {isBackendUnavailable(state.error) ? 'The DealerDOH API is unreachable.' : 'Something went wrong loading activity.'}
             </p>
             <p className="text-[13px] text-slate-400">{state.error.message}</p>
           </div>

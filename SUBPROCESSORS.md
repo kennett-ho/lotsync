@@ -17,10 +17,12 @@
 > beta/evaluation readiness material; no attorney review has been
 > completed for the v1.1 controlled beta.
 
-**Last reviewed:** 2026-08-30 (reconciled against v1.1 release
-candidate `680272a` and the Sprint 18 Gate D provider verification —
-plans, regions, and account posture checked in the actual provider
-dashboards) · **Version:** draft-2
+**Last reviewed:** 2026-08-31 (v1.1 shipped: Supabase/Sentry/PostHog
+and the Northwest mailbox flipped planned → **active** after
+production wiring and runtime verification — matching the published
+`dealerdoh.com/subprocessors` page, version 1.1; prior reconciliation
+2026-08-30 against RC `680272a` + Gate D dashboard verification)
+· **Version:** 1.1
 
 ---
 
@@ -30,19 +32,19 @@ dashboards) · **Version:** draft-2
 |---|---|---|---|---|
 | **Vercel** | Frontend hosting/CDN | Serves the app to browsers; platform edge/request logs (connection metadata incl. IP) | US/global edge | **Yes** — production (LotSync) and DEV |
 | **Render** | API hosting | All application traffic; service logs (request lines incl. client IP, structured app logs); production service disk (database file, uploaded report files, generated reports) | Oregon, US | **Yes** — production (LotSync) and DEV |
-| **Supabase** | Sign-in (Auth) + PostgreSQL database | Staff account identities (email, password credentials, session state, display name), authorization/membership rows, all operational business data; provider auth/audit logs | us-west-2 (Oregon, US) — verified for both the DEV and the provisioned production project | **DEV today; planned for v1.1 activation.** A dedicated production project exists but is empty and not connected to anything; it begins processing real data only at the v1.1 release train (current production uses SQLite on Render, no Supabase) |
-| **Sentry** | Error monitoring | Error/exception events — configured to exclude user identity, request bodies, cookies; masked URLs; request references. Retention ~30 days on the current plan | US (SaaS) | **DEV today; planned for v1.1 activation.** Dedicated production projects exist but are empty and not connected; activation is a deliberate release-train step |
-| **PostHog** | Product analytics | Named product events under an internal account identifier (never email/name); role/store identifiers; ingest-side connection metadata. Event retention ~1 year on the current plan | US cloud (`us.i.posthog.com`) | **DEV today; planned for v1.1 activation.** A dedicated production organization/project exists but is empty and not connected; activation is a deliberate release-train step |
-| **Northwest Registered Agent** (domain registrar + email service for `dealerdoh.com`) | Support/privacy mailbox (`support@dealerdoh.com`; `privacy@dealerdoh.com` forwards to it) and the domain's DNS | Emails sent to the support/privacy address (which may include staff names/addresses and whatever senders include); DNS records | US | **Activates at publication** — the mailbox is created and verified before this policy set goes live |
+| **Supabase** | Sign-in (Auth) + PostgreSQL database | Staff account identities (email, password credentials, session state, display name), authorization/membership rows, all operational business data; provider auth/audit logs | us-west-2 (Oregon, US) — verified for both the DEV and the production project | **Yes — production active 2026-08-31**: production database since the v1.1 data cutover and staff sign-in since auth activation; processes real operational and staff-account data (plus DEV with synthetic data) |
+| **Sentry** | Error monitoring | Error/exception events — configured to exclude user identity, request bodies, cookies; masked URLs; request references. Retention ~30 days on the current plan | US (SaaS) | **Yes — production active 2026-08-31**: production error monitoring wired and runtime-verified (plus DEV) |
+| **PostHog** | Product analytics | Named product events under an internal account identifier (never email/name); role/store identifiers; ingest-side connection metadata. Event retention ~1 year on the current plan | US cloud (`us.i.posthog.com`) | **Yes — production active 2026-08-31**: production product analytics wired and runtime-verified (plus DEV) |
+| **Northwest Registered Agent** (domain registrar + email service for `dealerdoh.com`) | Support/privacy mailbox (`support@dealerdoh.com`; `privacy@dealerdoh.com` forwards to it) and the domain's DNS | Emails sent to the support/privacy address (which may include staff names/addresses and whatever senders include); DNS records | US | **Yes — active since publication (2026-08-31)**: hosts `support@dealerdoh.com` (`privacy@` forwards to it) and the domain's DNS |
 
-**Today's actual production processors** (unauthenticated LotSync
-beta): **Vercel and Render only.** Supabase, Sentry, and PostHog
-currently process synthetic development data. Their production
-projects have been **provisioned in advance but are empty and wired
-to nothing**; they begin processing real dealership/staff data only
-when v1.1 ships through its approved release train, at which point
-this inventory's status entries are updated (planned → active) after
-runtime verification.
+**Today's actual production processors:** all providers in the table
+above. The v1.1 production cutover and activation completed
+2026-08-31 through the approved release train; Supabase, Sentry, and
+PostHog were flipped planned → active here and on the public
+`dealerdoh.com/subprocessors` page only after each was wired in
+production and runtime-verified, as this inventory previously
+committed. Their separate development projects continue to process
+synthetic development data only.
 
 ## Development infrastructure (not a customer-data subprocessor)
 

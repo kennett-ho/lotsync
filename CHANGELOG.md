@@ -349,3 +349,31 @@ discussion" list.
 component; any CSV report; any backend business logic. Backend
 regression unchanged at 328/328 — nothing in this sprint's scope could
 have affected it, and it was not rerun for this reason alone.
+
+## v1.1.0-beta.1 - DealerDOH Controlled Beta (2026-08-31)
+
+Production release of the DealerDOH v1.1 infrastructure program
+(Sprints 01-18; chronological record in SPRINT_HISTORY.md, gate and
+execution record in V1_1_RELEASE_READINESS.md §12). Production =
+"production / postgres / bd8abbf" at https://app.dealerdoh.com.
+
+**Shipped**
+- SQLite -> PostgreSQL production cutover (Supabase, MIGRATION VALID,
+  Gate H live parity PASS); rollback zero-loss until the held first
+  accepted sync.
+- Supabase Auth activated (AUTH_MODE=required): org mark-auto-group /
+  dealership mark-kia, bootstrap admin, role-gated User Management.
+- Canonical app domain app.dealerdoh.com; public/legal site
+  dealerdoh.com (zero cookies/JS/tracking).
+- Production telemetry: Sentry + PostHog wired and runtime-verified
+  under the pinned privacy posture (explicit events only, zero
+  cookies, no PII).
+- D4 bounded upload retention fully active (steady-state sweep proven;
+  zero-item legacy prune per owner decision).
+- Production login/reset surfaces environment-gated (PR #33/#34) with
+  the first frontend unit-test suite.
+
+**Explicitly pending (owner-recorded, non-blocking - register §12.6)**
+- C2 Manager Onboarding Pending; human UAT (Rail M) deferred to v1.5
+  readiness; Keyper automated acquisition deferred; first accepted
+  PostgreSQL sync held as the supervised point of no return.

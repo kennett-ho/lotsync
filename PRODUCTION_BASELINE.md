@@ -1,5 +1,18 @@
 # LotSync — Production Baseline
 
+> **Superseded as the current-production description on 2026-08-31 —
+> v1.1 shipped.** Production is now **`v1.1.0-beta.1` territory:
+> commit `bd8abbfcb61a5d1687c573534033fc8a8f296e3d`**, PostgreSQL
+> (Supabase `dealerdoh-prod`), `AUTH_MODE=required`, canonical app URL
+> `https://app.dealerdoh.com` — see `V1_1_RELEASE_READINESS.md` §12
+> for the shipped-state record and `PROJECT_STATUS.md` for the living
+> dashboard. Everything below remains the accurate historical snapshot
+> of the **v1.0.0-beta.6 SQLite baseline** as of 2026-08-15, and that
+> SQLite baseline remains the zero-loss rollback target until the
+> first accepted PostgreSQL sync (register §12.6.4). The branch/lock
+> rules below (all pushes to `master` deploy production; release-train
+> discipline) remain fully in force.
+
 **Established:** 2026-08-15 (Infrastructure Sprint 01 — Production Baseline & Git Foundation)
 
 > ⚠️ **This environment is actively used by dealership personnel.**

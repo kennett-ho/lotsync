@@ -57,10 +57,10 @@ register.
 | Repository Public-Release Sanitation | REQUIRED before any private→public visibility change | **Audit Clean** (Sprint 13, 2026-08-19: full-history read-only scan of 685 blobs across all commits/branches/tags → **zero real secrets ever committed**; the only credential-shaped strings are the CI container's throwaway DSN and doc/test placeholders. No rotation required; no history rewrite warranted or performed. Current-tree checklist passes; CI secret + dependency scanning now exist. **Publication remains a separate owner decision; the repository stays PRIVATE.** One non-secret note: the client dealership identity is present throughout — an owner disclosure decision, not a secret. Record: `SECURITY_AUDIT.md`) | 13 (within H's sprint) | **No — blocks repository publication only, not v1.1** | §5.H.1: full-history secret audit passes; every historical exposure rotated/revoked; current-tree checks pass; final re-scan clean | Audit report · rotation records · history-cleanup assessment · re-scan |
 | J — Performance & Resilience | REQUIRED | **Verified** (Sprint 14 merged as PR #23 → `dev` = `c916208`, CI green on the merged head incl. the new bundle-budget gate; both DEV services restored to `dev` and verified serving the merge SHA (API `/health` release + bundle-baked SHA; Vercel auto-deployed on the Production-Branch push — no manual promote needed). **Merged-head deployed evidence 2026-08-20:** exactly ONE `/dashboard` request per role landing (both roles, live — the sprint's original duplicate-fetch finding closed); initial JS wire 169.2 kB compressed on a fresh fetch of the merged assets (Sprint 13 single-chunk baseline ≈ 256 kB gzip); deferred PostHog chunk loading with explicit events flowing and Sentry present; lazy Inventory Sync/Profile+User Management/Help chunks loading on nav; QA-scale search 3–9 ms/keystroke with the render caps correctly dormant; work-order generation exercised keyboard-only by both roles (pending state → one request → 227–269 ms); warm request band 104–293 ms after pool settle; zero console/CSP violations with the full lazy graph live. Production-scale behavior (bounded first-100/Show-all, newest-150/Show-older, 27–186 ms keystrokes at 1,197 rows, 0.033 s validation, sync_run growth eliminated) verified on the identical build against the production-shaped dataset during the review window and pinned by CI guards. Cold start measured and separated: 32.3 s and 52.3 s free-tier wakes (timed idle) vs ~3 ms warm server-side — platform band, documented, not an application defect. Full record: `PERFORMANCE.md` + `SPRINT_HISTORY.md`) | 14 | **Yes** | §5.J thresholds met at 4,700+ vehicle scale incl. slow-network behavior | Measurement report ✓ (`PERFORMANCE.md`) · fix PRs ✓ (#23) · CI gates ✓ · deployed smoke ✓
 | K — Accessibility | REQUIRED (blocking subset — §5.K) | **Verified** (Sprint 14 merged as PR #23 → `dev` = `c916208`; both DEV services verified serving it. **Merged-head deployed evidence 2026-08-20, both roles (Manager + the owner's Lot Staff account), real key events:** first Tab on an authenticated fresh load reveals the skip link and Enter lands focus in `<main>`; visible focus throughout; onboarding replay is a true modal live (lazy chunk, focus entry, containment, step announcements, Escape=Skip, close returns focus to `<main>`); Vehicle Detail open/Escape focus cycles with truthful breadcrumbs on both roles; mobile drawer inert-when-closed → open-focuses-Close → Escape-returns-to-hamburger with `aria-expanded`; keyboard-focusable upload inputs with a visible focus ring; a zero-mutation validate-only pass announced its outcome live (`role=status`, Rejected verdict rendered, Run stayed disabled); phone-width Lot Staff flow and 640 px zoom-equivalent with zero horizontal overflow and zero sub-24px targets; signature 5.27:1 and sync-badge 6.92:1 measured from the merged stylesheet. axe: **0 violations on all five audited surfaces at production data shape** on the identical build (deployed-origin injection is blocked by our own CSP — recorded as a tooling constraint; supporting evidence only, no formal WCAG conformance claimed). The blocking subset passes on the core workflows; remainder tracked in `ACCESSIBILITY.md` §5 (SR-user study carried to Rail M). Full record: `ACCESSIBILITY.md` + `SPRINT_HISTORY.md`) | 14 | **Yes** (blocking subset) | Blocking subset passes on core workflows; remainder documented as tracked remediation | Audit checklist ✓ (`ACCESSIBILITY.md` §3) · fix PRs ✓ (#23) · DEV keyboard/contrast evidence ✓ (deployed, both roles)
-| L — Privacy / Legal Readiness | REQUIRED ASSESSMENT (internal-beta subset blocks — §5.L) | **Merged — NOT Verified; Execution Pending** (Sprint 15 merged as **PR #25 → `dev` = `608dcaf`**, 2026-08-21; parents `daf5ae0` + `0e83425`; CI green on the merged head — both backend engines, frontend build + bundle budget, security scans; feature branch deleted both sides. **Verified waits on execution only:** D2 real monitored mailbox → owner-approved final text → D5 publication on `dealerdoh.com` before the v1.1 production cutover. Separately, **D4's tested implementation: MERGED + DEV-VERIFIED — production NOT activated** (**PR #27 merged 2026-08-25 as `dev` = `b3c35e1`**, CI green on the merged head; 7-day/30-day ratified windows, +20 boundary tests, 732/732; **deployed DEV review window PASSED 2026-08-25 on `52596d1`**: request-id-correlated `upload_retention_sweep` records live (scanned 0→1→1→2→3, all kept, zero deletions/errors — in-flight safety and counts-plus-server-timestamps-only logging proven; client filenames appear nowhere), all three `/run` outcome markers exercised through their exact unchanged 422/409 contracts, and the **kill-switch cycle live-proven**: `UPLOAD_RETENTION_SWEEP=disabled` → sweep silent, unknown value → fails closed, variable removed → default sweep returns; DEV env restored to its original 12 variables — no override remains. **Production still runs pre-D4 code; activation is governed by the hard 8-step Sprint 18 checklist in §5.L** (backup → deploy-with-kill-switch → verify → inspect legacy → explicit approval → one-time prune → remove switch → verify steady state); the legacy prune stays operator-gated per `DATA_RETENTION.md` §3). **The Sprint 15 merged-head no-cookie proof COMPLETED on deployed DEV 2026-08-25**: `document.cookie` empty (length 0) on a fresh load AND after authenticated navigation while PostHog is demonstrably active (`ph_phc_…` persistence in localStorage; deployed-bundle byte-check `persistence:'localStorage'` + `person_profiles:'identified_only'` with the key baked) — DealerDOH sets no cookies at all, live-confirmed. Original branch record follows —) (Sprint 15, 2026-08-20, branch `feature/sprint-15-privacy-legal`: audit-FIRST, then documents. Evidence-tagged privacy/data-flow inventory in **`PRIVACY_ARCHITECTURE.md`** (all 13 tables; **consumer-data boundary verified at the data-model level: no customer/consumer personal information is ingested by any current contract or persist path**, raw-upload verbatim-retention caveat recorded; workforce-data reality — no structured person names until the planned Sprint 17 contract, incidental vendor free-text = audit F2; browser-storage census MEASURED on deployed DEV + deployed-bundle telemetry-flag byte-check 2026-08-20; platform-layer IP/device metadata stated honestly; upload/output/file lifecycle; backups; internal incident-response procedure §10; minimization review). Retention record **`DATA_RETENTION.md`** (current behavior vs adopted v1.1 policy vs future requirement per artifact; the raw-upload indefinite-retention finding → owner decision **D4 — ratified 2026-08-21: 7-day accepted / 30-day rejected-or-HOLD bounded retention with deletion, never an indefinite default; implementation pending as the bounded retention remediation**; **no deletion behavior changed**; migration-plan retention decisions §17–18 carried through consistently). **`LEGAL_READINESS.md`** point-in-time assessment from authoritative sources (FTC Act §5 Applicable; A.R.S. §§ 18-551/552 breach frame incl. the 45-day/1,000-person mechanics; **GLBA/Safeguards stated carefully, non-categorically: the intended/validated flows do not appear to involve Safeguards "customer information" and DealerDOH does not currently appear to act as a Safeguards service provider for such information — retained raw uploads keep incidental receipt a live data-minimization risk, and the reassessment trigger covers receiving, retaining, maintaining, processing, or being permitted access to customer information**; Arizona: no enacted comprehensive consumer privacy law (SB 1815 introduced in the 2026 session, not enacted); CCPA/other-state/GDPR/COPPA/DPPA classified with rationale) + **owner decision register D1–D10** + **counsel register C1–C8**. Five customer-facing documents DRAFTED (`PRIVACY_POLICY.md`, `BETA_TERMS.md`, `ACCESSIBILITY_STATEMENT.md` strictly from Rail K's real results, `SECURITY_OVERVIEW.md`, `SUBPROCESSORS.md` — environment-honest incl. the GitHub not-a-subprocessor determination and the future email provider marked Planned) — every one marked **Draft — not in effect, not published** (banners carry the resolved-decision context and the D9 disposition), placeholders only where genuinely fill-at-publication (effective dates, the D2 contact), zero invented facts/entities/contacts. One evidence-backed remediation: PostHog `persistence: 'localStorage'` — the SDK default (`localStorage+cookie`) set the app's ONLY cookie (measured live); **DealerDOH now sets no cookies at all**, pinned in `tests/test_frontend_observability_config.py`. Suites 712/712 SQLite + 712/712 PostgreSQL on the branch; frontend build clean. **Owner decisions D1–D10 RESOLVED 2026-08-20** (D1 identity = "DealerDOH, operated by Kennett Ho," no entity implied; D2 real monitored dealerdoh.com contact to be created before publication, placeholders never published as real; D3 U.S.-only, initial controlled beta at an Arizona dealership; D4 raw uploads = temporary operational evidence — **7-day-accepted / 30-day-rejected-or-HOLD bounded retention RATIFIED 2026-08-21**, sweep design approved in principle (`DATA_RETENTION.md` §3); implementation pending, legacy production prune gated to the release/operator step (never at merge); D5 publication on dealerdoh.com — planned /privacy /terms /accessibility, /security if appropriate — before the v1.1 production cutover, never on current LotSync production; D6 notice-only acceptance for the employee beta, org-level contracts reassessed for v2; D7 customer-neutral public policies, drafts swept clean of the dealership name; D8 provider claims verified against actual plans pre-publication, tracked as manual release-readiness actions; **D9 recorded honestly: NO attorney review completed for the v1.1 controlled beta — documents are beta/evaluation readiness materials, qualified review recommended/required before commercial GA — this is the rail's owner-accepted-risk record**; D10 paid-Supabase = production-readiness decision, benefits verified before claimed). **Verified now gates on execution only: merge + merged-head CI, then D2's real mailbox + owner-approved final text + the D5 pre-cutover publication (§5.L exit 2)**; **D4's durations are ratified (2026-08-21); its tested cleanup implementation remains release-gating — before the v1.1 release train, checked at Sprint 18; the legacy production prune never runs at a merge**; the §5.L Sprint 17 delta rule stands untouched) | 15 | **Yes** (subset) | Data inventory accurate; internal-beta documents published; commercial items explicitly deferred with owner sign-off | Merged PR #25 ✓ (`608dcaf`) · CI green on merged head ✓ · Data-flow inventory ✓ · docs drafted, decisions D1–D10 resolved ✓ (publication pending D2/D5 execution before the v1.1 cutover) · deferral/risk record incl. the D9 owner-accepted-risk disposition ✓ (`LEGAL_READINESS.md` §5–§7) · deployed no-cookie proof ✓ (2026-08-25) · D4 implementation MERGED + DEV-verified ✓ (PR #27 → `b3c35e1`; review-window evidence in `SPRINT_HISTORY.md`) · publication ⏳ + D4 production activation via the §5.L Sprint 18 checklist ⏳ = the Verified/release gates |
+| L — Privacy / Legal Readiness | REQUIRED ASSESSMENT (internal-beta subset blocks — §5.L) | **Verified** (execution completed 2026-08-31 — §12: D2 real monitored mailbox live (`support@dealerdoh.com`, `privacy@` forward), owner-approved final text published byte-identical on `dealerdoh.com` pre-cutover (D5) with runtime zero-cookie/zero-JS proof, subprocessors flipped planned → active only after production wiring + runtime verification, and the §5.L D4 8-step production activation completed through step 8 with the steady-state sweep record (§12.5). The pre-execution record follows unchanged —) **(superseded status: Merged — NOT Verified; Execution Pending)** (Sprint 15 merged as **PR #25 → `dev` = `608dcaf`**, 2026-08-21; parents `daf5ae0` + `0e83425`; CI green on the merged head — both backend engines, frontend build + bundle budget, security scans; feature branch deleted both sides. **Verified waits on execution only:** D2 real monitored mailbox → owner-approved final text → D5 publication on `dealerdoh.com` before the v1.1 production cutover. Separately, **D4's tested implementation: MERGED + DEV-VERIFIED — production NOT activated** (**PR #27 merged 2026-08-25 as `dev` = `b3c35e1`**, CI green on the merged head; 7-day/30-day ratified windows, +20 boundary tests, 732/732; **deployed DEV review window PASSED 2026-08-25 on `52596d1`**: request-id-correlated `upload_retention_sweep` records live (scanned 0→1→1→2→3, all kept, zero deletions/errors — in-flight safety and counts-plus-server-timestamps-only logging proven; client filenames appear nowhere), all three `/run` outcome markers exercised through their exact unchanged 422/409 contracts, and the **kill-switch cycle live-proven**: `UPLOAD_RETENTION_SWEEP=disabled` → sweep silent, unknown value → fails closed, variable removed → default sweep returns; DEV env restored to its original 12 variables — no override remains. **Production still runs pre-D4 code; activation is governed by the hard 8-step Sprint 18 checklist in §5.L** (backup → deploy-with-kill-switch → verify → inspect legacy → explicit approval → one-time prune → remove switch → verify steady state); the legacy prune stays operator-gated per `DATA_RETENTION.md` §3). **The Sprint 15 merged-head no-cookie proof COMPLETED on deployed DEV 2026-08-25**: `document.cookie` empty (length 0) on a fresh load AND after authenticated navigation while PostHog is demonstrably active (`ph_phc_…` persistence in localStorage; deployed-bundle byte-check `persistence:'localStorage'` + `person_profiles:'identified_only'` with the key baked) — DealerDOH sets no cookies at all, live-confirmed. Original branch record follows —) (Sprint 15, 2026-08-20, branch `feature/sprint-15-privacy-legal`: audit-FIRST, then documents. Evidence-tagged privacy/data-flow inventory in **`PRIVACY_ARCHITECTURE.md`** (all 13 tables; **consumer-data boundary verified at the data-model level: no customer/consumer personal information is ingested by any current contract or persist path**, raw-upload verbatim-retention caveat recorded; workforce-data reality — no structured person names until the planned Sprint 17 contract, incidental vendor free-text = audit F2; browser-storage census MEASURED on deployed DEV + deployed-bundle telemetry-flag byte-check 2026-08-20; platform-layer IP/device metadata stated honestly; upload/output/file lifecycle; backups; internal incident-response procedure §10; minimization review). Retention record **`DATA_RETENTION.md`** (current behavior vs adopted v1.1 policy vs future requirement per artifact; the raw-upload indefinite-retention finding → owner decision **D4 — ratified 2026-08-21: 7-day accepted / 30-day rejected-or-HOLD bounded retention with deletion, never an indefinite default; implementation pending as the bounded retention remediation**; **no deletion behavior changed**; migration-plan retention decisions §17–18 carried through consistently). **`LEGAL_READINESS.md`** point-in-time assessment from authoritative sources (FTC Act §5 Applicable; A.R.S. §§ 18-551/552 breach frame incl. the 45-day/1,000-person mechanics; **GLBA/Safeguards stated carefully, non-categorically: the intended/validated flows do not appear to involve Safeguards "customer information" and DealerDOH does not currently appear to act as a Safeguards service provider for such information — retained raw uploads keep incidental receipt a live data-minimization risk, and the reassessment trigger covers receiving, retaining, maintaining, processing, or being permitted access to customer information**; Arizona: no enacted comprehensive consumer privacy law (SB 1815 introduced in the 2026 session, not enacted); CCPA/other-state/GDPR/COPPA/DPPA classified with rationale) + **owner decision register D1–D10** + **counsel register C1–C8**. Five customer-facing documents DRAFTED (`PRIVACY_POLICY.md`, `BETA_TERMS.md`, `ACCESSIBILITY_STATEMENT.md` strictly from Rail K's real results, `SECURITY_OVERVIEW.md`, `SUBPROCESSORS.md` — environment-honest incl. the GitHub not-a-subprocessor determination and the future email provider marked Planned) — every one marked **Draft — not in effect, not published** (banners carry the resolved-decision context and the D9 disposition), placeholders only where genuinely fill-at-publication (effective dates, the D2 contact), zero invented facts/entities/contacts. One evidence-backed remediation: PostHog `persistence: 'localStorage'` — the SDK default (`localStorage+cookie`) set the app's ONLY cookie (measured live); **DealerDOH now sets no cookies at all**, pinned in `tests/test_frontend_observability_config.py`. Suites 712/712 SQLite + 712/712 PostgreSQL on the branch; frontend build clean. **Owner decisions D1–D10 RESOLVED 2026-08-20** (D1 identity = "DealerDOH, operated by Kennett Ho," no entity implied; D2 real monitored dealerdoh.com contact to be created before publication, placeholders never published as real; D3 U.S.-only, initial controlled beta at an Arizona dealership; D4 raw uploads = temporary operational evidence — **7-day-accepted / 30-day-rejected-or-HOLD bounded retention RATIFIED 2026-08-21**, sweep design approved in principle (`DATA_RETENTION.md` §3); implementation pending, legacy production prune gated to the release/operator step (never at merge); D5 publication on dealerdoh.com — planned /privacy /terms /accessibility, /security if appropriate — before the v1.1 production cutover, never on current LotSync production; D6 notice-only acceptance for the employee beta, org-level contracts reassessed for v2; D7 customer-neutral public policies, drafts swept clean of the dealership name; D8 provider claims verified against actual plans pre-publication, tracked as manual release-readiness actions; **D9 recorded honestly: NO attorney review completed for the v1.1 controlled beta — documents are beta/evaluation readiness materials, qualified review recommended/required before commercial GA — this is the rail's owner-accepted-risk record**; D10 paid-Supabase = production-readiness decision, benefits verified before claimed). **Verified now gates on execution only: merge + merged-head CI, then D2's real mailbox + owner-approved final text + the D5 pre-cutover publication (§5.L exit 2)**; **D4's durations are ratified (2026-08-21); its tested cleanup implementation remains release-gating — before the v1.1 release train, checked at Sprint 18; the legacy production prune never runs at a merge**; the §5.L Sprint 17 delta rule stands untouched) | 15 | **Yes** (subset) | Data inventory accurate; internal-beta documents published; commercial items explicitly deferred with owner sign-off | Merged PR #25 ✓ (`608dcaf`) · CI green on merged head ✓ · Data-flow inventory ✓ · docs drafted, decisions D1–D10 resolved ✓ (publication pending D2/D5 execution before the v1.1 cutover) · deferral/risk record incl. the D9 owner-accepted-risk disposition ✓ (`LEGAL_READINESS.md` §5–§7) · deployed no-cookie proof ✓ (2026-08-25) · D4 implementation MERGED + DEV-verified ✓ (PR #27 → `b3c35e1`; review-window evidence in `SPRINT_HISTORY.md`) · publication ⏳ + D4 production activation via the §5.L Sprint 18 checklist ⏳ = the Verified/release gates |
 | M — Human User Acceptance Testing | REQUIRED — **deferred from the v1.1 ship gate by explicit owner waiver 2026-08-25 (§11); required before v1.5 commercial pilot readiness** | **Human Verification Pending — deferred from v1.1 release gate by owner decision; required before v1.5 pilot readiness** — evidence state preserved: UAT package and DEV preflight complete (Sprint 16, 2026-08-25: methodology + moderator script + findings log canonical — `UAT_PLAN.md` / `UAT_SCRIPT.md` / `UAT_FINDINGS.md`, merged PR #29 → `dev` = `bd1e72a` = **the canonical session SHA**, both DEV services byte-verified serving it; **DEV preflight PASSED** (`UAT_PLAN.md` Appendix A) — no pre-UAT blocker; the findings log is deliberately empty. **Human sessions deliberately deferred by owner decision 2026-08-25** — representative Manager/Admin + Lot Staff participants are unavailable until the pre-pilot / pilot-readiness window; this is an owner scheduling decision, not a technical blocker. **Automated QA is not and will not be substituted for human evidence**; the exit conditions in §5.M stand unchanged and still require real sessions before any Verified disposition. Un-parked by: owner conducts sessions per the launch packet against `bd1e72a` — or re-preflight against the then-current candidate if `dev` has materially moved — and supplies raw observations for Phase 4 processing) | 16 (human window: pre-v1.5) | **Waived for v1.1 (owner, 2026-08-25 — §11); blocks v1.5 pilot readiness** | Manager + Lot Staff UAT complete; all release-blocker findings fixed and re-verified — criteria unchanged by the waiver | UAT session notes · blocker list dispositions · re-test evidence · package + preflight ✓ (PR #29, `bd1e72a`) · human sessions ⏳ (v1.5 readiness gate, §11) |
-| Production migration (Releases A–C) | REQUIRED | **Rehearsed** (Sprint 07 PASS — not executed) | RC/cutover (18) | **Yes** | Runbook executes at cutover; Sprint 18 re-verification confirms rehearsal assumptions still hold | `PRODUCTION_MIGRATION_REHEARSAL.md` · refreshed rehearsal if drift · runbook completion record |
-| Automated Report Ingestion — Keyper Scheduled All Vehicles | **CONDITIONAL — TRIGGERED / owner-opted into v1.1** (§6.2, 2026-08-18) | Planned | 17 | **Yes — now that the rail has entered v1.1** | Configured dealership receives, deduplicates, validates, HOLDs or safely processes Keyper Full evidence through the Rail D boundary | Vendor evidence · merged PR · dual-engine CI · DEV acquisition/replay/HOLD smoke · observability evidence · H/I/J/L/M delta-gate evidence |
+| Production migration (Releases A–C) | REQUIRED | **Executed & Verified** (2026-08-31 — §12.1–§12.3: Release A exact-RC deploy, Release B SQLite→PostgreSQL cutover `MIGRATION VALID` with Gate H live parity PASS, Release C auth activation complete through C1/C3/C4; C2 = Manager Onboarding Pending by owner deferral (§12.3); the first accepted PostgreSQL sync remains the held, owner-supervised point-of-no-return checkpoint (§12.6.4) — rollback zero-loss until it) | RC/cutover (18) | **Yes** | Runbook executes at cutover; Sprint 18 re-verification confirms rehearsal assumptions still hold | `PRODUCTION_MIGRATION_REHEARSAL.md` ✓ · runbook execution record §12 ✓ · `PRODUCTION_MIGRATION_RUNBOOK.md` |
+| Automated Report Ingestion — Keyper Scheduled All Vehicles | **CONDITIONAL — TRIGGERED / owner-opted into v1.1** (§6.2, 2026-08-18) | **Deferred by owner (Sprint 18, 2026-08-26)** — pending pilot/contract authorization and vendor evidence; no unattended Keyper ingestion is enabled in v1.1 (§12.6.2); Sprint 17 reconstruction/plan preserved (`KEYPER_AUTOMATED_INTEGRATION_PLAN.md`) | 17 | **Yes — now that the rail has entered v1.1** | Configured dealership receives, deduplicates, validates, HOLDs or safely processes Keyper Full evidence through the Rail D boundary | Vendor evidence · merged PR · dual-engine CI · DEV acquisition/replay/HOLD smoke · observability evidence · H/I/J/L/M delta-gate evidence |
 
 Register statuses used: Planned · Discovery · In Progress ·
 Implementation Complete — Awaiting Merge · Verified · Deferred · N/A.
@@ -1121,6 +1121,156 @@ may not erode:
    against the actual v1.5 candidate).
 9. The pilot environment is re-preflighted against the actual v1.5
    candidate.
+
+---
+
+## 12. v1.1 Release Execution Record (2026-08-31)
+
+The §11.1 compressed release gate was executed 2026-08-26 → 2026-08-31.
+This section is the final record §11.1.I requires: what shipped, on
+what evidence, and exactly what remains pending. Nothing below weakens
+any criterion; every deferral carries its owner decision.
+
+### 12.1 Shipped production state
+
+| | |
+|---|---|
+| **Production SHA** | `bd8abbfcb61a5d1687c573534033fc8a8f296e3d` (both services; `master` = `dev`) |
+| **Release identity** | v1.1 **Controlled Beta — Human Validation Deferred to v1.5 Readiness** (§11) |
+| **Database** | PostgreSQL (Supabase `dealerdoh-prod`, us-west-2) — migrated from production SQLite 2026-08-31, `MIGRATION VALID`, 15,940 rows, Gate H live-verified (1,173/4,760 exact parity, row-identical VIN spot checks, history to the second) |
+| **App URL** | `https://app.dealerdoh.com` (canonical; `lotsync-nu.vercel.app` remains a working alias) |
+| **Auth** | `AUTH_MODE=required` live; org `mark-auto-group` / dealership `mark-kia`; one bootstrap admin (owner). Tokenless and garbage-token probes 401 across operational routes; `/docs` 404; CORS allowlists the two origins and refuses others |
+| **Telemetry** | Sentry (backend + frontend DSNs) and PostHog wired and runtime-verified 2026-08-31 (§12.4) |
+| **Retention** | D4 fully active: kill-switch removed, steady-state sweep proven (§12.5) |
+| **RC history** | `d16c8be` (cutover RC) → `2ff06d4` (production-copy patch, PR #33) → `bd8abbf` (residual-copy patch, PR #34); each promoted by owner fast-forward ceremony with full post-promotion verification |
+
+### 12.2 Gate outcomes (A–I)
+
+- **A (exact RC)** PASS — RC discipline held through two owner-approved
+  docs/copy re-baselines; every promotion was an exact-SHA fast-forward.
+- **B (backup/rollback)** PASS — hash-verified quiet-window backup
+  on-host + off-host; real-backup offline rehearsal v8→v10
+  `MIGRATION VALID`, 18/18 behavior-identical; Render rollback controls
+  verified. Rollback remained zero-loss up to the (still pending) first
+  accepted PostgreSQL sync.
+- **C (architecture rehearsal)** PASS — fresh synthetic 4,700-vehicle
+  rehearsal against the RC runner.
+- **D (providers)** PASS with two recorded owner waivers: **Vercel
+  Hobby** and **Supabase Free** (operator backup posture; suitability
+  measured — both to be reassessed before v1.5). MFA verified on all
+  five provider accounts as a required control.
+- **E (Rail L execution)** PASS — real monitored mailbox
+  (`support@dealerdoh.com`, `privacy@` forward), owner-approved final
+  text, `dealerdoh.com` published pre-cutover (byte-identical to
+  approved text; runtime zero-cookie/zero-JS proof), PR #32 doc
+  reconciliation merged.
+- **F/G (production smoke)** PASS — §12.3–§12.5 runtime evidence.
+- **H (migration integrity)** PASS — live parity and history checks on
+  the migrated database.
+- **I (GO/NO-GO)** — owner ratified **GO WITH ACCEPTED LIMITATIONS**
+  2026-08-31; limitations register in §12.6.
+
+### 12.3 Release C execution (auth activation)
+
+- **C1 (domain + auth + bootstrap) — complete.** `app.dealerdoh.com`
+  CNAME added at Northwest (all other records verified untouched; mail
+  stack re-verified), Vercel-validated with trusted TLS. Supabase auth:
+  signups OFF, Site URL + `/auth/reset-password` allowlist. Bootstrap:
+  owner-created Supabase user + one three-INSERT transaction
+  (org/dealership/admin membership) run by the owner via psql and
+  verified post-commit. Env: frontend `VITE_*` first, then the Render
+  batch (`AUTH_MODE=required`, Supabase URL/secret,
+  `DEALERDOH_DEALERSHIP_ID=mark-kia`,
+  `DEALERDOH_FRONTEND_URL=https://app.dealerdoh.com`, CORS + new
+  origin). Full production auth smoke passed, including admin login,
+  role/org/dealership context, roster enrichment, and real-dataset
+  rendering over the new origin.
+- **C2 (manager onboarding) — "Manager Onboarding Pending — production
+  auth/admin path live; real manager invitations deferred by owner."**
+  Owner deferral 2026-08-31; not a technical failure and explicitly
+  non-blocking for the v1.1 train. Preserved evidence: the schema
+  supports multiple managers (`UNIQUE(auth_user_id, dealership_id)`
+  only), an admin can invite managers (live-proven on production), a
+  manager cannot mint peer managers/admins (server `GRANTABLE` +
+  frontend mirror), no schema change is required, and production User
+  Management is operational. **Factual note (chronology preserved):
+  manager invitations to the two intended managers were sent
+  2026-08-31 under prior explicit owner approval before the deferral
+  amendment arrived; accounts exist in `invited` state with active
+  `manager` memberships. Owner reconciliation of that sent-invite
+  state is pending; acceptance-side evidence remains outstanding and
+  is never fabricated.**
+- **C3 (telemetry)** — §12.4. **C4 (retention activation)** — §12.5.
+
+### 12.4 Telemetry activation evidence (C3, 2026-08-31)
+
+Wired: `SENTRY_DSN` (Render), `VITE_SENTRY_DSN` + `VITE_POSTHOG_KEY`
++ `VITE_POSTHOG_HOST` (Vercel Production) — the pre-created production
+projects only. Runtime-verified on production: **zero cookies**
+(`document.cookie` empty with PostHog active), `ph_*` persistence in
+localStorage only, explicit events only (`app_loaded`, `page_viewed`,
+`Identify` — zero `$autocapture`/`$pageview` in the project), identity
+= internal auth UUID (never email), event payloads carry
+`environment=production` + the release SHA + controlled page
+identifiers with no email/VIN/query-string content (inspected via the
+PostHog events API). Sentry: frontend release-health session envelope
+observed to the production ingest (no error content); backend posture
+is code-enforced (`send_default_pii=False`,
+`include_local_variables=False`, traces 0, `before_send` scrub,
+request bodies never, no auto-integrations) with structured logs
+independently stamping environment + release. Public subprocessors
+page flipped planned → active for Supabase/Sentry/PostHog the same
+day, after wiring + runtime verification, and verified live.
+
+### 12.5 D4 production activation completion (C4, 2026-08-31)
+
+Steps 1–6 were completed at cutover (kill-switch staged before the RC
+deploy; owner step-5 decision recorded verbatim: *"No one-time legacy
+deletion performed. Existing legacy batches remain within the ratified
+retention window and will expire through normal steady-state
+retention."*). Step 7: `UPLOAD_RETENTION_SWEEP` removed and
+redeployed. Step 8: steady-state proven via a harmless authenticated
+`/validate` (headers-only MDD fixture → 200 `needs_review`; no sync
+accepted, no dealership data mutated, the request's own batch
+self-deleted): structured record `upload_retention_sweep` with
+`scanned=8, kept=8, deleted_batches=[], deleted_validate_orphans=0,
+delete_errors=0` — sweep executes, in-window legacy batches kept,
+counts-only logging. Unknown kill-switch values fail closed per the
+existing merged test evidence (`tests/test_upload_retention.py`).
+
+### 12.6 Known-limitations register (carried into the v1.1 tag)
+
+1. **Human validation deferred** — Rail M waived for v1.1 by owner
+   (2026-08-25, §11); required before v1.5 pilot readiness; criteria
+   unweakened.
+2. **Keyper automated evidence acquisition deferred** by owner pending
+   pilot/contract authorization and vendor evidence. No unattended
+   Keyper ingestion is enabled in v1.1. Rail D remains
+   Merged — NOT Verified.
+3. **C2 Manager Onboarding Pending** (§12.3) — production runs with
+   the bootstrap admin only until the owner onboards the real
+   managers.
+4. **First accepted PostgreSQL sync pending** — held as a separately
+   owner-supervised checkpoint (`/validate`-first protocol). It is the
+   documented point of no return: until it, rollback to the SQLite
+   baseline is zero-loss.
+5. **Provider-plan waivers** — Vercel Hobby and Supabase Free
+   (§12.2.D), reassessed before v1.5.
+6. **D9** — no attorney review for the v1.1 controlled beta
+   (owner-accepted risk, Rail L record); qualified review before
+   commercial GA.
+7. **Notifications rail** remains conditional/deferred (§6.1
+   unchanged).
+
+### 12.7 Tag determination
+
+**`v1.1.0-beta.1` may be tagged at `bd8abbf`** with §12.6 carried
+explicitly in the tag annotation: the §11.1 A–I gate is complete with
+owner GO, and the pending items (C2 onboarding, first accepted sync)
+are operational adoption checkpoints, not §11.1 ship-gate criteria —
+the same explicit-record pattern already governing the Rail M waiver
+and the Keyper deferral. Tagging is an owner ceremony and awaits the
+final closeout approval.
 
 ---
 

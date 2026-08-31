@@ -44,6 +44,13 @@ type Phase =
 
 const MIN_PASSWORD_LENGTH = 8
 
+// Same environment gate App.tsx's DevBanner uses: only the DEV Vercel
+// project bakes VITE_ENVIRONMENT=development into its builds, so
+// production invite/recovery landings never show the synthetic-data
+// warning. Direct import.meta.env access for the same reasons as
+// Login.tsx (static folding + testability).
+const IS_DEV_ENVIRONMENT = import.meta.env.VITE_ENVIRONMENT === 'development'
+
 export default function ResetPassword() {
   const [phase, setPhase] = useState<Phase>('checking')
   const [password, setPassword] = useState('')
@@ -121,10 +128,12 @@ export default function ResetPassword() {
 
   return (
     <div className="min-h-screen flex flex-col" style={{ backgroundColor: '#0B1220' }}>
-      <div className="w-full text-center py-1.5 text-[11px] font-bold tracking-wide text-white"
-           style={{ backgroundColor: '#7C3AED' }}>
-        DealerDOH DEV — Development Environment — Synthetic/Test Data Only
-      </div>
+      {IS_DEV_ENVIRONMENT && (
+        <div className="w-full text-center py-1.5 text-[11px] font-bold tracking-wide text-white"
+             style={{ backgroundColor: '#7C3AED' }}>
+          DealerDOH DEV — Development Environment — Synthetic/Test Data Only
+        </div>
+      )}
       <div className="flex-1 flex items-center justify-center px-4">
         <div className="w-full max-w-sm">
           <div className="text-center mb-8">

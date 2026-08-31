@@ -19,6 +19,15 @@ import { track } from '../observability/analytics'
 const FORGOT_SENT_MESSAGE =
   'If an account exists for that email, password recovery instructions have been sent.'
 
+// Same environment gate App.tsx's DevBanner uses (see the comment
+// there): VITE_ENVIRONMENT=development is baked only into the DEV
+// Vercel project's builds, so production and local builds render the
+// neutral copy below and NEVER the synthetic-data warning. Written as
+// a direct import.meta.env access (typed via tsconfig's vite/client)
+// so Vite folds it statically in production bundles and Vitest's env
+// stubbing can drive both branches in environment-copy.test.tsx.
+const IS_DEV_ENVIRONMENT = import.meta.env.VITE_ENVIRONMENT === 'development'
+
 export default function Login() {
   const [mode, setMode] = useState<'signin' | 'forgot' | 'forgot-sent'>('signin')
   const [email, setEmail] = useState('')
@@ -82,16 +91,20 @@ export default function Login() {
 
   return (
     <div className="min-h-screen flex flex-col" style={{ backgroundColor: '#0B1220' }}>
-      <div className="w-full text-center py-1.5 text-[11px] font-bold tracking-wide text-white"
-           style={{ backgroundColor: '#7C3AED' }}>
-        DealerDOH DEV — Development Environment — Synthetic/Test Data Only
-      </div>
+      {IS_DEV_ENVIRONMENT && (
+        <div className="w-full text-center py-1.5 text-[11px] font-bold tracking-wide text-white"
+             style={{ backgroundColor: '#7C3AED' }}>
+          DealerDOH DEV — Development Environment — Synthetic/Test Data Only
+        </div>
+      )}
       <div className="flex-1 flex items-center justify-center px-4">
         <div className="w-full max-w-sm">
           <div className="text-center mb-8">
             <h1 className="text-white text-2xl font-bold tracking-tight">DealerDOH</h1>
             <div className="text-white/50 text-[13px] mt-1">
-              Sign in to the development dealership
+              {IS_DEV_ENVIRONMENT
+                ? 'Sign in to the development dealership'
+                : 'Sign in to your dealership workspace.'}
             </div>
           </div>
 

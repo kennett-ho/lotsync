@@ -51,7 +51,7 @@ function requestTimeoutSignal(): AbortSignal | undefined {
 
 function unreachableError(): ApiError {
   return new ApiError(
-    `Could not reach the LotSync API at ${API_BASE_URL}. Is the backend running?`,
+    `Could not reach the DealerDOH API at ${API_BASE_URL}. Is the backend running?`,
     0,
   )
 }
@@ -148,7 +148,7 @@ export async function apiGet<T>(
   }
   if (!response.ok) {
     signalStatus(response.status)
-    throw new ApiError(`LotSync API returned ${response.status} for ${path}`, response.status, requestIdOf(response))
+    throw new ApiError(`DealerDOH API returned ${response.status} for ${path}`, response.status, requestIdOf(response))
   }
 
   return (await response.json()) as T
@@ -185,7 +185,7 @@ export async function apiPostJson<T>(path: string, body: unknown): Promise<T> {
     }
     const message = typeof detail === 'string'
       ? detail
-      : `LotSync API returned ${response.status} for ${path}`
+      : `DealerDOH API returned ${response.status} for ${path}`
     throw new ApiError(message, response.status, requestIdOf(response))
   }
 
@@ -211,7 +211,7 @@ export async function apiGetBlob(path: string): Promise<{ blob: Blob; filename: 
 
   if (!response.ok) {
     signalStatus(response.status)
-    throw new ApiError(`LotSync API returned ${response.status} for ${path}`, response.status, requestIdOf(response))
+    throw new ApiError(`DealerDOH API returned ${response.status} for ${path}`, response.status, requestIdOf(response))
   }
 
   const disposition = response.headers.get('Content-Disposition') ?? ''
@@ -267,7 +267,7 @@ export async function apiPostForm<T>(path: string, formData: FormData): Promise<
         : typeof detail === 'object' && detail !== null && 'message' in detail
           && typeof (detail as { message: unknown }).message === 'string'
           ? (detail as { message: string }).message
-          : `LotSync API returned ${response.status} for ${path}`
+          : `DealerDOH API returned ${response.status} for ${path}`
     throw new ApiError(message, response.status, requestIdOf(response))
   }
 

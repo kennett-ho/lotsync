@@ -591,7 +591,7 @@ export default function Tasks({ onVehicleSelect }: { onVehicleSelect: (s: string
           {state.status === 'error' && (
             <div role="alert" className="flex flex-col items-center justify-center h-48 text-center gap-2">
               <p className="text-[13px] font-medium text-red-600">
-                {isBackendUnavailable(state.error) ? 'The LotSync API is unreachable.' : 'Something went wrong loading tasks.'}
+                {isBackendUnavailable(state.error) ? 'The DealerDOH API is unreachable.' : 'Something went wrong loading tasks.'}
               </p>
               <p className="text-[11px] text-slate-500">{state.error.message}</p>
             </div>

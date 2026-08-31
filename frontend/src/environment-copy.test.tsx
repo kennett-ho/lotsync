@@ -103,6 +103,43 @@ describe('ResetPassword', () => {
   })
 })
 
+describe('production base brand (v1.1 branding residual, owner-ordered)', () => {
+  // The browser-tab/document title chain: .figma/make/site.json's
+  // title is injected into the built <title> (and og:title) by
+  // vite.config.ts, and App.tsx's BASE_TITLE takes its last " · "
+  // segment (falling back to the same brand) to compose route titles
+  // like "Overview · DealerDOH". Production shipped as "LotSync" once;
+  // these pins keep the shipped brand DealerDOH.
+
+  test('site.json title (the built document title) is DealerDOH', async () => {
+    const site = (await import('../.figma/make/site.json')).default as { title?: string }
+    expect(site.title).toBe('DealerDOH')
+  })
+
+  test('App base title fallback and sidebar brand are DealerDOH', async () => {
+    const raw = (await import('./App.tsx?raw')).default as string
+    expect(raw).toContain("|| 'DealerDOH'")
+    expect(raw).toContain('>DealerDOH</div>')
+    // No user-visible LotSync text node may return (comments are fine).
+    expect(/>\s*LotSync\s*</.test(raw)).toBe(false)
+  })
+
+  test('reachable surfaces ship no user-visible LotSync strings', async () => {
+    const raws = await Promise.all([
+      import('./api/client.ts?raw'), import('./dashboards/Dashboard.tsx?raw'),
+      import('./dashboards/Activity.tsx?raw'), import('./VehicleDetail.tsx?raw'),
+      import('./dashboards/Tasks.tsx?raw'), import('./dashboards/VehiclesList.tsx?raw'),
+      import('./dashboards/InventorySync.tsx?raw'), import('./dashboards/TodaysWork.tsx?raw'),
+    ])
+    for (const mod of raws) {
+      const src = (mod as { default: string }).default
+      // Strings like 'The LotSync API…' are user-rendered; comments
+      // mentioning LotSync are historical and allowed.
+      expect(/['"`][^'"`\n]*LotSync[^'"`\n]*['"`]/.test(src)).toBe(false)
+    }
+  })
+})
+
 describe('ErrorBoundary fallback', () => {
   // The boundary catches a render throw; React logs it to
   // console.error -- silenced so the suite output stays readable.

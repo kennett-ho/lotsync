@@ -1,8 +1,8 @@
 {
-  "title": "LotSync",
+  "title": "DealerDOH",
   "description": "A dashboard for dealership lot attendants to reconcile vehicle inventory across systems, track operational KPIs, and manage priority tasks efficiently.",
   "icons": {
-    "icon": "/img/logo/lotsynclogo.png"
+    "icon": "/img/logo/dealerdoh-mark.png"
   },
   "robots": {
     "index": false

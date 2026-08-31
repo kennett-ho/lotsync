@@ -20,7 +20,9 @@
 > `PRIVACY_ARCHITECTURE.md`.
 
 **Effective date:** [OWNER: actual publication date — do not
-backdate] · **Version:** draft-1 (Git-versioned; see § "Changes")
+backdate] · **Version:** draft-2 (Git-versioned; see § "Changes";
+reconciled 2026-08-30 against v1.1 release candidate `680272a` and
+the verified provider configuration)
 
 ---
 
@@ -150,16 +152,16 @@ for what is and is not in place.
   purpose and is retained for the life of the dealership
   relationship.
 - **Uploaded report files** are temporary operational evidence, not
-  archives. The adopted policy keeps an uploaded file for up to
+  archives. The v1.1 policy keeps an uploaded file for up to
   **7 days** after it is successfully processed and up to **30
   days** when it was rejected or held for review, then deletes it.
-  *[Editorial gate — publish this bullet only once the
-  bounded-retention implementation is live; until then the accurate
-  statement is that uploaded files are retained pending that
-  implementation — `DATA_RETENTION.md` §3.]*
+  This bounded-retention behavior ships with the v1.1 release this
+  policy describes (it is implemented and verified in the release
+  candidate); files uploaded before v1.1 are cleaned up as an
+  explicit step of the v1.1 rollout.
 - **Telemetry** is retained on the providers' schedules (error
-  events on the order of weeks to months; product events on the
-  order of a year on current plans).
+  events about **30 days**, product events on the order of a year,
+  on current plans).
 - The full, honest retention record — including the implementation
   status of each policy — is [`DATA_RETENTION.md`](DATA_RETENTION.md).
 
@@ -168,10 +170,9 @@ for what is and is not in place.
 You can set or change your display name in Settings, and use the
 password-reset flow at any time. To access, correct, or ask about
 information connected to your account — or to request offboarding —
-contact [AT PUBLICATION — D2: the monitored `dealerdoh.com`
-contact address, created before this policy is published; one
-address may serve both support and privacy] or your dealership
-administrator. We will handle requests honestly and
+contact **support@dealerdoh.com** (the monitored support/privacy
+address; `privacy@dealerdoh.com` forwards to the same inbox) or
+your dealership administrator. We will handle requests honestly and
 manually; this is a small internal beta and we do not promise
 statutory response timelines that do not apply to it.
 
@@ -189,9 +190,12 @@ history is preserved in the document repository.
 
 ## Contact
 
-[AT PUBLICATION — D2 (resolved 2026-08-20): a real, monitored
-`dealerdoh.com` contact address will be created **before** this
-policy is published; one address may initially serve both support
-and privacy functions. **This document must not be published while
-this placeholder remains — placeholder addresses are never
-published as real contact information.**]
+**support@dealerdoh.com** — the monitored support and privacy
+contact for DealerDOH (operated by Kennett Ho).
+`privacy@dealerdoh.com` forwards to the same monitored inbox.
+
+*[Publication gate — D2: this document must not be published until
+the mailbox above exists, has been verified to receive and send,
+and is monitored by the operator. The address is decided
+(2026-08-30); creation/verification is a required pre-publication
+step.]*

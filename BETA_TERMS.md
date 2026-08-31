@@ -21,7 +21,8 @@
 > until the owner approves the final published text.**
 
 **Effective date:** [OWNER: actual publication date] ·
-**Version:** draft-1
+**Version:** draft-2 (reconciled 2026-08-30 against v1.1 release
+candidate `680272a`)
 
 ---
 
@@ -133,6 +134,8 @@ at the organization/administrator/customer-contract level.
 
 ## 13. Contact
 
-[AT PUBLICATION — D2 (resolved 2026-08-20): the monitored
-`dealerdoh.com` contact address, created before publication. This
-document must not be published while this placeholder remains.]
+**support@dealerdoh.com** — the monitored contact for DealerDOH
+(operated by Kennett Ho).
+
+*[Publication gate — D2: do not publish until the mailbox is
+created, verified (receive + send), and monitored.]*

@@ -11,8 +11,10 @@
 > the whole document set: beta/evaluation readiness material; no
 > attorney review has been completed for the v1.1 controlled beta.
 
-**Last reviewed:** 2026-08-20 (against the Sprint 14 audit,
-completed 2026-08-20) · **Version:** draft-1
+**Last reviewed:** 2026-08-30 (against the Sprint 14 audit,
+completed 2026-08-20; re-checked against v1.1 release candidate
+`680272a` — no accessibility-relevant changes since the audit) ·
+**Version:** draft-2
 
 ---
 
@@ -65,7 +67,8 @@ user management):
 
 - **No assistive-technology user study yet** — structural and
   accessibility-tree evidence only; a human screen-reader pass is
-  planned as part of user acceptance testing.
+  planned as part of the product's human validation program (the
+  human-testing window preceding any commercial pilot).
 - **The generated work-order PDF** prints cleanly with readable,
   logically-ordered text but is **not** a tagged/PDF-UA document.
 - **Windows High Contrast / forced-colors mode** has not been
@@ -80,5 +83,7 @@ user management):
 
 If you hit an accessibility barrier in DealerDOH, please tell us —
 it will be treated as a defect, not a request:
-[AT PUBLICATION — D2 (resolved 2026-08-20): the monitored
-`dealerdoh.com` contact address, created before publication].
+**support@dealerdoh.com**.
+
+*[Publication gate — D2: do not publish until the mailbox is
+created, verified, and monitored.]*

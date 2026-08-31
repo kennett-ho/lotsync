@@ -24,6 +24,21 @@ const FORBIDDEN_IN_PRODUCTION = [
   /Sign in to the development dealership/,
 ]
 
+// Residual dev-flavored copy removed by owner decision after the
+// Release C promotion -- forbidden in EVERY environment, DEV included
+// (unlike the banner, these had no dev-side purpose).
+const FORBIDDEN_EVERYWHERE = [
+  /Development accounts are provisioned/,
+  /qa\.dealerdoh\.example/,
+]
+
+function expectNoResidualCopy() {
+  for (const pattern of FORBIDDEN_EVERYWHERE) {
+    expect(screen.queryByText(pattern)).toBeNull()
+    expect(screen.queryByPlaceholderText(pattern)).toBeNull()
+  }
+}
+
 afterEach(() => {
   cleanup()
   vi.unstubAllEnvs()
@@ -52,13 +67,16 @@ describe('Login', () => {
   test('production renders neutral copy and no DEV messaging', async () => {
     await renderFresh('./auth/Login', 'production')
     expectNoForbiddenCopy()
+    expectNoResidualCopy()
     expect(screen.getByText('DealerDOH')).not.toBeNull()
     expect(screen.getByText('Sign in to your dealership workspace.')).not.toBeNull()
+    expect(screen.getByPlaceholderText('you@dealership.com')).not.toBeNull()
   })
 
   test('unset environment (local build) also renders neutral copy', async () => {
     await renderFresh('./auth/Login', undefined)
     expectNoForbiddenCopy()
+    expectNoResidualCopy()
     expect(screen.getByText('Sign in to your dealership workspace.')).not.toBeNull()
   })
 
@@ -67,6 +85,7 @@ describe('Login', () => {
     expect(screen.getByText(/Synthetic\/Test Data Only/)).not.toBeNull()
     expect(screen.getByText('Sign in to the development dealership')).not.toBeNull()
     expect(screen.queryByText('Sign in to your dealership workspace.')).toBeNull()
+    expectNoResidualCopy()
   })
 })
 

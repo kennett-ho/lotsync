@@ -13,7 +13,9 @@
 > disposition: beta/evaluation readiness material; no attorney
 > review has been completed for the v1.1 controlled beta.
 
-**Last reviewed:** 2026-08-20 · **Version:** draft-1
+**Last reviewed:** 2026-08-30 (reconciled against v1.1 release
+candidate `680272a` and the Sprint 18 provider verification) ·
+**Version:** draft-2
 
 ---
 
@@ -80,17 +82,24 @@ information** — is described in the
 - **Secret handling:** real credentials exist only in deployment
   environments and the operator's password manager — never in
   source control (verified across the repository's full history).
+- **Provider account security:** administrative access to the
+  hosting, database/identity, and telemetry providers is protected
+  with multi-factor authentication.
 
 ## Backups and continuity
 
 Current beta posture, stated honestly: the production database has a
-**verified manual backup procedure** (integrity-checked, stored off
-the production host); backups are not yet on an automated schedule.
-Moving production to a paid managed-database tier is a planned,
-recorded step of the v1.1 release plan; its specific backup and
-retention capabilities will be verified against the actual plan
-before this document relies on them. There is **no uptime SLA**
-during the beta.
+**verified manual backup procedure** — integrity-checked,
+hash-verified, and stored off the production host — and backups are
+not on an automated schedule. At v1.1 the production database moves
+to a managed PostgreSQL provider (Supabase); **on the current plan,
+provider-managed scheduled database backups are not included**, so
+the beta continues to rely on the documented operator backup
+procedure with verified off-host copies. The application host's
+persistent disk additionally has provider-managed daily snapshots
+(7-day retention). Plan tiers and their backup capabilities are
+deliberately reassessed before any commercial pilot. There is **no
+uptime SLA** during the beta.
 
 ## Incident response
 
@@ -111,7 +120,8 @@ on this page, DealerDOH is not making it.
 ## Reporting a security concern
 
 Please report suspected vulnerabilities or security concerns to
-[AT PUBLICATION — D2 (resolved 2026-08-20): the monitored
-`dealerdoh.com` contact address, created before publication].
-Good-faith reports are welcome; we will acknowledge, investigate,
-and fix verified issues.
+**support@dealerdoh.com**. Good-faith reports are welcome; we will
+acknowledge, investigate, and fix verified issues.
+
+*[Publication gate — D2: do not publish until the mailbox is
+created, verified, and monitored.]*

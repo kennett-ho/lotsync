@@ -17,7 +17,10 @@
 > beta/evaluation readiness material; no attorney review has been
 > completed for the v1.1 controlled beta.
 
-**Last reviewed:** 2026-08-20 · **Version:** draft-1
+**Last reviewed:** 2026-08-30 (reconciled against v1.1 release
+candidate `680272a` and the Sprint 18 Gate D provider verification —
+plans, regions, and account posture checked in the actual provider
+dashboards) · **Version:** draft-2
 
 ---
 
@@ -27,15 +30,19 @@
 |---|---|---|---|---|
 | **Vercel** | Frontend hosting/CDN | Serves the app to browsers; platform edge/request logs (connection metadata incl. IP) | US/global edge | **Yes** — production (LotSync) and DEV |
 | **Render** | API hosting | All application traffic; service logs (request lines incl. client IP, structured app logs); production service disk (database file, uploaded report files, generated reports) | Oregon, US | **Yes** — production (LotSync) and DEV |
-| **Supabase** | Sign-in (Auth) + PostgreSQL database | Staff account identities (email, password credentials, session state, display name), authorization/membership rows, all operational business data; provider auth/audit logs | us-west-2 (Oregon, US) | **DEV today; production at the v1.1 migration** (current production uses SQLite on Render, no Supabase) |
-| **Sentry** | Error monitoring | Error/exception events — configured to exclude user identity, request bodies, cookies; masked URLs; request references. Retention plan-dependent (~30–90 days) | US (SaaS) | **DEV today; production activation is a deliberate release-train step** |
-| **PostHog** | Product analytics | Named product events under an internal account identifier (never email/name); role/store identifiers; ingest-side connection metadata. Event retention ~1 year on the current plan | US cloud (`us.i.posthog.com`) | **DEV today; production activation is a deliberate release-train step** |
+| **Supabase** | Sign-in (Auth) + PostgreSQL database | Staff account identities (email, password credentials, session state, display name), authorization/membership rows, all operational business data; provider auth/audit logs | us-west-2 (Oregon, US) — verified for both the DEV and the provisioned production project | **DEV today; planned for v1.1 activation.** A dedicated production project exists but is empty and not connected to anything; it begins processing real data only at the v1.1 release train (current production uses SQLite on Render, no Supabase) |
+| **Sentry** | Error monitoring | Error/exception events — configured to exclude user identity, request bodies, cookies; masked URLs; request references. Retention ~30 days on the current plan | US (SaaS) | **DEV today; planned for v1.1 activation.** Dedicated production projects exist but are empty and not connected; activation is a deliberate release-train step |
+| **PostHog** | Product analytics | Named product events under an internal account identifier (never email/name); role/store identifiers; ingest-side connection metadata. Event retention ~1 year on the current plan | US cloud (`us.i.posthog.com`) | **DEV today; planned for v1.1 activation.** A dedicated production organization/project exists but is empty and not connected; activation is a deliberate release-train step |
+| **Northwest Registered Agent** (domain registrar + email service for `dealerdoh.com`) | Support/privacy mailbox (`support@dealerdoh.com`; `privacy@dealerdoh.com` forwards to it) and the domain's DNS | Emails sent to the support/privacy address (which may include staff names/addresses and whatever senders include); DNS records | US | **Activates at publication** — the mailbox is created and verified before this policy set goes live |
 
 **Today's actual production processors** (unauthenticated LotSync
 beta): **Vercel and Render only.** Supabase, Sentry, and PostHog
-currently process synthetic development data, and begin processing
-real dealership/staff data only when v1.1 ships through its approved
-release train.
+currently process synthetic development data. Their production
+projects have been **provisioned in advance but are empty and wired
+to nothing**; they begin processing real dealership/staff data only
+when v1.1 ships through its approved release train, at which point
+this inventory's status entries are updated (planned → active) after
+runtime verification.
 
 ## Development infrastructure (not a customer-data subprocessor)
 
@@ -47,7 +54,7 @@ release train.
 
 | Provider | Role | Status |
 |---|---|---|
-| Inbound-email provider (e.g. Resend or equivalent) | Scheduled vendor-report delivery (Sprint 17 plan) | **Planned / not currently active.** Listed for transparency only — no such provider processes anything today. When adopted, this inventory, the Privacy Policy, and the retention record must be amended first (the recorded Sprint 17 Rail L delta rule) |
+| Inbound-email provider (e.g. Resend or equivalent) | Scheduled vendor-report delivery (automated acquisition plan) | **Deferred / not active.** The automated vendor-report acquisition this would serve is deferred by owner decision pending pilot/contract authorization and required vendor evidence — no such provider processes anything today, and none activates in v1.1. When adopted, this inventory, the Privacy Policy, and the retention record must be amended first (the recorded Rail L delta rule) |
 
 ## Change process
 

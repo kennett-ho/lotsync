@@ -108,6 +108,13 @@ jobs:
       - name: Install frontend dependencies
         run: npm ci
 
+      # Release C (v1.1): environment-copy regression suite -- the
+      # pre-auth surfaces must render neutral copy outside the DEV
+      # deployment. First (and so far only) frontend unit-test suite;
+      # see frontend/src/environment-copy.test.tsx.
+      - name: Run frontend tests
+        run: npm test
+
       - name: Build frontend
         run: npm run build
 

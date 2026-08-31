@@ -119,7 +119,7 @@ export default function Login() {
                   onChange={e => setEmail(e.target.value)}
                   className="mt-1.5 w-full rounded-md px-3 py-2 text-[13px] text-white placeholder-white/30 border border-white/10 outline-none focus:border-blue-500"
                   style={{ backgroundColor: '#0B1220' }}
-                  placeholder="you@qa.dealerdoh.example"
+                  placeholder="you@dealership.com"
                 />
               </label>
               <label className="block">
@@ -172,7 +172,7 @@ export default function Login() {
                   onChange={e => setEmail(e.target.value)}
                   className="mt-1.5 w-full rounded-md px-3 py-2 text-[13px] text-white placeholder-white/30 border border-white/10 outline-none focus:border-blue-500"
                   style={{ backgroundColor: '#0B1220' }}
-                  placeholder="you@qa.dealerdoh.example"
+                  placeholder="you@dealership.com"
                 />
               </label>
 
@@ -216,9 +216,6 @@ export default function Login() {
             </div>
           )}
 
-          <div className="text-center text-white/50 text-[11px] mt-6">
-            Development accounts are provisioned by an administrator.
-          </div>
         </div>
       </div>
     </div>

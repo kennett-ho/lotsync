@@ -1135,14 +1135,14 @@ any criterion; every deferral carries its owner decision.
 
 | | |
 |---|---|
-| **Production SHA** | `bd8abbfcb61a5d1687c573534033fc8a8f296e3d` (both services; `master` = `dev`) |
+| **Production SHA** | `c1db591ee6d63e08824e7acd6bf3c055e7c2e28a` (both services; `master` = `dev`) |
 | **Release identity** | v1.1 **Controlled Beta — Human Validation Deferred to v1.5 Readiness** (§11) |
 | **Database** | PostgreSQL (Supabase `dealerdoh-prod`, us-west-2) — migrated from production SQLite 2026-08-31, `MIGRATION VALID`, 15,940 rows, Gate H live-verified (1,173/4,760 exact parity, row-identical VIN spot checks, history to the second) |
 | **App URL** | `https://app.dealerdoh.com` (canonical; `lotsync-nu.vercel.app` remains a working alias) |
 | **Auth** | `AUTH_MODE=required` live; org `mark-auto-group` / dealership `mark-kia`; one bootstrap admin (owner). Tokenless and garbage-token probes 401 across operational routes; `/docs` 404; CORS allowlists the two origins and refuses others |
 | **Telemetry** | Sentry (backend + frontend DSNs) and PostHog wired and runtime-verified 2026-08-31 (§12.4) |
 | **Retention** | D4 fully active: kill-switch removed, steady-state sweep proven (§12.5) |
-| **RC history** | `d16c8be` (cutover RC) → `2ff06d4` (production-copy patch, PR #33) → `bd8abbf` (residual-copy patch, PR #34); each promoted by owner fast-forward ceremony with full post-promotion verification |
+| **RC history** | `d16c8be` (cutover RC) → `2ff06d4` (production-copy patch, PR #33) → `bd8abbf` (residual-copy patch, PR #34) → `c1db591` (production branding patch, PR #36: DealerDOH document/route titles, sidebar brand, API copy; zero LotSync in the served bundle); each promoted by owner fast-forward ceremony with full post-promotion verification |
 
 ### 12.2 Gate outcomes (A–I)
 
@@ -1264,7 +1264,7 @@ existing merged test evidence (`tests/test_upload_retention.py`).
 
 ### 12.7 Tag determination
 
-**`v1.1.0-beta.1` may be tagged at `bd8abbf`** with §12.6 carried
+**`v1.1.0-beta.1` may be tagged at `c1db591`** with §12.6 carried
 explicitly in the tag annotation: the §11.1 A–I gate is complete with
 owner GO, and the pending items (C2 onboarding, first accepted sync)
 are operational adoption checkpoints, not §11.1 ship-gate criteria —

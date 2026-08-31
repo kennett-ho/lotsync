@@ -2,7 +2,7 @@
 
 > **Superseded as the current-production description on 2026-08-31 —
 > v1.1 shipped.** Production is now **`v1.1.0-beta.1` territory:
-> commit `bd8abbfcb61a5d1687c573534033fc8a8f296e3d`**, PostgreSQL
+> commit `c1db591ee6d63e08824e7acd6bf3c055e7c2e28a`**, PostgreSQL
 > (Supabase `dealerdoh-prod`), `AUTH_MODE=required`, canonical app URL
 > `https://app.dealerdoh.com` — see `V1_1_RELEASE_READINESS.md` §12
 > for the shipped-state record and `PROJECT_STATUS.md` for the living

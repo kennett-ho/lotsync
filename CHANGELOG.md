@@ -355,7 +355,7 @@ have affected it, and it was not rerun for this reason alone.
 Production release of the DealerDOH v1.1 infrastructure program
 (Sprints 01-18; chronological record in SPRINT_HISTORY.md, gate and
 execution record in V1_1_RELEASE_READINESS.md §12). Production =
-"production / postgres / bd8abbf" at https://app.dealerdoh.com.
+"production / postgres / c1db591" at https://app.dealerdoh.com.
 
 **Shipped**
 - SQLite -> PostgreSQL production cutover (Supabase, MIGRATION VALID,
@@ -371,7 +371,9 @@ execution record in V1_1_RELEASE_READINESS.md §12). Production =
 - D4 bounded upload retention fully active (steady-state sweep proven;
   zero-item legacy prune per owner decision).
 - Production login/reset surfaces environment-gated (PR #33/#34) with
-  the first frontend unit-test suite.
+  the first frontend unit-test suite; full DealerDOH branding of the
+  document/route titles, sidebar, and user-facing API copy (PR #36 -
+  zero LotSync in the served bundle).
 
 **Explicitly pending (owner-recorded, non-blocking - register §12.6)**
 - C2 Manager Onboarding Pending; human UAT (Rail M) deferred to v1.5
